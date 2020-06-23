@@ -10,7 +10,7 @@
   "license": "CC0-1.0",
 
   "environment": "*",
-  "entrypoints": {"main": ["net.gegy1000.acttwo.ActTwoInitializer"]},
+  "entrypoints": {},
   "mixins": ["act_two.mixins.json"],
 
   "depends": {
