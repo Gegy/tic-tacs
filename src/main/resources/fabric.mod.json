@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "act_two",
+  "version": "${version}",
+
+  "name": "Act II",
+  "description": "Performance improvements to the actor system used for off-thread processing",
+  "authors": ["gegy1000"],
+
+  "license": "CC0-1.0",
+
+  "environment": "*",
+  "entrypoints": {"main": ["net.gegy1000.acttwo.ActTwoInitializer"]},
+  "mixins": ["act_two.mixins.json"],
+
+  "depends": {
+    "fabricloader": ">=0.8.8",
+    "fabric": "*",
+    "minecraft": "1.16.*"
+  }
+}
