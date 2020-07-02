@@ -24,7 +24,6 @@ public final class UpgradeChunk implements Future<Chunk> {
     private final ThreadedAnvilChunkStorage tacs;
     private final ChunkHolder holder;
 
-    private final ChunkStatus targetStatus;
     private final ChunkStatus[] upgrades;
     private final GetChunkContext upgradeContext;
 
@@ -35,20 +34,16 @@ public final class UpgradeChunk implements Future<Chunk> {
     private Future<Chunk> runTask;
     private Future<Chunk> finalizeTask;
 
-    public UpgradeChunk(
-            ThreadedAnvilChunkStorage tacs, ChunkHolder holder,
-            ChunkStatus currentStatus, ChunkStatus targetStatus
-    ) {
+    public UpgradeChunk(ThreadedAnvilChunkStorage tacs, ChunkHolder holder, ChunkStatus[] upgrades) {
         this.tacs = tacs;
         this.holder = holder;
 
-        this.targetStatus = targetStatus;
-        this.upgrades = upgradesBetween(currentStatus, targetStatus);
+        this.upgrades = upgrades;
 
         this.upgradeContext = ((TacsExt) tacs).getChunkContext(holder.getPos(), this.upgrades);
     }
 
-    private static ChunkStatus[] upgradesBetween(ChunkStatus start, ChunkStatus end) {
+    public static ChunkStatus[] upgradesBetween(ChunkStatus start, ChunkStatus end) {
         ChunkStatus[] upgrades = new ChunkStatus[end.getIndex() - start.getIndex()];
 
         ChunkStatus status = end;
@@ -143,7 +138,7 @@ public final class UpgradeChunk implements Future<Chunk> {
     private Future<Chunk> finalizeUpgrade(Chunk chunk) {
         TacsAccessor tacsAccessor = (TacsAccessor) this.tacs;
 
-        CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future = this.targetStatus.runNoGenTask(
+        CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future = ChunkStatus.FULL.runNoGenTask(
                 tacsAccessor.getWorld(),
                 tacsAccessor.getStructureManager(),
                 tacsAccessor.getServerLightingProvider(),

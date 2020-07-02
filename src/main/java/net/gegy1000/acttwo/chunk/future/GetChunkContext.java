@@ -1,6 +1,6 @@
 package net.gegy1000.acttwo.chunk.future;
 
-import net.gegy1000.acttwo.chunk.TacsExt;
+import net.gegy1000.acttwo.chunk.ChunkContext;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -22,8 +22,6 @@ public final class GetChunkContext implements Future<List<Chunk>> {
 
     private Chunk[] currentChunks;
     private Future<Chunk>[] currentFutures;
-
-    private boolean spawnedComplete;
 
     private int loadedChunks;
 
@@ -51,14 +49,9 @@ public final class GetChunkContext implements Future<List<Chunk>> {
     @Nullable
     @Override
     public List<Chunk> poll(Waker waker) {
-        if (!this.spawnedComplete) {
-            this.spawnedComplete = true;
-            this.spawnCompleteFutures();
-        }
-
         if (this.currentFutures == null) {
             this.currentChunks = this.createChunksFor(this.currentStatus);
-            this.currentFutures = this.createFuturesFor(this.currentStatus);
+            this.currentFutures = ChunkContext.forStatus(this.currentStatus).spawn(this.tacs, this.focusChunk);
             this.loadedChunks = 0;
         }
 
@@ -93,58 +86,9 @@ public final class GetChunkContext implements Future<List<Chunk>> {
         return this.loadedChunks >= futures.length;
     }
 
-    private void spawnCompleteFutures() {
-        ChunkStatus firstStatus = this.statuses[0];
-        int maxRadius = Integer.MIN_VALUE;
-        int minTargetRadius = Integer.MAX_VALUE;
-
-        for (ChunkStatus status : this.statuses) {
-            maxRadius = Math.max(maxRadius, status.getTaskMargin());
-            minTargetRadius = Math.min(minTargetRadius, ChunkStatus.getTargetGenerationRadius(status));
-        }
-
-        this.createFuturesFor(firstStatus, maxRadius, minTargetRadius);
-    }
-
     private Chunk[] createChunksFor(ChunkStatus focusStatus) {
         int radius = focusStatus.getTaskMargin();
         int diameter = radius * 2 + 1;
         return new Chunk[diameter * diameter];
-    }
-
-    private Future<Chunk>[] createFuturesFor(ChunkStatus focusStatus) {
-        int radius = focusStatus.getTaskMargin();
-        int targetRadius = ChunkStatus.getTargetGenerationRadius(focusStatus);
-
-        return this.createFuturesFor(focusStatus, radius, targetRadius);
-    }
-
-    private Future<Chunk>[] createFuturesFor(ChunkStatus firstStatus, int radius, int targetRadius) {
-        int centerX = this.focusChunk.x;
-        int centerZ = this.focusChunk.z;
-
-        int diameter = radius * 2 + 1;
-
-        Future<Chunk>[] futures = new Future[diameter * diameter];
-
-        TacsExt tacsExt = (TacsExt) this.tacs;
-        for (int z = -radius; z <= radius; z++) {
-            for (int x = -radius; x <= radius; x++) {
-                int idx = (x + radius) + (z + radius) * diameter;
-                int distance = Math.max(Math.abs(x), Math.abs(z));
-
-                ChunkStatus status;
-                if (distance == 0) {
-                    // we don't want to have any requirement on the status of the current chunk
-                    status = firstStatus.getPrevious();
-                } else {
-                    status = ChunkStatus.getTargetGenerationStatus(targetRadius + distance);
-                }
-
-                futures[idx] = tacsExt.getChunk(x + centerX, z + centerZ, status);
-            }
-        }
-
-        return futures;
     }
 }

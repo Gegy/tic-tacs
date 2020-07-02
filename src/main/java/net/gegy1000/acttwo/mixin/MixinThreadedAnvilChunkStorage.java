@@ -3,6 +3,7 @@ package net.gegy1000.acttwo.mixin;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.VoidActor;
 import net.gegy1000.acttwo.chunk.AsyncChunkState;
+import net.gegy1000.acttwo.chunk.ChunkContext;
 import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.TacsExt;
 import net.gegy1000.acttwo.chunk.future.GetChunkContext;
@@ -80,17 +81,19 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
             return;
         }
 
-        ChunkGenWorker.INSTANCE.spawn(holder, fromFuture.andThen(chunk -> this.upgradeChunk(holder, fromStatus, toStatus)));
+        ChunkStatus[] upgrades = UpgradeChunk.upgradesBetween(fromStatus, toStatus);
+
+        // enqueue the complete context over all the upgrades right away
+        ChunkContext.forRange(upgrades).spawn(this.self(), holder.getPos());
+
+        ChunkGenWorker.INSTANCE.spawn(holder, fromFuture.andThen(chunk -> {
+            return new UpgradeChunk(this.self(), holder, upgrades);
+        }));
     }
 
     @Override
     public GetChunkContext getChunkContext(ChunkPos pos, ChunkStatus[] statuses) {
         return new GetChunkContext(this.self(), pos, statuses);
-    }
-
-    @Override
-    public UpgradeChunk upgradeChunk(ChunkHolder holder, ChunkStatus currentStatus, ChunkStatus targetStatus) {
-        return new UpgradeChunk(this.self(), holder, currentStatus, targetStatus);
     }
 
     @Override
