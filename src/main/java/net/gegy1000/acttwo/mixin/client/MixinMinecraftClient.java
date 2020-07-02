@@ -19,7 +19,8 @@ public class MixinMinecraftClient {
                     shift = At.Shift.BEFORE
             ),
             cancellable = true,
-            locals = LocalCapture.CAPTURE_FAILHARD
+            locals = LocalCapture.CAPTURE_FAILHARD,
+            remap = false
     )
     private void getWorldProgressListener(
             int radius, CallbackInfoReturnable<WorldGenerationProgressListener> ci,
