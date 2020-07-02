@@ -14,9 +14,9 @@ public class MixinMinecraftClient {
     @Inject(
             method = "method_17533",
             at = @At(
-                    value = "FIELD",
-                    target = "Lnet/minecraft/client/MinecraftClient;renderTaskQueue:Ljava/util/Queue;",
-                    shift = At.Shift.BEFORE
+                    value = "INVOKE",
+                    target = "Ljava/util/concurrent/atomic/AtomicReference;set(Ljava/lang/Object;)V",
+                    shift = At.Shift.AFTER
             ),
             cancellable = true,
             locals = LocalCapture.CAPTURE_FAILHARD,
