@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.gegy1000.acttwo.mixin.client",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "MixinMinecraftClient",
+    "MixinWorldGenerationProgressTracker"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

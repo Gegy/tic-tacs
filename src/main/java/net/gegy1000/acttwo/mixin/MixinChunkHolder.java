@@ -6,11 +6,9 @@ import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.TacsExt;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
-import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ReadOnlyChunk;
-import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
@@ -23,10 +21,6 @@ import java.util.concurrent.CompletableFuture;
 
 @Mixin(ChunkHolder.class)
 public abstract class MixinChunkHolder implements ChunkHolderExt {
-    @Shadow
-    @Final
-    private ChunkPos pos;
-
     @Shadow
     private int level;
 

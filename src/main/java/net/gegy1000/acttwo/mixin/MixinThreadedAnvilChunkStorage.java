@@ -45,10 +45,6 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     private MessageListener<ChunkTaskPrioritySystem.Task<Runnable>> worldGenExecutor;
 
     @Shadow
-    @Final
-    private ChunkTaskPrioritySystem chunkTaskPrioritySystem;
-
-    @Shadow
     protected abstract ChunkHolder getCurrentChunkHolder(long pos);
 
     @Shadow
