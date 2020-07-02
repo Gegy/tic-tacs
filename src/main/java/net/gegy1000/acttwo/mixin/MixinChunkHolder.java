@@ -85,7 +85,8 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             at = @At(
                     value = "INVOKE",
                     target = "Lcom/mojang/datafixers/util/Either;right(Ljava/lang/Object;)Lcom/mojang/datafixers/util/Either;",
-                    ordinal = 0
+                    ordinal = 0,
+                    remap = false
             ),
             locals = LocalCapture.CAPTURE_FAILHARD
     )

@@ -19,6 +19,8 @@
     }
   ],
 
+  "accessWidener": "act_two.accesswidener",
+
   "depends": {
     "fabricloader": ">=0.8.8",
     "fabric": "*",
