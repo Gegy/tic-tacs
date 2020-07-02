@@ -2,6 +2,7 @@ package net.gegy1000.acttwo.mixin;
 
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
+import net.gegy1000.acttwo.VoidActor;
 import net.gegy1000.acttwo.chunk.AsyncChunkState;
 import net.gegy1000.acttwo.chunk.worker.ChunkGenWorker;
 import net.gegy1000.acttwo.chunk.ChunkHolderExt;
@@ -19,6 +20,7 @@ import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.structure.StructureManager;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.thread.MessageListener;
+import net.minecraft.util.thread.TaskExecutor;
 import net.minecraft.util.thread.ThreadExecutor;
 import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.chunk.Chunk;
@@ -32,6 +34,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.concurrent.CompletableFuture;
@@ -53,7 +56,17 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
 
-    private final ChunkGenWorker worker = new ChunkGenWorker();
+    @Redirect(
+            method = "<init>",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/util/thread/TaskExecutor;create(Ljava/util/concurrent/Executor;Ljava/lang/String;)Lnet/minecraft/util/thread/TaskExecutor;",
+                    ordinal = 0
+            )
+    )
+    private TaskExecutor<Runnable> createWorldgenActor(Executor executor, String name) {
+        return VoidActor.INSTANCE;
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(
@@ -105,7 +118,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
             return;
         }
 
-        this.worker.spawn(holder, fromFuture.andThen(chunk -> this.upgradeChunk(holder, fromStatus, toStatus)));
+        ChunkGenWorker.INSTANCE.spawn(holder, fromFuture.andThen(chunk -> this.upgradeChunk(holder, fromStatus, toStatus)));
     }
 
     @Override

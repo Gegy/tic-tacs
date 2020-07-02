@@ -8,11 +8,12 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 
 public final class ChunkGenWorker implements AutoCloseable {
+    public static final ChunkGenWorker INSTANCE = new ChunkGenWorker();
     private static final Logger LOGGER = LogManager.getLogger("worldgen-worker");
 
     private final ChunkTaskQueue queue;
 
-    public ChunkGenWorker() {
+    private ChunkGenWorker() {
         this.queue = new ChunkTaskQueue();
 
         Thread thread = new Thread(this::run);
