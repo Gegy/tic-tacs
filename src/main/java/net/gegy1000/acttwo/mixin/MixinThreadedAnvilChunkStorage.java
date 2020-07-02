@@ -3,7 +3,7 @@ package net.gegy1000.acttwo.mixin;
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.chunk.AsyncChunkState;
-import net.gegy1000.acttwo.chunk.ChunkGenWorker;
+import net.gegy1000.acttwo.chunk.worker.ChunkGenWorker;
 import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.TacsExt;
 import net.gegy1000.acttwo.chunk.future.GetChunkContext;
@@ -109,7 +109,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
             return;
         }
 
-        this.worker.spawn(fromFuture.andThen(chunk -> this.upgradeChunk(holder, fromStatus, toStatus)));
+        this.worker.spawn(holder, fromFuture.andThen(chunk -> this.upgradeChunk(holder, fromStatus, toStatus)));
     }
 
     @Override
