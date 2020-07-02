@@ -97,10 +97,11 @@ public final class AsyncChunkState {
     }
 
     public void reduceStatus(ChunkStatus from, @Nullable ChunkStatus to) {
-        ChunkStatus status = from;
-        while (status != to && status != null) {
-            this.getListenerFor(status).completeErr(new ChunkNotLoadedException(this.holder.getPos()));
-            status = prevOrNull(status);
+        int startIdx = to != null ? to.getIndex() + 1 : 0;
+        int endIdx = from.getIndex();
+
+        for (int i = startIdx; i <= endIdx; i++) {
+            this.listeners[i].completeErr(new ChunkNotLoadedException(this.holder.getPos()));
         }
     }
 

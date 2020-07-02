@@ -52,7 +52,6 @@ public final class GetChunkContext implements Future<List<Chunk>> {
     @Override
     public List<Chunk> poll(Waker waker) {
         if (!this.spawnedComplete) {
-            // TODO: is this actually spawning the futures?
             this.spawnedComplete = true;
             this.spawnCompleteFutures();
         }
