@@ -11,7 +11,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     private static final int LEVEL_COUNT = ThreadedAnvilChunkStorage.MAX_LEVEL + 2;
 
     private final Level[] levels;
-    private int minLevel;
+    private volatile int minLevel;
 
     private volatile boolean open = true;
 
@@ -27,8 +27,12 @@ public final class ChunkTaskQueue implements AutoCloseable {
     }
 
     public void enqueue(ChunkTask<?> task) {
+        int level = task.holder.getLevel();
+        if (level > ThreadedAnvilChunkStorage.MAX_LEVEL) {
+            return;
+        }
+
         synchronized (this.lock) {
-            int level = task.holder.getLevel();
             this.levels[level].enqueue(task);
 
             if (level <= this.minLevel) {
@@ -38,6 +42,9 @@ public final class ChunkTaskQueue implements AutoCloseable {
         }
     }
 
+    // TODO: can we make this faster / reduce queue allocation?
+    //         we can make use of LockSupport.park/unpark and atomics and avoid the lock
+
     @Nullable
     public List<ChunkTask<?>> take() throws InterruptedException {
         while (this.open) {
@@ -46,7 +53,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
                     Level level = this.levels[this.minLevel];
                     List<ChunkTask<?>> tasks = level.take();
                     if (tasks != null) {
-                        this.cascadeToFindMinLevel();
+                        this.findMinLevel();
                         return tasks;
                     }
                 }
@@ -58,7 +65,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
         return null;
     }
 
-    private void cascadeToFindMinLevel() {
+    private void findMinLevel() {
         while (++this.minLevel < LEVEL_COUNT) {
             if (!this.levels[this.minLevel].isEmpty()) {
                 break;
