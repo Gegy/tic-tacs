@@ -67,7 +67,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
             Future<Chunk> fromFuture, ChunkHolder holder,
             ChunkStatus fromStatus, ChunkStatus toStatus
     ) {
-        if (fromStatus == toStatus) {
+        if (fromStatus.isAtLeast(toStatus)) {
             return;
         }
 

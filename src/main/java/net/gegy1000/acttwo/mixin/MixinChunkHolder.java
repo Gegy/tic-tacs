@@ -5,7 +5,6 @@ import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.ChunkListener;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.TacsExt;
-import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
@@ -13,6 +12,7 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
 import net.minecraft.world.chunk.ReadOnlyChunk;
+import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.chunk.light.LightingProvider;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,16 +22,14 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 // TODO: issues
-//    1. we need to get/setCompletedLevel: this is only used in lighting, but traditionally it is set when the sorter
-//      actor thread processes the level change. not sure where the ideal place to replicate that is here
 //    2. we have a memory leak! old tasks need to be properly discarded
 //      vanilla doesn't handle cancellation of tasks: but we might need to. we don't need to keep track of tasks
 //      in relation to chunk positions. rather complete the root listeners with a not loaded status and catch the
@@ -45,10 +43,32 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
 
     @Shadow
     @Final
+    private static CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> UNLOADED_WORLD_CHUNK_FUTURE;
+
+    @Shadow
+    @Final
     private ChunkPos pos;
 
     @Shadow
     private int level;
+
+    @Shadow
+    private int lastTickLevel;
+
+    @Shadow
+    private int completedLevel;
+
+    @Shadow(aliases = "ticking")
+    private boolean accessible;
+
+    @Shadow
+    private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> entityTickingFuture;
+
+    @Shadow
+    private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> tickingFuture;
+
+    @Shadow(aliases = "borderFuture")
+    private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> accessibleFuture;
 
     @Shadow
     @Final
@@ -57,12 +77,9 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
 
     private final ChunkListener[] listeners = new ChunkListener[STATUSES.size()];
 
-    private final Object mutex = new Object();
+    private final AtomicReference<ChunkStatus> targetStatus = new AtomicReference<>();
 
-    private final ChunkListener mainListener = new ChunkListener();
-    private ChunkStatus desiredStatus;
-
-    @Inject(method = "<init>", at = @At("HEAD"))
+    @Inject(method = "<init>", at = @At("RETURN"))
     private void init(
             ChunkPos pos, int level,
             LightingProvider lighting,
@@ -70,10 +87,10 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             ChunkHolder.PlayersWatchingChunkProvider watching,
             CallbackInfo ci
     ) {
-        this.futuresByStatus = null;
-
         for (ChunkStatus status : STATUSES) {
-            this.listeners[status.getIndex()] = new ChunkListener();
+            int index = status.getIndex();
+            this.listeners[index] = new ChunkListener();
+            this.futuresByStatus.set(index, this.listeners[index].completable);
         }
     }
 
@@ -95,24 +112,38 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     }
 
     @Override
-    public void tryUpgradeTo(ThreadedAnvilChunkStorage tacs, ChunkStatus status) {
-        if (!this.shouldUpgradeTo(status)) {
+    public void tryUpgradeTo(ThreadedAnvilChunkStorage tacs, ChunkStatus toStatus) {
+        if (!this.shouldGenerateUpTo(toStatus)) {
             return;
         }
 
-        // TODO: can we avoid locking?
-        synchronized (this.mutex) {
-            if (this.desiredStatus != null) {
-                if (this.desiredStatus.isAtLeast(status)) {
-                    return;
-                }
-                this.upgradeFrom(tacs, this.desiredStatus, status);
-            } else {
-                this.upgradeFromRoot(tacs, status);
+        TacsExt tacsExt = (TacsExt) tacs;
+
+        while (true) {
+            ChunkStatus fromStatus = this.targetStatus.get();
+            if (fromStatus != null && fromStatus.isAtLeast(toStatus)) {
+                return;
             }
 
-            this.beginLoading(status);
+            if (this.targetStatus.compareAndSet(fromStatus, toStatus)) {
+                this.spawnUpgrade(tacsExt, fromStatus, toStatus);
+
+                ChunkListener listener = this.getListenerFor(toStatus);
+                this.combineFuture(listener.completable);
+
+                break;
+            }
         }
+    }
+
+    private void spawnUpgrade(TacsExt tacs, ChunkStatus fromStatus, ChunkStatus toStatus) {
+        if (fromStatus == null) {
+            tacs.spawnLoadChunk(this.self());
+            fromStatus = ChunkStatus.EMPTY;
+        }
+
+        ChunkListener fromFuture = this.getListenerFor(fromStatus);
+        tacs.spawnUpgradeFrom(fromFuture, this.self(), fromStatus, toStatus);
     }
 
     @Override
@@ -120,34 +151,12 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
         return this.listeners[status.getIndex()];
     }
 
-    private boolean shouldUpgradeTo(ChunkStatus status) {
+    private boolean shouldGenerateUpTo(ChunkStatus status) {
         return ChunkHolder.getTargetGenerationStatus(this.level).isAtLeast(status);
-    }
-
-    private void upgradeFrom(ThreadedAnvilChunkStorage tacs, ChunkStatus fromStatus, ChunkStatus toStatus) {
-        ((TacsExt) tacs).spawnUpgradeFrom(this.mainListener, this.self(), fromStatus, toStatus);
-    }
-
-    private void upgradeFromRoot(ThreadedAnvilChunkStorage tacs, ChunkStatus status) {
-        Future<Chunk> load = ((TacsExt) tacs).spawnLoadChunk(this.self());
-        if (status != ChunkStatus.EMPTY) {
-            ((TacsExt) tacs).spawnUpgradeFrom(load, this.self(), ChunkStatus.EMPTY, status);
-        }
-    }
-
-    private void beginLoading(ChunkStatus status) {
-        if (status.isAtLeast(status)) {
-            this.desiredStatus = status;
-            this.updateFuture(this.mainListener.completable);
-        }
     }
 
     @Override
     public void complete(ChunkStatus status, Either<Chunk, ChunkHolder.Unloaded> result) {
-        if (this.desiredStatus != null && this.desiredStatus.isAtLeast(status)) {
-            this.mainListener.complete(result);
-        }
-
         while (status != null) {
             this.getListenerFor(status).complete(result);
             status = prevOrNull(status);
@@ -174,31 +183,98 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             });
         }
 
-        this.updateFuture(CompletableFuture.completedFuture(Either.left(completed.getWrappedChunk())));
+        this.combineFuture(CompletableFuture.completedFuture(Either.left(completed.getWrappedChunk())));
     }
 
-    @Inject(
-            method = "tick",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lcom/mojang/datafixers/util/Either;right(Ljava/lang/Object;)Lcom/mojang/datafixers/util/Either;",
-                    ordinal = 0,
-                    remap = false
-            ),
-            locals = LocalCapture.CAPTURE_FAILHARD
-    )
-    private void onReduceLevel(
-            ThreadedAnvilChunkStorage storage, CallbackInfo ci,
-            ChunkStatus fromStatus, ChunkStatus toStatus,
-            boolean fromEmpty, boolean toEmpty,
-            ChunkHolder.LevelType lastLevelType, ChunkHolder.LevelType currentLevelType
-    ) {
-        if (!fromEmpty) return;
+    /**
+     * @reason rewrite all async future logic
+     * @author gegy1000
+     */
+    @Overwrite
+    public void tick(ThreadedAnvilChunkStorage tacs) {
+        if (this.level > this.lastTickLevel) {
+            this.reduceLevel(this.lastTickLevel, this.level);
+        }
 
-        int startIdx = toEmpty ? toStatus.getIndex() + 1 : 0;
-        int endIdx = fromStatus.getIndex();
+        ChunkHolder.LevelType lastLevelType = ChunkHolder.getLevelType(this.lastTickLevel);
+        ChunkHolder.LevelType currentLevelType = ChunkHolder.getLevelType(this.level);
 
-        if (startIdx > endIdx) return;
+        boolean wasAccessible = lastLevelType.isAfter(ChunkHolder.LevelType.BORDER);
+        boolean isAccessible = currentLevelType.isAfter(ChunkHolder.LevelType.BORDER);
+        this.accessible |= isAccessible;
+
+        if (isAccessible != wasAccessible) {
+            this.updateAccessible(tacs, isAccessible);
+        }
+
+        boolean wasTicking = lastLevelType.isAfter(ChunkHolder.LevelType.TICKING);
+        boolean isTicking = currentLevelType.isAfter(ChunkHolder.LevelType.TICKING);
+        if (isTicking != wasTicking) {
+            this.updateTicking(tacs, isTicking);
+        }
+
+        boolean wasTickingEntities = lastLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
+        boolean isTickingEntities = currentLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
+        if (isTickingEntities != wasTickingEntities) {
+            this.updateEntityTicking(tacs, isTickingEntities);
+        }
+
+        this.completedLevel = this.level;
+        this.lastTickLevel = this.level;
+    }
+
+    private void updateAccessible(ThreadedAnvilChunkStorage tacs, boolean isAccessible) {
+        if (isAccessible) {
+            this.accessibleFuture = tacs.createBorderFuture(this.self());
+            this.combineFuture(this.accessibleFuture);
+        } else {
+            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = this.accessibleFuture;
+            this.accessibleFuture = UNLOADED_WORLD_CHUNK_FUTURE;
+            this.combineFuture(future.thenApply(result -> result.ifLeft(tacs::method_20576)));
+        }
+    }
+
+    private void updateTicking(ThreadedAnvilChunkStorage tacs, boolean ticking) {
+        if (ticking) {
+            this.tickingFuture = tacs.createTickingFuture(this.self());
+            this.combineFuture(this.tickingFuture);
+        } else {
+            this.tickingFuture.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
+            this.tickingFuture = UNLOADED_WORLD_CHUNK_FUTURE;
+        }
+    }
+
+    private void updateEntityTicking(ThreadedAnvilChunkStorage tacs, boolean ticking) {
+        if (ticking) {
+            if (this.entityTickingFuture != UNLOADED_WORLD_CHUNK_FUTURE) {
+                throw new IllegalStateException();
+            }
+
+            this.entityTickingFuture = tacs.createEntityTickingChunkFuture(this.pos);
+            this.combineFuture(this.entityTickingFuture);
+        } else {
+            this.entityTickingFuture.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
+            this.entityTickingFuture = UNLOADED_WORLD_CHUNK_FUTURE;
+        }
+    }
+
+    private void reduceLevel(int lastLevel, int level) {
+        boolean wasLoaded = this.lastTickLevel <= ThreadedAnvilChunkStorage.MAX_LEVEL;
+        boolean isLoaded = level <= ThreadedAnvilChunkStorage.MAX_LEVEL;
+
+        if (!wasLoaded) {
+            return;
+        }
+
+        ChunkStatus lastStatus = ChunkHolder.getTargetGenerationStatus(lastLevel);
+        ChunkStatus currentStatus = ChunkHolder.getTargetGenerationStatus(level);
+
+        int startIdx = isLoaded ? currentStatus.getIndex() + 1 : 0;
+        int endIdx = lastStatus.getIndex();
+
+        if (startIdx > endIdx) {
+            return;
+        }
 
         ChunkNotLoadedException unloaded = new ChunkNotLoadedException(this.pos);
         for (int i = startIdx; i <= endIdx; i++) {
@@ -210,6 +286,6 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
         return (ChunkHolder) (Object) this;
     }
 
-    @Shadow
-    protected abstract void updateFuture(CompletableFuture<? extends Either<? extends Chunk, ChunkHolder.Unloaded>> future);
+    @Shadow(aliases = "updateFuture")
+    protected abstract void combineFuture(CompletableFuture<? extends Either<? extends Chunk, ChunkHolder.Unloaded>> future);
 }
