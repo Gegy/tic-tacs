@@ -1,7 +1,6 @@
 package net.gegy1000.acttwo.chunk.future;
 
 import com.mojang.datafixers.util.Either;
-import net.gegy1000.acttwo.chunk.AsyncChunkState;
 import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.TacsExt;
@@ -149,9 +148,9 @@ public final class UpgradeChunk implements Future<Chunk> {
         return new VanillaChunkFuture(future);
     }
 
-    private void notifyUpgrade(ChunkStatus status, Chunk upgraded) {
-        AsyncChunkState asyncState = ((ChunkHolderExt) this.holder).getAsyncState();
-        asyncState.completeOk(status, upgraded);
+    private void notifyUpgrade(ChunkStatus status, Chunk chunk) {
+        ChunkHolderExt holderExt = (ChunkHolderExt) this.holder;
+        holderExt.completeOk(status, chunk);
 
         TacsAccessor tacsAccessor = (TacsAccessor) this.tacs;
 
@@ -169,7 +168,7 @@ public final class UpgradeChunk implements Future<Chunk> {
     }
 
     private void notifyErr(ChunkStatus status, ChunkNotLoadedException err) {
-        AsyncChunkState asyncState = ((ChunkHolderExt) this.holder).getAsyncState();
-        asyncState.completeErr(status, ChunkHolder.Unloaded.INSTANCE);
+        ChunkHolderExt holderExt = (ChunkHolderExt) this.holder;
+        holderExt.completeErr(status, ChunkHolder.Unloaded.INSTANCE);
     }
 }

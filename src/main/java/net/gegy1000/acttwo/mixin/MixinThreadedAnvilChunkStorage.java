@@ -2,7 +2,6 @@ package net.gegy1000.acttwo.mixin;
 
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.VoidActor;
-import net.gegy1000.acttwo.chunk.AsyncChunkState;
 import net.gegy1000.acttwo.chunk.ChunkContext;
 import net.gegy1000.acttwo.chunk.ChunkHolderExt;
 import net.gegy1000.acttwo.chunk.TacsExt;
@@ -29,15 +28,6 @@ import java.util.concurrent.Executor;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
 public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
-    @Shadow
-    protected abstract ChunkHolder getCurrentChunkHolder(long pos);
-
-    @Shadow
-    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> convertToFullChunk(ChunkHolder chunkHolder);
-
-    @Shadow
-    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
-
     @Redirect(
             method = "<init>",
             at = @At(
@@ -66,10 +56,10 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
 
     @Override
     public Future<Chunk> getChunk(ChunkHolder holder, ChunkStatus targetStatus) {
-        AsyncChunkState asyncState = ((ChunkHolderExt) holder).getAsyncState();
-        asyncState.upgradeTo(this.self(), targetStatus, this::spawnUpgradeFrom);
+        ChunkHolderExt holderExt = (ChunkHolderExt) holder;
+        holderExt.tryUpgradeTo(this.self(), targetStatus);
 
-        return asyncState.getListenerFor(targetStatus);
+        return holderExt.getListenerFor(targetStatus);
     }
 
     @Override
@@ -102,7 +92,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
                 .handle((result, throwable) -> {
                     if (result != null) {
                         ChunkHolderExt holderExt = (ChunkHolderExt) holder;
-                        holderExt.getAsyncState().complete(ChunkStatus.EMPTY, result);
+                        holderExt.complete(ChunkStatus.EMPTY, result);
                     }
                     return result;
                 });
@@ -123,4 +113,13 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunkFuture(ChunkHolder holder, ChunkStatus toStatus) {
         return holder.createFuture(toStatus, this.self());
     }
+
+    @Shadow
+    protected abstract ChunkHolder getCurrentChunkHolder(long pos);
+
+    @Shadow
+    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> convertToFullChunk(ChunkHolder chunkHolder);
+
+    @Shadow
+    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
 }

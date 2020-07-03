@@ -12,6 +12,7 @@ import javax.annotation.Nullable;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.UnaryOperator;
 
 public final class ChunkListener implements Future<Chunk> {
     public final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> completable = new CompletableFuture<>();
@@ -87,6 +88,12 @@ public final class ChunkListener implements Future<Chunk> {
             return (RuntimeException) throwable;
         } else {
             return new RuntimeException(throwable);
+        }
+    }
+
+    public void modify(UnaryOperator<Chunk> op) {
+        if (this.result != null) {
+            this.result = op.apply(this.result);
         }
     }
 }
