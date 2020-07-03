@@ -55,9 +55,6 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     @Shadow
     private int lastTickLevel;
 
-    @Shadow
-    private int completedLevel;
-
     // accessible
     @Shadow
     private boolean ticking;
@@ -76,6 +73,10 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     @Final
     @Mutable
     private AtomicReferenceArray<CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>>> futuresByStatus;
+
+    @Shadow
+    @Final
+    private ChunkHolder.LevelUpdateListener levelUpdateListener;
 
     private final ChunkListener[] listeners = new ChunkListener[STATUSES.size()];
 
@@ -221,7 +222,8 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             this.updateEntityTicking(tacs, isTickingEntities);
         }
 
-        this.completedLevel = this.level;
+        this.levelUpdateListener.updateLevel(this.pos, this::getCompletedLevel, this.level, this::setCompletedLevel);
+
         this.lastTickLevel = this.level;
     }
 
@@ -290,4 +292,10 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
 
     @Shadow
     protected abstract void updateFuture(CompletableFuture<? extends Either<? extends Chunk, ChunkHolder.Unloaded>> future);
+
+    @Shadow
+    protected abstract void setCompletedLevel(int level);
+
+    @Shadow
+    public abstract int getCompletedLevel();
 }

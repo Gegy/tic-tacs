@@ -33,6 +33,8 @@ public final class UpgradeChunk implements Future<Chunk> {
     private Future<Chunk> runTask;
     private Future<Chunk> finalizeTask;
 
+    private boolean duplicateLight = true;
+
     public UpgradeChunk(ThreadedAnvilChunkStorage tacs, ChunkHolder holder, ChunkStatus[] upgrades) {
         this.tacs = tacs;
         this.holder = holder;
@@ -58,6 +60,10 @@ public final class UpgradeChunk implements Future<Chunk> {
     @Override
     public Chunk poll(Waker waker) {
         while (this.pollUpgradeStep(waker, this.upgradeIndex)) {
+            if (this.duplicateLight && this.upgrades[this.upgradeIndex] == ChunkStatus.LIGHT) {
+                this.duplicateLight = false;
+                continue;
+            }
             boolean complete = ++this.upgradeIndex >= this.upgrades.length;
             if (!complete) {
                 this.upgradeContext.upgradeTo(this.upgrades[this.upgradeIndex]);

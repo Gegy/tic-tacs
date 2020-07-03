@@ -15,6 +15,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.UnaryOperator;
 
 public final class ChunkListener implements Future<Chunk> {
+    private static final Either<Chunk, ChunkHolder.Unloaded> UNLOADED = Either.right(ChunkHolder.Unloaded.INSTANCE);
+
     public final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> completable = new CompletableFuture<>();
 
     Chunk result;
@@ -60,7 +62,7 @@ public final class ChunkListener implements Future<Chunk> {
         }
 
         this.exception = exception;
-        this.completable.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
+        this.completable.complete(UNLOADED);
 
         this.wake();
     }
