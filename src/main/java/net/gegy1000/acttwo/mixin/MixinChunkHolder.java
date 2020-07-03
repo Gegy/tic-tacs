@@ -58,8 +58,9 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     @Shadow
     private int completedLevel;
 
-    @Shadow(aliases = "ticking")
-    private boolean accessible;
+    // accessible
+    @Shadow
+    private boolean ticking;
 
     @Shadow
     private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> entityTickingFuture;
@@ -67,8 +68,9 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     @Shadow
     private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> tickingFuture;
 
-    @Shadow(aliases = "borderFuture")
-    private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> accessibleFuture;
+    // accessibleFuture
+    @Shadow
+    private volatile CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> borderFuture;
 
     @Shadow
     @Final
@@ -129,7 +131,7 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
                 this.spawnUpgrade(tacsExt, fromStatus, toStatus);
 
                 ChunkListener listener = this.getListenerFor(toStatus);
-                this.combineFuture(listener.completable);
+                this.updateFuture(listener.completable);
 
                 break;
             }
@@ -183,7 +185,7 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             });
         }
 
-        this.combineFuture(CompletableFuture.completedFuture(Either.left(completed.getWrappedChunk())));
+        this.updateFuture(CompletableFuture.completedFuture(Either.left(completed.getWrappedChunk())));
     }
 
     /**
@@ -201,7 +203,7 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
 
         boolean wasAccessible = lastLevelType.isAfter(ChunkHolder.LevelType.BORDER);
         boolean isAccessible = currentLevelType.isAfter(ChunkHolder.LevelType.BORDER);
-        this.accessible |= isAccessible;
+        this.ticking |= isAccessible;
 
         if (isAccessible != wasAccessible) {
             this.updateAccessible(tacs, isAccessible);
@@ -225,19 +227,19 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
 
     private void updateAccessible(ThreadedAnvilChunkStorage tacs, boolean isAccessible) {
         if (isAccessible) {
-            this.accessibleFuture = tacs.createBorderFuture(this.self());
-            this.combineFuture(this.accessibleFuture);
+            this.borderFuture = tacs.createBorderFuture(this.self());
+            this.updateFuture(this.borderFuture);
         } else {
-            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = this.accessibleFuture;
-            this.accessibleFuture = UNLOADED_WORLD_CHUNK_FUTURE;
-            this.combineFuture(future.thenApply(result -> result.ifLeft(tacs::method_20576)));
+            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> accessibleFuture = this.borderFuture;
+            this.borderFuture = UNLOADED_WORLD_CHUNK_FUTURE;
+            this.updateFuture(accessibleFuture.thenApply(result -> result.ifLeft(tacs::method_20576)));
         }
     }
 
     private void updateTicking(ThreadedAnvilChunkStorage tacs, boolean ticking) {
         if (ticking) {
             this.tickingFuture = tacs.createTickingFuture(this.self());
-            this.combineFuture(this.tickingFuture);
+            this.updateFuture(this.tickingFuture);
         } else {
             this.tickingFuture.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
             this.tickingFuture = UNLOADED_WORLD_CHUNK_FUTURE;
@@ -251,7 +253,7 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
             }
 
             this.entityTickingFuture = tacs.createEntityTickingChunkFuture(this.pos);
-            this.combineFuture(this.entityTickingFuture);
+            this.updateFuture(this.entityTickingFuture);
         } else {
             this.entityTickingFuture.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
             this.entityTickingFuture = UNLOADED_WORLD_CHUNK_FUTURE;
@@ -286,6 +288,6 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
         return (ChunkHolder) (Object) this;
     }
 
-    @Shadow(aliases = "updateFuture")
-    protected abstract void combineFuture(CompletableFuture<? extends Either<? extends Chunk, ChunkHolder.Unloaded>> future);
+    @Shadow
+    protected abstract void updateFuture(CompletableFuture<? extends Either<? extends Chunk, ChunkHolder.Unloaded>> future);
 }
