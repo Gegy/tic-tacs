@@ -30,13 +30,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 
 // TODO: issues
-//    2. we have a memory leak! old tasks need to be properly discarded
-//      vanilla doesn't handle cancellation of tasks: but we might need to. we don't need to keep track of tasks
-//      in relation to chunk positions. rather complete the root listeners with a not loaded status and catch the
-//      waker to not re-enqueue the task
-//    3. relating to the memory leak: unloading does not work well. because we enqueue all chunks up to their maximum
-//      up-front, it waits for the chunk future to complete before unloading. not sure what the best approach is here
-//    4. random freezes. no idea why they are happening- most likely a dependency loop issue
+//    1. chunks are not being unloaded properly. i have no idea why! somehow ThreadedAnvilChunkStorage.unloadedChunks
+//       is not populated with as many chunks as are normally in vanilla. this makes no sense, because this is
+//       controlled by the level propagation system which we're not touching at all here.
+//    2. random freezes. no idea why they are happening- most likely a dependency loop issue
 @Mixin(ChunkHolder.class)
 public abstract class MixinChunkHolder implements ChunkHolderExt {
     private static final List<ChunkStatus> STATUSES = ChunkStatus.createOrderedList();
@@ -190,7 +187,7 @@ public abstract class MixinChunkHolder implements ChunkHolderExt {
     }
 
     /**
-     * @reason rewrite all async future logic
+     * @reason rewrite async future logic
      * @author gegy1000
      */
     @Overwrite
