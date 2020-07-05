@@ -1,33 +1,77 @@
 package net.gegy1000.acttwo.mixin;
 
+import com.google.common.collect.Iterables;
+import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.VoidActor;
-import net.gegy1000.acttwo.chunk.ChunkContext;
-import net.gegy1000.acttwo.chunk.ChunkHolderExt;
+import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.TacsExt;
-import net.gegy1000.acttwo.chunk.future.GetChunkContext;
-import net.gegy1000.acttwo.chunk.future.UnloadedChunk;
-import net.gegy1000.acttwo.chunk.future.UpgradeChunk;
-import net.gegy1000.acttwo.chunk.future.VanillaChunkFuture;
-import net.gegy1000.acttwo.chunk.worker.ChunkGenWorker;
+import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.world.ChunkHolder;
+import net.minecraft.server.world.ServerLightingProvider;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
-import net.minecraft.util.math.ChunkPos;
+import net.minecraft.structure.StructureManager;
 import net.minecraft.util.thread.TaskExecutor;
+import net.minecraft.util.thread.ThreadExecutor;
+import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkProvider;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.storage.LevelStorage;
+import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+import javax.annotation.Nullable;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
 public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
+    @Shadow
+    @Final
+    private ServerLightingProvider serverLightingProvider;
+
+    private ChunkController controller;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void init(
+            ServerWorld world,
+            LevelStorage.Session levelSession,
+            DataFixer dataFixer,
+            StructureManager structures,
+            Executor threadPool,
+            ThreadExecutor<Runnable> mainThread,
+            ChunkProvider chunkProvider,
+            ChunkGenerator chunkGenerator,
+            WorldGenerationProgressListener progressListener,
+            Supplier<PersistentStateManager> persistentStateSupplier,
+            int watchDistance,
+            boolean syncWrite,
+            CallbackInfo ci
+    ) {
+        ServerLightingProvider lighting = this.serverLightingProvider;
+        this.controller = new ChunkController(
+                world, chunkGenerator, structures, lighting,
+                levelSession, progressListener, threadPool, mainThread
+        );
+        this.controller.tracker.setWatchDistance(watchDistance);
+    }
+
     @Redirect(
             method = "<init>",
             at = @At(
@@ -40,86 +84,141 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
         return VoidActor.INSTANCE;
     }
 
-    private ThreadedAnvilChunkStorage self() {
-        return (ThreadedAnvilChunkStorage) (Object) this;
-    }
-
-    @Override
-    public Future<Chunk> getChunk(int chunkX, int chunkZ, ChunkStatus targetStatus) {
-        ChunkHolder holder = this.getCurrentChunkHolder(ChunkPos.toLong(chunkX, chunkZ));
-        if (holder == null) {
-            return UnloadedChunk.INSTANCE;
-        }
-
-        return this.getChunk(holder, targetStatus);
-    }
-
-    @Override
-    public Future<Chunk> getChunk(ChunkHolder holder, ChunkStatus targetStatus) {
-        ChunkHolderExt holderExt = (ChunkHolderExt) holder;
-        holderExt.tryUpgradeTo(this.self(), targetStatus);
-
-        return holderExt.getListenerFor(targetStatus);
-    }
-
-    @Override
-    public void spawnUpgradeFrom(
-            Future<Chunk> fromFuture, ChunkHolder holder,
-            ChunkStatus fromStatus, ChunkStatus toStatus
-    ) {
-        if (fromStatus.isAtLeast(toStatus)) {
-            return;
-        }
-
-        ChunkStatus[] upgrades = UpgradeChunk.upgradesBetween(fromStatus, toStatus);
-
-        // enqueue the complete context over all the upgrades right away
-        ChunkContext.forRange(upgrades).spawn(this.self(), holder.getPos());
-
-        ChunkGenWorker.INSTANCE.spawn(holder, fromFuture.andThen(chunk -> {
-            return new UpgradeChunk(this.self(), holder, upgrades);
-        }));
-    }
-
-    @Override
-    public GetChunkContext getChunkContext(ChunkPos pos, ChunkStatus[] statuses) {
-        return new GetChunkContext(this.self(), pos, statuses);
-    }
-
-    @Override
-    public Future<Chunk> spawnLoadChunk(ChunkHolder holder) {
-        CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future = this.loadChunk(holder.getPos())
-                .handle((result, throwable) -> {
-                    if (result != null) {
-                        ChunkHolderExt holderExt = (ChunkHolderExt) holder;
-                        holderExt.complete(ChunkStatus.EMPTY, result);
-                    }
-                    return result;
-                });
-
-        return new VanillaChunkFuture(future);
-    }
-
-    @Override
-    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> accessConvertToFullChunk(ChunkHolder holder) {
-        return this.convertToFullChunk(holder);
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Nullable
+    @Overwrite
+    public ChunkHolder getCurrentChunkHolder(long pos) {
+        return this.controller.map.getEntry(pos);
     }
 
     /**
-     * @reason redirect to ChunkHolder implementation
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Nullable
+    @Overwrite
+    public ChunkHolder getChunkHolder(long pos) {
+        return this.controller.map.getEntry(pos);
+    }
+
+    /**
+     * @reason delegate to controller
      * @author gegy1000
      */
     @Overwrite
-    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunkFuture(ChunkHolder holder, ChunkStatus toStatus) {
-        return holder.createFuture(toStatus, this.self());
+    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunkFuture(ChunkHolder holder, ChunkStatus status) {
+        ChunkEntry entry = (ChunkEntry) holder;
+        this.controller.upgrader.spawnUpgradeTo(entry, status);
+        return entry.getListenerFor(status).asVanilla();
     }
 
-    @Shadow
-    protected abstract ChunkHolder getCurrentChunkHolder(long pos);
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createTickingFuture(ChunkHolder holder) {
+        ChunkEntry entry = (ChunkEntry) holder;
+        return this.awaitToVanilla(entry, entry.awaitTickable());
+    }
 
-    @Shadow
-    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> convertToFullChunk(ChunkHolder chunkHolder);
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createBorderFuture(ChunkHolder holder) {
+        ChunkEntry entry = (ChunkEntry) holder;
+        return this.awaitToVanilla(entry, entry.awaitAccessible());
+    }
 
-    @Shadow
-    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
+    private CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> awaitToVanilla(ChunkEntry entry, Future<Unit> future) {
+        CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> completable = new CompletableFuture<>();
+
+        this.controller.spawnOnMainThread(entry, future.map(unit -> {
+            WorldChunk chunk = entry.getWorldChunk();
+            if (chunk != null) {
+                completable.complete(Either.left(chunk));
+            } else {
+                completable.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
+            }
+            return unit;
+        }));
+
+        return completable;
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void tick(BooleanSupplier runWhile) {
+        this.controller.tick(runWhile);
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public boolean updateHolderMap() {
+        return this.controller.map.loadFromQueues();
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void setViewDistance(int watchDistance) {
+        // called from constructor
+        if (this.controller == null) return;
+
+        this.controller.tracker.setWatchDistance(watchDistance);
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public int getTotalChunksLoadedCount() {
+        return this.controller.map.getEntries().size();
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public Iterable<ChunkHolder> entryIterator() {
+        return Iterables.unmodifiableIterable(this.controller.map.getEntries());
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void save(boolean flush) {
+        this.controller.saveAll(flush);
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void close() throws IOException {
+        this.controller.close();
+    }
+
+    @Override
+    public ChunkController getController() {
+        return this.controller;
+    }
 }

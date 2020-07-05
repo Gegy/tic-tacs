@@ -7,10 +7,10 @@ import net.minecraft.world.chunk.Chunk;
 
 import javax.annotation.Nullable;
 
-public final class UnloadedChunk implements Future<Chunk> {
-    public static final UnloadedChunk INSTANCE = new UnloadedChunk();
+public final class UnloadedChunkFuture implements Future<Chunk> {
+    public static final UnloadedChunkFuture INSTANCE = new UnloadedChunkFuture();
 
-    private UnloadedChunk() {
+    private UnloadedChunkFuture() {
     }
 
     @Nullable

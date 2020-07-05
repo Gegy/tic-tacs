@@ -1,3 +1,29 @@
 accessWidener v1 named
 
 accessible class net/minecraft/server/world/ThreadedAnvilChunkStorage$TicketManager
+
+accessible field net/minecraft/server/world/ChunkHolder level I
+accessible field net/minecraft/server/world/ChunkHolder lastTickLevel I
+accessible field net/minecraft/server/world/ChunkHolder completedLevel I
+accessible field net/minecraft/server/world/ChunkHolder pos Lnet/minecraft/util/math/ChunkPos;
+accessible field net/minecraft/server/world/ChunkHolder ticking Z
+
+accessible method net/minecraft/server/world/ServerLightingProvider updateChunkStatus (Lnet/minecraft/util/math/ChunkPos;)V
+
+accessible class net/minecraft/server/world/ChunkTicketManager$DistanceFromNearestPlayerTracker
+accessible class net/minecraft/server/world/ChunkTicketManager$NearbyChunkTicketUpdater
+accessible class net/minecraft/server/world/ChunkTicketManager$TicketDistanceLevelPropagator
+
+accessible field net/minecraft/server/world/ChunkTicketManager age J
+accessible field net/minecraft/server/world/ChunkTicketManager chunkHolders Ljava/util/Set;
+accessible field net/minecraft/server/world/ChunkTicketManager distanceFromNearestPlayerTracker Lnet/minecraft/server/world/ChunkTicketManager$DistanceFromNearestPlayerTracker;
+accessible field net/minecraft/server/world/ChunkTicketManager nearbyChunkTicketUpdater Lnet/minecraft/server/world/ChunkTicketManager$NearbyChunkTicketUpdater;
+accessible field net/minecraft/server/world/ChunkTicketManager distanceFromTicketTracker Lnet/minecraft/server/world/ChunkTicketManager$TicketDistanceLevelPropagator;
+accessible field net/minecraft/server/world/ChunkTicketManager chunkPositions Lit/unimi/dsi/fastutil/longs/LongSet;
+accessible field net/minecraft/server/world/ChunkTicketManager playerTicketThrottler Lnet/minecraft/util/thread/MessageListener;
+accessible field net/minecraft/server/world/ChunkTicketManager playerTicketThrottlerSorter Lnet/minecraft/util/thread/MessageListener;
+accessible field net/minecraft/server/world/ChunkTicketManager ticketsByPosition Lit/unimi/dsi/fastutil/longs/Long2ObjectOpenHashMap;
+
+accessible method net/minecraft/server/world/ChunkTicketManager getTicketSet (J)Lnet/minecraft/util/collection/SortedArraySet;
+
+accessible method net/minecraft/server/world/ChunkTicket isExpired (J)Z

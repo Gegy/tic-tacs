@@ -65,6 +65,22 @@ public final class ChunkTaskQueue implements AutoCloseable {
         return null;
     }
 
+    @Nullable
+    public List<ChunkTask<?>> remove() {
+        synchronized (this.lock) {
+            if (this.minLevel < LEVEL_COUNT) {
+                Level level = this.levels[this.minLevel];
+                List<ChunkTask<?>> tasks = level.take();
+                if (tasks != null) {
+                    this.findMinLevel();
+                    return tasks;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private void findMinLevel() {
         while (++this.minLevel < LEVEL_COUNT) {
             if (!this.levels[this.minLevel].isEmpty()) {

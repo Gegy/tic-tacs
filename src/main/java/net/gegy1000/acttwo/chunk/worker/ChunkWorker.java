@@ -5,17 +5,13 @@ import net.minecraft.server.world.ChunkHolder;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.util.List;
-
-public final class ChunkGenWorker implements AutoCloseable {
-    public static final ChunkGenWorker INSTANCE = new ChunkGenWorker();
+public final class ChunkWorker implements AutoCloseable {
+    public static final ChunkWorker INSTANCE = new ChunkWorker();
     private static final Logger LOGGER = LogManager.getLogger("worldgen-worker");
 
-    private final ChunkTaskQueue queue;
+    private final ChunkExecutor executor = new ChunkExecutor();
 
-    private ChunkGenWorker() {
-        this.queue = new ChunkTaskQueue();
-
+    private ChunkWorker() {
         Thread thread = new Thread(this::run);
         thread.setName("worldgen-worker");
         thread.setDaemon(true);
@@ -23,18 +19,12 @@ public final class ChunkGenWorker implements AutoCloseable {
     }
 
     public <T> void spawn(ChunkHolder holder, Future<T> future) {
-        ChunkTask<T> task = new ChunkTask<>(holder, future, this.queue);
-        this.queue.enqueue(task);
+        this.executor.spawn(holder, future);
     }
 
     private void run() {
         try {
-            List<ChunkTask<?>> queue;
-            while ((queue = this.queue.take()) != null) {
-                for (ChunkTask<?> task : queue) {
-                    task.advance();
-                }
-            }
+            this.executor.run();
         } catch (InterruptedException e) {
             LOGGER.warn("chunkgen worker interrupted", e);
         }
@@ -42,6 +32,6 @@ public final class ChunkGenWorker implements AutoCloseable {
 
     @Override
     public void close() {
-        this.queue.close();
+        this.executor.close();
     }
 }

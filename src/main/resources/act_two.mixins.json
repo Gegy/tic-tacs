@@ -4,10 +4,9 @@
   "package": "net.gegy1000.acttwo.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "MixinChunkHolder",
+    "MixinServerChunkManager",
     "MixinTaskExecutor",
-    "MixinThreadedAnvilChunkStorage",
-    "TacsAccessor"
+    "MixinThreadedAnvilChunkStorage"
   ],
   "injectors": {
     "defaultRequire": 1

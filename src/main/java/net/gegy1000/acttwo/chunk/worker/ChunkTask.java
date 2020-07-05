@@ -38,6 +38,8 @@ public final class ChunkTask<T> {
                 this.waker.ready();
             }
         } catch (Throwable exception) {
+            // TODO: error handling very bad
+            exception.printStackTrace();
             this.invalidate();
         }
     }
