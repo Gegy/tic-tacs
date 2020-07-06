@@ -1,5 +1,6 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
+import net.gegy1000.acttwo.chunk.ChunkStatusOps;
 import net.minecraft.world.chunk.ChunkStatus;
 
 public final class ChunkUpgrade {
@@ -10,31 +11,36 @@ public final class ChunkUpgrade {
     public ChunkUpgrade(ChunkStatus from, ChunkStatus to) {
         this.from = from;
         this.to = to;
-        this.steps = from != null ? stepsBetween(from, to) : stepsTo(to);
+
+        ChunkStatus[] steps = from != null ? ChunkStatusOps.stepsBetween(from, to) : ChunkStatusOps.stepsTo(to);
+        this.steps = fixSteps(steps);
     }
 
-    private static ChunkStatus[] stepsBetween(ChunkStatus start, ChunkStatus end) {
-        ChunkStatus[] upgrades = new ChunkStatus[end.getIndex() - start.getIndex()];
-
-        ChunkStatus status = end;
-        while (status != start) {
-            upgrades[status.getIndex() - start.getIndex() - 1] = status;
-            status = status.getPrevious();
-        }
-
-        return upgrades;
-    }
-
-    private static ChunkStatus[] stepsTo(ChunkStatus end) {
-        ChunkStatus[] upgrades = new ChunkStatus[end.getIndex() + 1];
-
-        ChunkStatus status = end;
-        int i = upgrades.length;
-        while (i-- > 0) {
-            upgrades[i] = status;
-            status = status.getPrevious();
-        }
-
-        return upgrades;
+    private static ChunkStatus[] fixSteps(ChunkStatus[] steps) {
+        // TODO
+        return steps;
+//		int fixedLength = steps.length;
+//
+//		for (ChunkStatus step : steps) {
+//			if (step == ChunkStatus.HEIGHTMAPS) fixedLength--;
+//			else if (step == ChunkStatus.LIGHT) fixedLength++;
+//		}
+//
+//		ChunkStatus[] fixedSteps = new ChunkStatus[fixedLength];
+//		int idx = 0;
+//
+//		for (ChunkStatus step : steps) {
+//			// ignore heightmaps step: it does nothing
+//			if (step == ChunkStatus.HEIGHTMAPS) continue;
+//
+//			// duplicate light step
+//			if (step == ChunkStatus.LIGHT) {
+//				fixedSteps[idx++] = step;
+//			}
+//
+//			fixedSteps[idx++] = step;
+//		}
+//
+//		return fixedSteps;
     }
 }

@@ -7,31 +7,31 @@ import net.minecraft.util.math.MathHelper;
 
 import java.util.function.Consumer;
 
-public final class ChunkKernel {
+final class ChunkTrackKernel {
     public final int minX;
     public final int minZ;
     public final int maxX;
     public final int maxZ;
 
-    public ChunkKernel(int minX, int minZ, int maxX, int maxZ) {
+    public ChunkTrackKernel(int minX, int minZ, int maxX, int maxZ) {
         this.minX = minX;
         this.minZ = minZ;
         this.maxX = maxX;
         this.maxZ = maxZ;
     }
 
-    public static ChunkKernel withRadius(ChunkSectionPos sectionPos, int radius) {
-        return ChunkKernel.withRadius(sectionPos.getSectionX(), sectionPos.getSectionZ(), radius);
+    public static ChunkTrackKernel withRadius(ChunkSectionPos sectionPos, int radius) {
+        return ChunkTrackKernel.withRadius(sectionPos.getSectionX(), sectionPos.getSectionZ(), radius);
     }
 
-    public static ChunkKernel withRadius(int chunkX, int chunkZ, int radius) {
-        return new ChunkKernel(chunkX - radius, chunkZ - radius, chunkX + radius, chunkZ + radius);
+    public static ChunkTrackKernel withRadius(int chunkX, int chunkZ, int radius) {
+        return new ChunkTrackKernel(chunkX - radius, chunkZ - radius, chunkX + radius, chunkZ + radius);
     }
 
-    public static ChunkKernel withRadius(ServerPlayerEntity player, int radius) {
+    public static ChunkTrackKernel withRadius(ServerPlayerEntity player, int radius) {
         int chunkX = MathHelper.floor(player.getX()) >> 4;
         int chunkZ = MathHelper.floor(player.getZ()) >> 4;
-        return ChunkKernel.withRadius(chunkX, chunkZ, radius);
+        return ChunkTrackKernel.withRadius(chunkX, chunkZ, radius);
     }
 
     public void forEach(Consumer<ChunkPos> consumer) {
@@ -42,12 +42,12 @@ public final class ChunkKernel {
         }
     }
 
-    public boolean intersects(ChunkKernel kernel) {
+    public boolean intersects(ChunkTrackKernel kernel) {
         return this.minX < kernel.maxX && this.maxX > kernel.minX && this.minZ < kernel.maxZ && this.maxZ > kernel.minZ;
     }
 
-    public ChunkKernel union(ChunkKernel kernel) {
-        return new ChunkKernel(
+    public ChunkTrackKernel union(ChunkTrackKernel kernel) {
+        return new ChunkTrackKernel(
                 Math.min(this.minX, kernel.minX),
                 Math.min(this.minZ, kernel.minZ),
                 Math.max(this.maxX, kernel.maxX),

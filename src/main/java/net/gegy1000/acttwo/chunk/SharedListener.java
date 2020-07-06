@@ -1,5 +1,6 @@
 package net.gegy1000.acttwo.chunk;
 
+import net.gegy1000.acttwo.AtomicPool;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 
@@ -7,6 +8,8 @@ import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicReference;
 
 public abstract class SharedListener<T> implements Future<T> {
+    private static final AtomicPool<Waiting> WAITING_POOL = new AtomicPool<>(512, Waiting::new);
+
     private final AtomicReference<Waiting> waiting = new AtomicReference<>();
 
     @Nullable
@@ -16,6 +19,7 @@ public abstract class SharedListener<T> implements Future<T> {
         Waiting waiting = this.waiting.getAndSet(null);
         if (waiting != null) {
             waiting.wake();
+            WAITING_POOL.release(waiting);
         }
     }
 
@@ -41,7 +45,7 @@ public abstract class SharedListener<T> implements Future<T> {
     }
 
     private Waiting registerWaker(Waker waker) {
-        Waiting waiting = new Waiting(waker);
+        Waiting waiting = this.createWaiting(waker);
 
         while (true) {
             // try swap the root node with our node. if it fails, try again
@@ -54,13 +58,16 @@ public abstract class SharedListener<T> implements Future<T> {
         }
     }
 
+    private Waiting createWaiting(Waker waker) {
+        Waiting waiting = WAITING_POOL.acquire();
+        waiting.waker = waker;
+
+        return waiting;
+    }
+
     static class Waiting {
         volatile Waker waker;
         volatile Waiting previous;
-
-        Waiting(Waker waker) {
-            this.waker = waker;
-        }
 
         void invalidate() {
             this.waker = null;
@@ -73,9 +80,13 @@ public abstract class SharedListener<T> implements Future<T> {
             }
 
             Waker waker = this.waker;
+
             if (waker != null) {
                 waker.wake();
             }
+
+            this.previous = null;
+            this.waker = null;
         }
     }
 }

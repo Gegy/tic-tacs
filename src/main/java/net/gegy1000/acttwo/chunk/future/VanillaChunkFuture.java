@@ -1,6 +1,7 @@
 package net.gegy1000.acttwo.chunk.future;
 
 import com.mojang.datafixers.util.Either;
+import net.gegy1000.acttwo.AtomicPool;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
@@ -12,12 +13,23 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public final class VanillaChunkFuture implements Future<Chunk> {
-    private final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> inner;
+    private static final AtomicPool<VanillaChunkFuture> POOL = new AtomicPool<>(256, VanillaChunkFuture::new);
 
+    private CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> inner;
     private boolean listening;
 
-    public VanillaChunkFuture(CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future) {
+    private VanillaChunkFuture() {
+    }
+
+    public static VanillaChunkFuture of(CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> completable) {
+        VanillaChunkFuture future = POOL.acquire();
+        future.init(completable);
+        return future;
+    }
+
+    void init(CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future) {
         this.inner = future;
+        this.listening = false;
     }
 
     @Nullable
@@ -38,9 +50,17 @@ public final class VanillaChunkFuture implements Future<Chunk> {
                 throw new ChunkNotLoadedException();
             }
 
-            return result.left().get();
+            Chunk chunk = result.left().get();
+            this.release();
+
+            return chunk;
         }
 
         return null;
+    }
+
+    private void release() {
+        this.inner = null;
+        POOL.release(this);
     }
 }

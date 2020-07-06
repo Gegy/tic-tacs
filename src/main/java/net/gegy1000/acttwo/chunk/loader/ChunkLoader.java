@@ -1,14 +1,11 @@
 package net.gegy1000.acttwo.chunk.loader;
 
-import net.gegy1000.acttwo.Mutability;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.AwaitAll;
-import net.gegy1000.acttwo.chunk.loader.upgrade.ChunkContext;
-import net.gegy1000.acttwo.chunk.loader.upgrade.GetChunkContextFuture;
 import net.gegy1000.acttwo.chunk.tracker.ChunkQueues;
 import net.gegy1000.acttwo.lock.RwGuard;
 import net.gegy1000.acttwo.lock.WriteRwGuard;
@@ -27,10 +24,6 @@ import javax.annotation.Nullable;
 import java.util.function.BooleanSupplier;
 
 public final class ChunkLoader {
-    private static final ChunkContext ACCESSIBLE_CONTEXT = new ChunkContext(0, Mutability.IMMUTABLE, value -> ChunkStatus.FULL);
-    private static final ChunkContext TICKABLE_CONTEXT = new ChunkContext(1, Mutability.IMMUTABLE, value -> ChunkStatus.FULL);
-    private static final ChunkContext ENTITY_TICKABLE_CONTEXT = new ChunkContext(2, Mutability.IMMUTABLE, value -> ChunkStatus.FULL);
-
     private final ServerWorld world;
 
     private final ChunkController controller;
@@ -44,6 +37,20 @@ public final class ChunkLoader {
     }
 
     // TODO: can we have these not be nullable?
+
+    public Future<Unit> loadRadius(ChunkPos pos, int radius, ChunkStatus status) {
+        int size = radius * 2 + 1;
+
+        Future<ChunkEntry>[] futures = new Future[size * size];
+        for (int z = -radius; z <= radius; z++) {
+            for (int x = -radius; x <= radius; x++) {
+                int idx = (x + radius) + (z + radius) * size;
+                futures[idx] = this.getChunkEntryAs(pos.x + x, pos.z + z, status);
+            }
+        }
+
+        return new AwaitAll<>(futures);
+    }
 
     @Nullable
     public Future<ChunkEntry> getChunkEntryAs(ChunkPos pos, ChunkStatus status) {
@@ -98,15 +105,6 @@ public final class ChunkLoader {
         }));
 
         return handle;
-    }
-
-    public GetChunkContextFuture loadChunkContext(ChunkPos pos, ChunkContext context) {
-        return new GetChunkContextFuture(this, pos, context);
-    }
-
-    // TODO: remove this logic?
-    public Future<Unit> awaitChunkContext(ChunkPos pos, ChunkContext context) {
-        return new AwaitAll<>(context.await(this.controller.map, pos));
     }
 
     public void tick(BooleanSupplier runWhile) {

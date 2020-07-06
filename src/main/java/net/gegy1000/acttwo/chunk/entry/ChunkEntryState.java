@@ -2,7 +2,6 @@ package net.gegy1000.acttwo.chunk.entry;
 
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
-import net.gegy1000.acttwo.chunk.loader.upgrade.ChunkUpgrade;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
@@ -23,8 +22,8 @@ import java.util.function.Predicate;
 public final class ChunkEntryState {
     public final ChunkEntry parent;
 
-    private Chunk chunk;
-    private ChunkStatus status;
+    private volatile Chunk chunk;
+    private volatile ChunkStatus status;
 
     public ChunkEntryState(ChunkEntry parent) {
         this.parent = parent;
@@ -47,20 +46,8 @@ public final class ChunkEntryState {
         return null;
     }
 
-    public ChunkStatus getStatus() {
+    public ChunkStatus getCurrentStatus() {
         return this.status;
-    }
-
-    @Nullable
-    public ChunkUpgrade tryBeginUpgrade(ChunkStatus targetStatus) {
-        if (!this.canUpgradeTo(targetStatus)) {
-            return null;
-        }
-
-        ChunkStatus currentStatus = this.status;
-        this.status = targetStatus;
-
-        return new ChunkUpgrade(currentStatus, targetStatus);
     }
 
     public boolean canUpgradeTo(ChunkStatus targetStatus) {
@@ -68,15 +55,25 @@ public final class ChunkEntryState {
     }
 
     public void completeUpgradeOk(ChunkStatus status, Chunk chunk) {
+        this.includeStatus(status);
+        this.chunk = chunk;
+
         for (int i = status.getIndex(); i >= 0; i--) {
             this.parent.listeners[i].completeOk(chunk);
         }
-        this.chunk = chunk;
     }
 
     public void completeUpgradeErr(ChunkStatus status, ChunkNotLoadedException err) {
+        this.includeStatus(status);
+
         for (int i = status.getIndex(); i >= 0; i--) {
             this.parent.listeners[status.getIndex()].completeErr(err);
+        }
+    }
+
+    private void includeStatus(ChunkStatus status) {
+        if (this.status == null || status.isAtLeast(this.status)) {
+            this.status = status;
         }
     }
 
@@ -88,8 +85,7 @@ public final class ChunkEntryState {
         if (worldChunk == null) {
             worldChunk = new WorldChunk(world, (ProtoChunk) this.chunk);
             this.chunk = worldChunk;
-
-            entry.finalizeAs(new ReadOnlyChunk(worldChunk));
+            // TODO: vanilla replaces all protochunk listeners with readonlychunk wrapper: should we be doing this?
         }
 
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));

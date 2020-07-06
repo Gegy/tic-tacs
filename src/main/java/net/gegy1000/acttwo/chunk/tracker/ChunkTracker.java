@@ -138,7 +138,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
             this.leveledTracker.handleChunkEnter(currentSection, player);
         }
 
-        ChunkKernel.withRadius(player, this.watchDistance).forEach(pos -> this.sendWatchPackets(player, pos));
+        ChunkTrackKernel.withRadius(player, this.watchDistance).forEach(pos -> this.sendWatchPackets(player, pos));
     }
 
     void removePlayer(ServerPlayerEntity player) {
@@ -154,7 +154,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
         this.entityTracker.removePlayer(player);
         this.playerWatchers.removePlayer(player);
 
-        ChunkKernel.withRadius(player, this.watchDistance).forEach(player::sendUnloadChunkPacket);
+        ChunkTrackKernel.withRadius(player, this.watchDistance).forEach(player::sendUnloadChunkPacket);
     }
 
     public void updatePlayerTracker(ServerPlayerEntity player) {
@@ -201,8 +201,8 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
         int lastChunkX = lastTrackSection.getSectionX();
         int lastChunkZ = lastTrackSection.getSectionZ();
 
-        ChunkKernel currentKernel = ChunkKernel.withRadius(currentTrackSection, this.watchDistance);
-        ChunkKernel lastKernel = ChunkKernel.withRadius(lastTrackSection, this.watchDistance);
+        ChunkTrackKernel currentKernel = ChunkTrackKernel.withRadius(currentTrackSection, this.watchDistance);
+        ChunkTrackKernel lastKernel = ChunkTrackKernel.withRadius(lastTrackSection, this.watchDistance);
 
         if (currentKernel.intersects(lastKernel)) {
             currentKernel.union(lastKernel).forEach(pos -> {

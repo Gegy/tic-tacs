@@ -58,6 +58,11 @@ public final class ChunkEntry extends ChunkHolder {
         return this.listeners[status.getIndex()];
     }
 
+    @Nullable
+    public ChunkStatus getCurrentStatus() {
+        return this.state.getInnerUnsafe().getCurrentStatus();
+    }
+
     public boolean canUpgradeTo(ChunkStatus status) {
         if (!this.getTargetStatus().isAtLeast(status)) {
             return false;
@@ -85,25 +90,51 @@ public final class ChunkEntry extends ChunkHolder {
         this.ticking |= isAccessible;
 
         if (isAccessible != wasAccessible) {
-            // TODO: this is wrong. the level type is set before it's actually ready as it should be!
-            this.accessibleListener.setComplete(isAccessible);
+            if (isAccessible) {
+                Future<Unit> future = controller.loader.loadRadius(this.pos, 0, ChunkStatus.FULL);
+                controller.spawnOnMainThread(this, future.map(unit -> {
+                    this.accessibleListener.complete();
+                    return unit;
+                }));
+            } else {
+                this.accessibleListener.reset();
+            }
         }
 
         boolean wasTicking = lastLevelType.isAfter(ChunkHolder.LevelType.TICKING);
         boolean isTicking = currentLevelType.isAfter(ChunkHolder.LevelType.TICKING);
         if (isTicking != wasTicking) {
-            this.tickableListener.setComplete(isTicking);
-
             if (isTicking) {
-                ChunkEntryState state = this.state.getInnerUnsafe();
-                state.makeChunkTickable(controller);
+                Future<Unit> future = controller.loader.loadRadius(this.pos, 1, ChunkStatus.FULL);
+                controller.spawnOnMainThread(this, future.andThen(unit -> this.write()).map(guard -> {
+                    try {
+                        ChunkEntryState state = guard.get();
+                        state.makeChunkTickable(controller);
+
+                        this.tickableListener.complete();
+                    } finally {
+                        guard.release();
+                    }
+
+                    return Unit.INSTANCE;
+                }));
+            } else {
+                this.tickableListener.reset();
             }
         }
 
         boolean wasTickingEntities = lastLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
         boolean isTickingEntities = currentLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
         if (isTickingEntities != wasTickingEntities) {
-            this.entitiesTickableListener.setComplete(isTickingEntities);
+            if (isTickingEntities) {
+                Future<Unit> future = controller.loader.loadRadius(this.pos, 2, ChunkStatus.FULL);
+                controller.spawnOnMainThread(this, future.map(unit -> {
+                    this.entitiesTickableListener.complete();
+                    return unit;
+                }));
+            } else {
+                this.entitiesTickableListener.reset();
+            }
         }
 
         this.completedLevel = this.level;
@@ -130,14 +161,6 @@ public final class ChunkEntry extends ChunkHolder {
         ChunkNotLoadedException unloaded = new ChunkNotLoadedException(this.pos);
         for (int i = startIdx; i <= endIdx; i++) {
             this.listeners[i].completeErr(unloaded);
-        }
-    }
-
-    public void finalizeAs(ReadOnlyChunk chunk) {
-        for (ChunkEntryListener listener : this.listeners) {
-            if (!listener.ok) {
-                listener.completeOk(chunk);
-            }
         }
     }
 
@@ -187,7 +210,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Deprecated
     public CompletableFuture<Chunk> getFuture() {
         ChunkEntryState peekState = this.state.getInnerUnsafe();
-        return this.getListenerFor(peekState.getStatus()).vanilla
+        return this.getListenerFor(peekState.getCurrentStatus()).vanilla
                 .thenApply(result -> {
                     return result.map(chunk -> chunk, err -> null);
                 });
@@ -203,6 +226,5 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public void method_20456(ReadOnlyChunk chunk) {
-        this.finalizeAs(chunk);
     }
 }

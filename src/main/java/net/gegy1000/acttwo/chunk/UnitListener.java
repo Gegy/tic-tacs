@@ -13,14 +13,6 @@ public final class UnitListener extends SharedListener<Unit> {
         return this.result;
     }
 
-    public void setComplete(boolean complete) {
-        if (complete) {
-            this.complete();
-        } else {
-            this.reset();
-        }
-    }
-
     public void complete() {
         this.result = Unit.INSTANCE;
         this.wake();

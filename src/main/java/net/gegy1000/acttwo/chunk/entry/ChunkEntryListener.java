@@ -33,6 +33,7 @@ public final class ChunkEntryListener extends SharedListener<ChunkEntry> {
 
     public void completeOk(Chunk chunk) {
         this.ok = true;
+
         this.vanilla.complete(Either.left(chunk));
 
         this.wake();

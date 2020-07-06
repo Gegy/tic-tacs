@@ -7,6 +7,7 @@ import net.minecraft.util.thread.ThreadExecutor;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+// TODO: i generally don't like this solution. help
 public final class ChunkMainThreadExecutor implements AutoCloseable {
     private final ThreadExecutor<Runnable> executor;
     private final AtomicBoolean enqueued = new AtomicBoolean();

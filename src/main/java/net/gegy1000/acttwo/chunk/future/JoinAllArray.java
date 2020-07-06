@@ -2,24 +2,25 @@ package net.gegy1000.acttwo.chunk.future;
 
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 
 import javax.annotation.Nullable;
 
-public final class AwaitAll<T> implements Future<Unit> {
+public final class JoinAllArray<T> implements Future<T[]> {
     private final Future<T>[] futures;
+    private final T[] results;
 
-    public AwaitAll(Future<T>[] futures) {
+    public JoinAllArray(Future<T>[] futures, T[] results) {
         this.futures = futures;
+        this.results = results;
     }
 
     @Nullable
     @Override
-    public Unit poll(Waker waker) {
-        return AwaitAll.poll(waker, this.futures);
+    public T[] poll(Waker waker) {
+        return JoinAllArray.poll(waker, this.futures, this.results);
     }
 
-    public static <T> Unit poll(Waker waker, Future<T>[] futures) {
+    public static <T> T[] poll(Waker waker, Future<T>[] futures, T[] results) {
         boolean pending = false;
 
         for (int i = 0; i < futures.length; i++) {
@@ -29,11 +30,12 @@ public final class AwaitAll<T> implements Future<Unit> {
             T result = future.poll(waker);
             if (result != null) {
                 futures[i] = null;
+                results[i] = result;
             } else {
                 pending = true;
             }
         }
 
-        return pending ? null : Unit.INSTANCE;
+        return pending ? null : results;
     }
 }
