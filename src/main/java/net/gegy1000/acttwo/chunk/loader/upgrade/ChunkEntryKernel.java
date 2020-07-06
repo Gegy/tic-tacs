@@ -14,6 +14,7 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.ChunkStatus;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.function.Function;
 
 final class ChunkEntryKernel {
@@ -65,6 +66,12 @@ final class ChunkEntryKernel {
                 }
 
                 int idx = (x + radius) + (z + radius) * size;
+
+                ChunkStatus maximumStatus = this.kernel.get(x, z);
+                if (!maximumStatus.isAtLeast(targetStatus)) {
+                    // we don't want to upgrade past the maximum status from the kernel
+                    continue;
+                }
 
                 if (entry.canUpgradeTo(targetStatus)) {
                     this.writeLocks[idx] = entry.getState();
@@ -152,6 +159,9 @@ final class ChunkEntryKernel {
     }
 
     public void release() {
+        Arrays.fill(this.writeLocks, null);
+        Arrays.fill(this.readLocks, null);
+
         if (this.writeEntries != null) {
             this.writeEntries.release();
             this.writeEntries = null;

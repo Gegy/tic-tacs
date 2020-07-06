@@ -54,6 +54,10 @@ public final class ChunkEntry extends ChunkHolder {
         return this.state.write();
     }
 
+    public RwLock<ChunkEntryState> getState() {
+        return this.state;
+    }
+
     public ChunkEntryListener getListenerFor(ChunkStatus status) {
         return this.listeners[status.getIndex()];
     }
