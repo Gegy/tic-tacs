@@ -5,7 +5,6 @@ import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
-import net.gegy1000.acttwo.lock.RwGuard;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -63,21 +62,15 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
             ChunkEntryKernel entries = this.entryKernel;
 
             if (entries.isIdle()) {
-                // TODO: problem: we must only actually lock everything once we know that *everything* is free
-                //       otherwise, when contended, we end up in a dead-locked state.
-                //          one way, although horrible, is to poll acquiring the locks by adding to the list
-                //          until we can't acquire anymore, and at that point we release everything that's existing
-                //          somehow though, we still have to be notified when the locks are unlocked, so this might not
-                //          be so useful.
-
                 // collect all the chunk entries within the kernel that still need to be upgraded to currentStatus
-                int writeCount = entries.prepareForUpgrade(this.controller.access.getMap(), this.pos, currentStatus);
+                ChunkMap chunks = this.controller.access.getMap();
 
-                if (writeCount <= 0) {
-                    // if we couldn't collect any entries, we must be complete already
-                    entries.release();
+                if (!entries.prepareWriters(chunks, this.pos, currentStatus)) {
+                    // we don't need to acquire any writers: we must be finished
                     return Unit.INSTANCE;
                 }
+
+                entries.prepareReaders(chunks, this.pos, currentStatus);
             }
 
             // wait to acquire access to all the required entries
@@ -110,7 +103,7 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     private void notifyChunkUpgrades(Chunk[] chunks, ChunkEntryKernel entryKernel, ChunkStatus status) {
-        RwGuard<ChunkEntryState>[] entries = entryKernel.getEntries();
+        ChunkEntryState[] entries = entryKernel.getEntries();
 
         int radius = this.upgradeKernel.getRadius();
         int size = this.upgradeKernel.getSize();
@@ -119,19 +112,19 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
             for (int x = -radius; x <= radius; x++) {
                 int idx = (x + radius) + (z + radius) * size;
 
-                RwGuard<ChunkEntryState> entry = entries[idx];
+                ChunkEntryState entry = entries[idx];
                 Chunk chunk = chunks[idx];
                 if (entry == null || chunk == null) {
                     continue;
                 }
 
-                this.controller.upgrader.completeUpgradeOk(entry.get(), status, chunk);
+                this.controller.upgrader.completeUpgradeOk(entry, status, chunk);
             }
         }
     }
 
     private void notifyChunkUpgradeError(ChunkEntryKernel entryKernel, ChunkStatus status, ChunkNotLoadedException err) {
-        RwGuard<ChunkEntryState>[] entries = entryKernel.getEntries();
+        ChunkEntryState[] entries = entryKernel.getEntries();
 
         int radius = this.upgradeKernel.getRadius();
         int size = this.upgradeKernel.getSize();
@@ -140,12 +133,12 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
             for (int x = -radius; x <= radius; x++) {
                 int idx = (x + radius) + (z + radius) * size;
 
-                RwGuard<ChunkEntryState> entry = entries[idx];
+                ChunkEntryState entry = entries[idx];
                 if (entry == null) {
                     continue;
                 }
 
-                this.controller.upgrader.completeUpgradeErr(entry.get(), status, err);
+                this.controller.upgrader.completeUpgradeErr(entry, status, err);
             }
         }
     }

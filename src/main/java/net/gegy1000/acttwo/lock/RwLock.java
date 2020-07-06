@@ -8,18 +8,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class RwLock<T> {
-    private static final int FREE = 0;
-    private static final int WRITING = -1;
+    static final int FREE = 0;
+    static final int WRITING = -1;
 
-    private T inner;
+    T inner;
 
-    private final AtomicInteger state = new AtomicInteger();
+    final AtomicInteger state = new AtomicInteger();
 
     // linked-queue of waiting futures and their corresponding wakers
-    private final AtomicReference<Waiting> waiting = new AtomicReference<>();
+    final AtomicReference<Waiting> waiting = new AtomicReference<>();
 
-    private final Read read = new Read();
-    private final Write write = new Write();
+    final Read read = new Read();
+    final Write write = new Write();
 
     public RwLock(T inner) {
         this.inner = inner;
@@ -38,7 +38,7 @@ public final class RwLock<T> {
         return this.inner;
     }
 
-    private void registerWaiting(Waiting waiting, Waker waker) {
+    void registerWaiting(Waiting waiting, Waker waker) {
         // initialize the waker on the waiting object
         waiting.waker = waker;
 
@@ -85,6 +85,24 @@ public final class RwLock<T> {
         }
     }
 
+    boolean tryAcquireRead() {
+        int state = this.state.get();
+        return state != WRITING && RwLock.this.state.compareAndSet(state, state + 1);
+    }
+
+    boolean canAcquireRead() {
+        return this.state.get() != WRITING;
+    }
+
+    boolean tryAcquireWrite() {
+        int state = this.state.get();
+        return state == FREE && RwLock.this.state.compareAndSet(FREE, WRITING);
+    }
+
+    boolean canAcquireWrite() {
+        return this.state.get() == FREE;
+    }
+
     static class Waiting {
         // we don't need atomic here because they can only be modified by their owner
         volatile Waker waker;
@@ -116,8 +134,7 @@ public final class RwLock<T> {
                 this.invalidateWaker();
 
                 // if the write lock is not acquired, attempt to increment the read counter
-                int state = RwLock.this.state.get();
-                if (state != WRITING && RwLock.this.state.compareAndSet(state, state + 1)) {
+                if (RwLock.this.tryAcquireRead()) {
                     return RwLock.this.read;
                 }
 
@@ -125,7 +142,7 @@ public final class RwLock<T> {
                 RwLock.this.registerWaiting(this, waker);
 
                 // if the lock is still acquired, there's nothing more to be done for now
-                if (RwLock.this.state.get() == WRITING) {
+                if (!RwLock.this.canAcquireRead()) {
                     return null;
                 }
             }
@@ -141,8 +158,7 @@ public final class RwLock<T> {
                 this.invalidateWaker();
 
                 // if the lock is free, attempt to acquire as a writer
-                int state = RwLock.this.state.get();
-                if (state == FREE && RwLock.this.state.compareAndSet(FREE, WRITING)) {
+                if (RwLock.this.tryAcquireWrite()) {
                     return RwLock.this.write;
                 }
 
@@ -150,7 +166,7 @@ public final class RwLock<T> {
                 RwLock.this.registerWaiting(this, waker);
 
                 // if the lock is still acquired, there's nothing more to be done for now
-                if (RwLock.this.state.get() != FREE) {
+                if (RwLock.this.canAcquireWrite()) {
                     return null;
                 }
             }

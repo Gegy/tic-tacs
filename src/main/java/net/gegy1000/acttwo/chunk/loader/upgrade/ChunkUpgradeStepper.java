@@ -3,7 +3,6 @@ package net.gegy1000.acttwo.chunk.loader.upgrade;
 import net.gegy1000.acttwo.AtomicPool;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.JoinAllArray;
-import net.gegy1000.acttwo.lock.RwGuard;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.minecraft.util.math.ChunkPos;
@@ -128,7 +127,7 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private RwGuard<ChunkEntryState>[] source;
+        private ChunkEntryState[] source;
         private int sourceSize;
         private int targetSize;
 
@@ -158,8 +157,11 @@ final class ChunkUpgradeStepper {
 
             int sourceIndex = sourceX + sourceZ * this.sourceSize;
 
-            ChunkEntryState entry = this.source[sourceIndex].get();
-            return entry.getChunk();
+            if (sourceIndex < 0 || sourceIndex >= this.source.length) {
+                System.out.println(sourceIndex);
+            }
+
+            return this.source[sourceIndex].getChunk();
         }
 
         @Override
