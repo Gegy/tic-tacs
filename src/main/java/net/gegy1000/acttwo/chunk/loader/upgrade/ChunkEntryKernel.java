@@ -37,7 +37,7 @@ final class ChunkEntryKernel {
         this.writableEntries = new BitSet(size * size);
     }
 
-    public int prepareForUpgrade(ChunkMap chunkMap, ChunkPos pos, ChunkStatus targetStatus) {
+    public int prepareForUpgrade(ChunkMap chunks, ChunkPos pos, ChunkStatus targetStatus) {
         this.idle = false;
 
         int writeCount = 0;
@@ -51,7 +51,7 @@ final class ChunkEntryKernel {
 
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
-                ChunkEntry entry = chunkMap.getEntry(x + centerX, z + centerZ);
+                ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);
                 if (entry == null) {
                     continue;
                 }

@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import net.gegy1000.acttwo.chunk.ChunkController;
-import net.gegy1000.acttwo.chunk.ChunkMap;
+import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTaskPrioritySystem;
@@ -24,11 +24,11 @@ import java.util.function.IntSupplier;
 public final class ChunkLeveledTracker extends ChunkTicketManager implements ChunkHolder.LevelUpdateListener {
     public static final int MAX_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL;
 
-    private final ChunkMap map;
+    private final ChunkAccess access;
 
-    ChunkLeveledTracker(ChunkMap map, Executor threadPool, Executor mainThread) {
+    ChunkLeveledTracker(ChunkAccess access, Executor threadPool, Executor mainThread) {
         super(threadPool, mainThread);
-        this.map = map;
+        this.access = access;
     }
 
     public boolean tick(ChunkController controller) {
@@ -64,7 +64,7 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
                 continue;
             }
 
-            ChunkEntry entry = this.map.getEntry(pos);
+            ChunkEntry entry = this.access.getWriteableMap().getEntry(pos);
             if (entry == null) {
                 throw new IllegalStateException("ticket with no entry");
             }
@@ -153,13 +153,13 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
 
     @Override
     protected boolean isUnloaded(long pos) {
-        return this.map.getQueues().isQueuedForUnload(pos);
+        return this.access.getQueues().isQueuedForUnload(pos);
     }
 
     @Nullable
     @Override
     protected ChunkHolder getChunkHolder(long pos) {
-        return this.map.getEntry(pos);
+        return this.access.getWriteableMap().getEntry(pos);
     }
 
     @Nullable
@@ -180,9 +180,9 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
         entry.setLevel(toLevel);
 
         if (isUnloaded(toLevel)) {
-            this.map.getQueues().unloadEntry(pos);
+            this.access.getQueues().unloadEntry(pos);
         } else {
-            this.map.getQueues().cancelUnloadEntry(pos);
+            this.access.getQueues().cancelUnloadEntry(pos);
         }
 
         return entry;
@@ -194,7 +194,7 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
             return null;
         }
 
-        return this.map.getQueues().loadEntry(new ChunkPos(pos), toLevel);
+        return this.access.getQueues().loadEntry(new ChunkPos(pos), toLevel);
     }
 
     @Override

@@ -25,7 +25,8 @@ import java.util.function.BooleanSupplier;
 public final class ChunkController implements AutoCloseable {
     public final ServerWorld world;
 
-    public final ChunkMap map;
+    public final ChunkAccess access;
+
     public final ChunkStorage storage;
     public final ChunkUpgrader upgrader;
     public final ChunkTracker tracker;
@@ -44,9 +45,9 @@ public final class ChunkController implements AutoCloseable {
     ) {
         this.world = world;
 
-        this.map = new ChunkMap(world, this);
+        this.access = new ChunkAccess(world, this);
         this.storage = ChunkStorage.open(world, storageSession);
-        this.tracker = new ChunkTracker(world, this.map, threadPool, mainThread);
+        this.tracker = new ChunkTracker(world, this.access, threadPool, mainThread);
         this.upgrader = new ChunkUpgrader(world, this, generator, structures, lighting);
         this.loader = new ChunkLoader(world, this, progressListener);
 

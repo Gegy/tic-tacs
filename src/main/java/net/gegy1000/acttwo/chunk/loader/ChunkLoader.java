@@ -1,7 +1,7 @@
 package net.gegy1000.acttwo.chunk.loader;
 
 import net.gegy1000.acttwo.chunk.ChunkController;
-import net.gegy1000.acttwo.chunk.ChunkMap;
+import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
@@ -69,7 +69,7 @@ public final class ChunkLoader {
 
     @Nullable
     public Future<ChunkEntry> getChunkEntryAs(int chunkX, int chunkZ, ChunkStatus status) {
-        ChunkEntry entry = this.controller.map.getEntry(chunkX, chunkZ);
+        ChunkEntry entry = this.controller.access.getMap().getEntry(chunkX, chunkZ);
         if (entry == null) return null;
 
         this.controller.upgrader.spawnUpgradeTo(entry, status);
@@ -108,10 +108,10 @@ public final class ChunkLoader {
     }
 
     public void tick(BooleanSupplier runWhile) {
-        ChunkMap map = this.controller.map;
-        ChunkQueues queues = map.getQueues();
+        ChunkAccess access = this.controller.access;
+        ChunkQueues queues = access.getQueues();
 
-        map.loadFromQueues();
+        access.copyIntoReadOnlyMap();
 
         if (!this.world.isSavingDisabled()) {
             if (!runWhile.getAsBoolean()) return;
@@ -125,7 +125,7 @@ public final class ChunkLoader {
     }
 
     private void spawnUnloadChunk(long pos) {
-        ChunkEntry entry = this.controller.map.removeEntry(pos);
+        ChunkEntry entry = this.controller.access.getWriteableMap().removeEntry(pos);
         if (entry != null) {
             this.controller.spawnOnMainThread(entry, this.unloadChunk(entry));
         }
@@ -145,7 +145,7 @@ public final class ChunkLoader {
 
                 if (chunk instanceof WorldChunk) {
                     ((WorldChunk) chunk).setLoadedToWorld(false);
-                    if (this.controller.map.tryRemoveFullChunk(pos)) {
+                    if (this.controller.access.tryRemoveFullChunk(pos)) {
                         this.world.unloadEntities((WorldChunk) chunk);
                     }
                 }

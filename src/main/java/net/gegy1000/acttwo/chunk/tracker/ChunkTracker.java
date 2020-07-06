@@ -1,6 +1,6 @@
 package net.gegy1000.acttwo.chunk.tracker;
 
-import net.gegy1000.acttwo.chunk.ChunkMap;
+import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -23,7 +23,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
     private static final int MIN_WATCH_DISTANCE = 3;
     private static final int MAX_WATCH_DISTANCE = 33;
 
-    private final ChunkMap map;
+    private final ChunkAccess access;
 
     private final ServerWorld world;
 
@@ -34,13 +34,13 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
 
     private int watchDistance;
 
-    public ChunkTracker(ServerWorld world, ChunkMap map, Executor threadPool, Executor mainThread) {
+    public ChunkTracker(ServerWorld world, ChunkAccess access, Executor threadPool, Executor mainThread) {
         this.world = world;
-        this.map = map;
+        this.access = access;
 
         this.entityTracker = new ChunkEntityTracker(world, this);
 
-        this.leveledTracker = new ChunkLeveledTracker(this.map, threadPool, mainThread);
+        this.leveledTracker = new ChunkLeveledTracker(this.access, threadPool, mainThread);
         this.playerWatchers = new ChunkPlayerWatchers(world);
     }
 
@@ -63,7 +63,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
 
     @Nullable
     WorldChunk getWorldChunk(int chunkX, int chunkZ) {
-        ChunkEntry entry = this.map.getEntry(chunkX, chunkZ);
+        ChunkEntry entry = this.access.getWriteableMap().getEntry(chunkX, chunkZ);
         if (entry != null) {
             return entry.getWorldChunk();
         }
@@ -80,7 +80,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
         this.watchDistance = watchDistance;
         this.leveledTracker.setWatchDistance(this.watchDistance);
 
-        for (ChunkEntry entry : this.map.getEntries()) {
+        for (ChunkEntry entry : this.access.getWriteableMap().getEntries()) {
             ChunkPos pos = entry.getPos();
 
             Collection<ServerPlayerEntity> watchers = this.watchersFor(pos);
@@ -223,7 +223,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
     }
 
     public void sendChunkToWatchers(ChunkPos pos) {
-        ChunkEntry entry = this.map.getEntry(pos);
+        ChunkEntry entry = this.access.getWriteableMap().getEntry(pos);
         if (entry == null) return;
 
         Collection<ServerPlayerEntity> watchers = this.watchersFor(pos);
@@ -240,7 +240,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
     }
 
     private void sendWatchPackets(ServerPlayerEntity player, ChunkPos pos) {
-        ChunkEntry entry = this.map.getEntry(pos);
+        ChunkEntry entry = this.access.getWriteableMap().getEntry(pos);
         if (entry == null) return;
 
         WorldChunk chunk = this.getWorldChunk(pos.x, pos.z);

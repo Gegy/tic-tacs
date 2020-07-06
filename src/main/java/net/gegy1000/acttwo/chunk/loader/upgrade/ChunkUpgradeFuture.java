@@ -66,7 +66,7 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
                 // TODO: we don't need read access to *everything* that isn't being written to!
 
                 // collect all the chunk entries within the kernel that still need to be upgraded to currentStatus
-                int writeCount = entries.prepareForUpgrade(this.controller.map, this.pos, currentStatus);
+                int writeCount = entries.prepareForUpgrade(this.controller.access.getMap(), this.pos, currentStatus);
 
                 if (writeCount <= 0) {
                     // if we couldn't collect any entries, we must be complete already
@@ -151,12 +151,12 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
 
         ChunkStatus minimumStatus = ChunkStatus.FULL;
 
-        ChunkMap chunkMap = this.controller.map;
+        ChunkMap chunks = this.controller.access.getMap();
 
         int radius = this.upgradeKernel.getRadius();
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
-                ChunkEntry entry = chunkMap.getEntry(x + centerX, z + centerZ);
+                ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);
                 if (entry == null) {
                     return null;
                 }

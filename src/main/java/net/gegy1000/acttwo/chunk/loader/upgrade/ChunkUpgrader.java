@@ -79,7 +79,7 @@ public final class ChunkUpgrader {
             FutureHandle<Chunk> handle = new FutureHandle<>();
 
             this.controller.spawnOnMainThread(entry.parent, () -> {
-                WorldChunk worldChunk = entry.finalizeChunk(this.world, this.controller.map::tryAddFullChunk);
+                WorldChunk worldChunk = entry.finalizeChunk(this.world, this.controller.access::tryAddFullChunk);
                 handle.complete(worldChunk);
             });
 
