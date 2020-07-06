@@ -37,17 +37,40 @@ final class ChunkEntryKernel {
         this.writableEntries = new BitSet(size * size);
     }
 
+    // TODO: there is a lot of iteration here
     public int prepareForUpgrade(ChunkMap chunks, ChunkPos pos, ChunkStatus targetStatus) {
         this.idle = false;
 
+        int writeCount = this.addWritable(chunks, pos, targetStatus);
+        if (writeCount <= 0) {
+            return 0;
+        }
+
+        int radius = this.kernel.getRadius();
+        int size = this.kernel.getSize();
+
+        int taskMargin = targetStatus.getTaskMargin();
+        if (taskMargin > 0) {
+            for (int z = -radius; z <= radius; z++) {
+                for (int x = -radius; x <= radius; x++) {
+                    int idx = (x + radius) + (z + radius) * size;
+                    if (this.writableEntries.get(idx)) {
+                        this.addMargin(chunks, pos, x, z, taskMargin);
+                    }
+                }
+            }
+        }
+
+        return writeCount;
+    }
+
+    private int addWritable(ChunkMap chunks, ChunkPos pos, ChunkStatus targetStatus) {
         int writeCount = 0;
 
         int centerX = pos.x;
         int centerZ = pos.z;
         int radius = this.kernel.getRadius();
         int size = this.kernel.getSize();
-
-        Future<? extends RwGuard<ChunkEntryState>>[] futures = this.entryFutures;
 
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
@@ -59,16 +82,41 @@ final class ChunkEntryKernel {
                 int idx = (x + radius) + (z + radius) * size;
 
                 if (entry.canUpgradeTo(targetStatus)) {
-                    futures[idx] = entry.write();
+                    this.entryFutures[idx] = entry.write();
                     this.writableEntries.set(idx, true);
                     writeCount++;
-                } else {
-                    futures[idx] = entry.read();
                 }
             }
         }
 
         return writeCount;
+    }
+
+    private void addMargin(ChunkMap chunks, ChunkPos pos, int centerX, int centerZ, int margin) {
+        Future<? extends RwGuard<ChunkEntryState>>[] entryFutures = this.entryFutures;
+
+        int radius = this.kernel.getRadius();
+        int size = this.kernel.getSize();
+
+        int minX = Math.max(centerX - margin, -radius);
+        int maxX = Math.min(centerX + margin, radius);
+        int minZ = Math.max(centerZ - margin, -radius);
+        int maxZ = Math.min(centerZ + margin, radius);
+
+        for (int z = minZ; z <= maxZ; z++) {
+            for (int x = minX; x <= maxX; x++) {
+                int idx = (x + radius) + (z + radius) * size;
+
+                if (entryFutures[idx] == null) {
+                    ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
+                    if (entry == null) {
+                        continue;
+                    }
+
+                    entryFutures[idx] = entry.read();
+                }
+            }
+        }
     }
 
     @Nullable

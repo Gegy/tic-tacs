@@ -1,14 +1,12 @@
 package net.gegy1000.acttwo.chunk.loader;
 
-import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkAccess;
+import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.AwaitAll;
 import net.gegy1000.acttwo.chunk.tracker.ChunkQueues;
-import net.gegy1000.acttwo.lock.RwGuard;
-import net.gegy1000.acttwo.lock.WriteRwGuard;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.WorldGenerationProgressListener;
@@ -58,16 +56,6 @@ public final class ChunkLoader {
     }
 
     @Nullable
-    public Future<RwGuard<Chunk>> readChunkAs(ChunkPos pos, ChunkStatus status) {
-        return this.readChunkAs(pos.x, pos.z, status);
-    }
-
-    @Nullable
-    public Future<RwGuard<Chunk>> writeChunkAs(ChunkPos pos, ChunkStatus status) {
-        return this.writeChunkAs(pos.x, pos.z, status);
-    }
-
-    @Nullable
     public Future<ChunkEntry> getChunkEntryAs(int chunkX, int chunkZ, ChunkStatus status) {
         ChunkEntry entry = this.controller.access.getMap().getEntry(chunkX, chunkZ);
         if (entry == null) return null;
@@ -75,24 +63,6 @@ public final class ChunkLoader {
         this.controller.upgrader.spawnUpgradeTo(entry, status);
 
         return entry.getListenerFor(status);
-    }
-
-    @Nullable
-    public Future<RwGuard<Chunk>> readChunkAs(int chunkX, int chunkZ, ChunkStatus status) {
-        Future<ChunkEntry> entry = this.getChunkEntryAs(chunkX, chunkZ, status);
-        if (entry == null) return null;
-
-        Future<RwGuard<ChunkEntryState>> readEntry = entry.andThen(ChunkEntry::read);
-        return readEntry.map(guard -> guard.map(ChunkEntryState::getChunk));
-    }
-
-    @Nullable
-    public Future<RwGuard<Chunk>> writeChunkAs(int chunkX, int chunkZ, ChunkStatus status) {
-        Future<ChunkEntry> entry = this.getChunkEntryAs(chunkX, chunkZ, status);
-        if (entry == null) return null;
-
-        Future<WriteRwGuard<ChunkEntryState>> writeEntry = entry.andThen(ChunkEntry::write);
-        return writeEntry.map(guard -> guard.map(ChunkEntryState::getChunk));
     }
 
     public Future<Chunk> spawnLoadChunk(ChunkEntry entry) {

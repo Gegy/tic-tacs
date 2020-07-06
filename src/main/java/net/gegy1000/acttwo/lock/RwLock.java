@@ -1,6 +1,5 @@
 package net.gegy1000.acttwo.lock;
 
-import net.gegy1000.acttwo.Mutability;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 
@@ -33,14 +32,6 @@ public final class RwLock<T> {
 
     public Future<WriteRwGuard<T>> write() {
         return new PollWrite();
-    }
-
-    public Future<? extends RwGuard<T>> acquire(Mutability mutability) {
-        if (mutability == Mutability.IMMUTABLE) {
-            return this.read();
-        } else {
-            return this.write();
-        }
     }
 
     public T getInnerUnsafe() {

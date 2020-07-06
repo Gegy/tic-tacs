@@ -63,13 +63,19 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
             ChunkEntryKernel entries = this.entryKernel;
 
             if (entries.isIdle()) {
-                // TODO: we don't need read access to *everything* that isn't being written to!
+                // TODO: problem: we must only actually lock everything once we know that *everything* is free
+                //       otherwise, when contended, we end up in a dead-locked state.
+                //          one way, although horrible, is to poll acquiring the locks by adding to the list
+                //          until we can't acquire anymore, and at that point we release everything that's existing
+                //          somehow though, we still have to be notified when the locks are unlocked, so this might not
+                //          be so useful.
 
                 // collect all the chunk entries within the kernel that still need to be upgraded to currentStatus
                 int writeCount = entries.prepareForUpgrade(this.controller.access.getMap(), this.pos, currentStatus);
 
                 if (writeCount <= 0) {
                     // if we couldn't collect any entries, we must be complete already
+                    entries.release();
                     return Unit.INSTANCE;
                 }
             }
