@@ -20,6 +20,10 @@ public final class ChunkStatusOps {
     }
 
     public static ChunkStatus[] stepsBetween(ChunkStatus start, ChunkStatus end) {
+        if (start.isAtLeast(end)) {
+            return new ChunkStatus[0];
+        }
+
         ChunkStatus[] upgrades = new ChunkStatus[end.getIndex() - start.getIndex()];
 
         ChunkStatus status = end;

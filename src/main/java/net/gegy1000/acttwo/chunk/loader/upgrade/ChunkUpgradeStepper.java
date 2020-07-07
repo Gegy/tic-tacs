@@ -67,14 +67,7 @@ final class ChunkUpgradeStepper {
     private Future<Chunk> upgradeChunk(ChunkEntryState entry, ChunkEntryKernel entryKernel, ChunkStatus status) {
         ContextView context = this.openContext(entry, entryKernel, status);
 
-        Future<Chunk> future = this.parent.controller.upgrader.runUpgradeTask(status, context);
-
-        // if we're upgrading to the full status, we need to run the finalize task too
-        if (status == ChunkStatus.FULL) {
-            ChunkUpgrader upgrader = this.parent.controller.upgrader;
-            future = future.andThen(chunk -> upgrader.runFinalizeTask(entry, ChunkStatus.FULL, chunk));
-        }
-
+        Future<Chunk> future = this.parent.controller.upgrader.runUpgradeTask(entry, status, context);
         return this.createTaskWithContext(future, context);
     }
 
@@ -156,11 +149,6 @@ final class ChunkUpgradeStepper {
             int sourceZ = targetZ + this.targetToSourceOffsetZ;
 
             int sourceIndex = sourceX + sourceZ * this.sourceSize;
-
-            if (sourceIndex < 0 || sourceIndex >= this.source.length) {
-                System.out.println(sourceIndex);
-            }
-
             return this.source[sourceIndex].getChunk();
         }
 

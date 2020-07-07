@@ -3,7 +3,7 @@ package net.gegy1000.acttwo.chunk.entry;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
-import net.gegy1000.acttwo.chunk.UnitListener;
+import net.gegy1000.acttwo.chunk.SharedUnitListener;
 import net.gegy1000.acttwo.lock.RwGuard;
 import net.gegy1000.acttwo.lock.RwLock;
 import net.gegy1000.acttwo.lock.WriteRwGuard;
@@ -30,9 +30,9 @@ public final class ChunkEntry extends ChunkHolder {
 
     private final RwLock<ChunkEntryState> state = new RwLock<>(new ChunkEntryState(this));
 
-    private final UnitListener accessibleListener = new UnitListener();
-    private final UnitListener tickableListener = new UnitListener();
-    private final UnitListener entitiesTickableListener = new UnitListener();
+    private final SharedUnitListener accessibleListener = new SharedUnitListener();
+    private final SharedUnitListener tickableListener = new SharedUnitListener();
+    private final SharedUnitListener entitiesTickableListener = new SharedUnitListener();
 
     public ChunkEntry(
             ChunkPos pos, int level,

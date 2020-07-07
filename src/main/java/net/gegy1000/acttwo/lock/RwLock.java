@@ -166,7 +166,7 @@ public final class RwLock<T> {
                 RwLock.this.registerWaiting(this, waker);
 
                 // if the lock is still acquired, there's nothing more to be done for now
-                if (RwLock.this.canAcquireWrite()) {
+                if (!RwLock.this.canAcquireWrite()) {
                     return null;
                 }
             }

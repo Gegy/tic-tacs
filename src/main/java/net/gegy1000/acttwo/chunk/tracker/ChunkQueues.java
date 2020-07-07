@@ -3,7 +3,6 @@ package net.gegy1000.acttwo.chunk.tracker;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.minecraft.util.math.ChunkPos;
@@ -11,20 +10,18 @@ import net.minecraft.util.math.ChunkPos;
 import java.util.function.LongConsumer;
 
 public final class ChunkQueues {
-    private final ChunkAccess access;
-    private final ChunkMap map;
+    private final ChunkMap chunks;
     private final LongSet unloadQueue = new LongOpenHashSet();
 
-    public ChunkQueues(ChunkAccess access) {
-        this.access = access;
-        this.map = access.getWriteableMap();
+    public ChunkQueues(ChunkMap chunks) {
+        this.chunks = chunks;
     }
 
     public ChunkEntry loadEntry(ChunkPos pos, int level) {
-        ChunkEntry entry = this.map.getEntry(pos);
+        ChunkEntry entry = this.chunks.primary().getEntry(pos);
         if (entry == null) {
-            entry = this.access.createEntry(pos, level);
-            this.map.putEntry(entry);
+            entry = this.chunks.createEntry(pos, level);
+            this.chunks.primary().putEntry(entry);
         }
 
         return entry;

@@ -4,7 +4,7 @@ import net.gegy1000.justnow.tuple.Unit;
 
 import javax.annotation.Nullable;
 
-public final class UnitListener extends SharedListener<Unit> {
+public final class SharedUnitListener extends SharedListener<Unit> {
     private volatile Unit result;
 
     @Nullable

@@ -4,7 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
 import net.gegy1000.acttwo.chunk.ChunkController;
-import net.gegy1000.acttwo.chunk.ChunkAccess;
+import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTaskPrioritySystem;
@@ -24,9 +24,9 @@ import java.util.function.IntSupplier;
 public final class ChunkLeveledTracker extends ChunkTicketManager implements ChunkHolder.LevelUpdateListener {
     public static final int MAX_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL;
 
-    private final ChunkAccess access;
+    private final ChunkMap access;
 
-    ChunkLeveledTracker(ChunkAccess access, Executor threadPool, Executor mainThread) {
+    ChunkLeveledTracker(ChunkMap access, Executor threadPool, Executor mainThread) {
         super(threadPool, mainThread);
         this.access = access;
     }
@@ -64,7 +64,7 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
                 continue;
             }
 
-            ChunkEntry entry = this.access.getWriteableMap().getEntry(pos);
+            ChunkEntry entry = this.access.primary().getEntry(pos);
             if (entry == null) {
                 throw new IllegalStateException("ticket with no entry");
             }
@@ -159,7 +159,7 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
     @Nullable
     @Override
     protected ChunkHolder getChunkHolder(long pos) {
-        return this.access.getWriteableMap().getEntry(pos);
+        return this.access.primary().getEntry(pos);
     }
 
     @Nullable

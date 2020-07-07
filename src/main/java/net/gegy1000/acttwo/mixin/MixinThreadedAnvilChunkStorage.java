@@ -91,7 +91,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     @Nullable
     @Overwrite
     public ChunkHolder getCurrentChunkHolder(long pos) {
-        return this.controller.access.getWriteableMap().getEntry(pos);
+        return this.controller.map.primary().getEntry(pos);
     }
 
     /**
@@ -101,7 +101,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     @Nullable
     @Overwrite
     public ChunkHolder getChunkHolder(long pos) {
-        return this.controller.access.getMap().getEntry(pos);
+        return this.controller.map.visible().getEntry(pos);
     }
 
     /**
@@ -166,7 +166,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
      */
     @Overwrite
     public boolean updateHolderMap() {
-        return this.controller.access.copyIntoReadOnlyMap();
+        return this.controller.map.flushToVisible();
     }
 
     /**
@@ -187,7 +187,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
      */
     @Overwrite
     public int getTotalChunksLoadedCount() {
-        return this.controller.access.getMap().getEntries().size();
+        return this.controller.map.getEntryCount();
     }
 
     /**
@@ -196,7 +196,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
      */
     @Overwrite
     public Iterable<ChunkHolder> entryIterator() {
-        return Iterables.unmodifiableIterable(this.controller.access.getMap().getEntries());
+        return Iterables.unmodifiableIterable(this.controller.map.visible().getEntries());
     }
 
     /**

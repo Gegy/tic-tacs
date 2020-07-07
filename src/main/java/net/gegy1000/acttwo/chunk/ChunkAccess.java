@@ -1,54 +1,38 @@
 package net.gegy1000.acttwo.chunk;
 
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
-import net.gegy1000.acttwo.chunk.tracker.ChunkQueues;
-import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
 
-public final class ChunkAccess {
-    private final ChunkMap writeableMap = new ChunkMap();
-    private ChunkMap map = new ChunkMap();
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import java.util.Collection;
 
-    private final LongSet fullChunks = new LongOpenHashSet();
+public interface ChunkAccess {
+    void putEntry(ChunkEntry entry);
 
-    private final ServerWorld world;
-    private final ChunkController controller;
-    private final ChunkQueues queues;
+    ChunkEntry removeEntry(long pos);
 
-    public ChunkAccess(ServerWorld world, ChunkController controller) {
-        this.world = world;
-        this.controller = controller;
-        this.queues = new ChunkQueues(this);
+    @Nullable
+    ChunkEntry getEntry(long pos);
+
+    @Nullable
+    default ChunkEntry getEntry(int chunkX, int chunkZ) {
+        return this.getEntry(ChunkPos.toLong(chunkX, chunkZ));
     }
 
-    public ChunkEntry createEntry(ChunkPos pos, int level) {
-        return new ChunkEntry(pos, level, this.world.getLightingProvider(), this.controller.tracker);
+    @Nullable
+    default ChunkEntry getEntry(ChunkPos pos) {
+        return this.getEntry(pos.toLong());
     }
 
-    public ChunkMap getWriteableMap() {
-        return this.writeableMap;
+    @Nonnull
+    default ChunkEntry expectEntry(int chunkX, int chunkZ) {
+        ChunkEntry entry = this.getEntry(chunkX, chunkZ);
+        if (entry == null) {
+            throw new IllegalStateException("expected entry at [" + chunkX + ", " + chunkZ + "]");
+        }
+        return entry;
     }
 
-    public ChunkMap getMap() {
-        return this.map;
-    }
-
-    public boolean tryAddFullChunk(ChunkPos pos) {
-        return this.fullChunks.add(pos.toLong());
-    }
-
-    public boolean tryRemoveFullChunk(ChunkPos pos) {
-        return this.fullChunks.remove(pos.toLong());
-    }
-
-    public ChunkQueues getQueues() {
-        return this.queues;
-    }
-
-    public boolean copyIntoReadOnlyMap() {
-        this.map = this.writeableMap.copy();
-        return false;
-    }
+    Collection<ChunkEntry> getEntries();
 }

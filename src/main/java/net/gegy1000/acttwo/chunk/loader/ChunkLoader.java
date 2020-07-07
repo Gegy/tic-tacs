@@ -2,6 +2,7 @@ package net.gegy1000.acttwo.chunk.loader;
 
 import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkController;
+import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
@@ -18,7 +19,6 @@ import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
 
-import javax.annotation.Nullable;
 import java.util.function.BooleanSupplier;
 
 public final class ChunkLoader {
@@ -34,35 +34,25 @@ public final class ChunkLoader {
         this.progressListener = progressListener;
     }
 
-    // TODO: can we have these not be nullable?
-
     public Future<Unit> loadRadius(ChunkPos pos, int radius, ChunkStatus status) {
-        int size = radius * 2 + 1;
+        ChunkAccess chunks = this.controller.map.visible();
 
+        int size = radius * 2 + 1;
         Future<ChunkEntry>[] futures = new Future[size * size];
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
                 int idx = (x + radius) + (z + radius) * size;
-                futures[idx] = this.getChunkEntryAs(pos.x + x, pos.z + z, status);
+                ChunkEntry entry = chunks.getEntry(pos.x + x, pos.z + z);
+                if (entry == null) {
+                    return this.controller.map.awaitFlush().andThen(unit -> this.loadRadius(pos, radius, status));
+                }
+
+                this.controller.upgrader.spawnUpgradeTo(entry, status);
+                futures[idx] = entry.getListenerFor(status);
             }
         }
 
         return new AwaitAll<>(futures);
-    }
-
-    @Nullable
-    public Future<ChunkEntry> getChunkEntryAs(ChunkPos pos, ChunkStatus status) {
-        return this.getChunkEntryAs(pos.x, pos.z, status);
-    }
-
-    @Nullable
-    public Future<ChunkEntry> getChunkEntryAs(int chunkX, int chunkZ, ChunkStatus status) {
-        ChunkEntry entry = this.controller.access.getMap().getEntry(chunkX, chunkZ);
-        if (entry == null) return null;
-
-        this.controller.upgrader.spawnUpgradeTo(entry, status);
-
-        return entry.getListenerFor(status);
     }
 
     public Future<Chunk> spawnLoadChunk(ChunkEntry entry) {
@@ -78,10 +68,10 @@ public final class ChunkLoader {
     }
 
     public void tick(BooleanSupplier runWhile) {
-        ChunkAccess access = this.controller.access;
+        ChunkMap access = this.controller.map;
         ChunkQueues queues = access.getQueues();
 
-        access.copyIntoReadOnlyMap();
+        access.flushToVisible();
 
         if (!this.world.isSavingDisabled()) {
             if (!runWhile.getAsBoolean()) return;
@@ -95,7 +85,7 @@ public final class ChunkLoader {
     }
 
     private void spawnUnloadChunk(long pos) {
-        ChunkEntry entry = this.controller.access.getWriteableMap().removeEntry(pos);
+        ChunkEntry entry = this.controller.map.primary().removeEntry(pos);
         if (entry != null) {
             this.controller.spawnOnMainThread(entry, this.unloadChunk(entry));
         }
@@ -115,7 +105,7 @@ public final class ChunkLoader {
 
                 if (chunk instanceof WorldChunk) {
                     ((WorldChunk) chunk).setLoadedToWorld(false);
-                    if (this.controller.access.tryRemoveFullChunk(pos)) {
+                    if (this.controller.map.tryRemoveFullChunk(pos)) {
                         this.world.unloadEntities((WorldChunk) chunk);
                     }
                 }

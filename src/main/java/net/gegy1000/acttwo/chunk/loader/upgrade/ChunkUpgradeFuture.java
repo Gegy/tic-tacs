@@ -1,5 +1,6 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
+import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
@@ -24,6 +25,8 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
     private final ChunkEntryKernel entryKernel;
     private final ChunkUpgradeStepper stepper;
 
+    private Future<Unit> flushListener;
+
     private ChunkUpgrade upgrade;
     private int stepIdx;
 
@@ -45,16 +48,17 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
     @Override
     public Unit poll(Waker waker) {
         if (this.upgrade == null) {
-            // to start off: find the minimum status within our kernel. from here we'll upgrade iteratively
-            ChunkStatus minimumStatus = this.findMinimumStatus();
+            ChunkUpgrade upgrade = this.pollUpgrade(waker);
+            if (upgrade == null) {
+                return null;
+            }
 
-            // if the minimum status is already our target status, there is no work to be done
-            if (minimumStatus != null && minimumStatus.isAtLeast(this.targetStatus)) {
+            // if the upgrade is determined empty, there is no work to be done
+            if (upgrade.isEmpty()) {
                 return Unit.INSTANCE;
             }
 
-            this.upgrade = new ChunkUpgrade(minimumStatus, this.targetStatus);
-//			System.out.println(this.pos + ": running upgrade with steps: " + Arrays.toString(this.upgrade.steps));
+            this.upgrade = upgrade;
         }
 
         while (true) {
@@ -63,7 +67,7 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
 
             if (entries.isIdle()) {
                 // collect all the chunk entries within the kernel that still need to be upgraded to currentStatus
-                ChunkMap chunks = this.controller.access.getMap();
+                ChunkAccess chunks = this.controller.map.visible();
 
                 if (!entries.prepareWriters(chunks, this.pos, currentStatus)) {
                     // we don't need to acquire any writers: we must be finished
@@ -84,7 +88,6 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
                     return null;
                 }
 
-                System.out.println(this.pos + ": notifying successful upgrades to " + currentStatus);
                 this.notifyChunkUpgrades(pollChunks, entries, currentStatus);
             } catch (ChunkNotLoadedException err) {
                 this.notifyChunkUpgradeError(entries, currentStatus, err);
@@ -144,33 +147,70 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     @Nullable
-    private ChunkStatus findMinimumStatus() {
+    private ChunkUpgrade pollUpgrade(Waker waker) {
+        if (this.flushListener != null) {
+            if (this.flushListener.poll(waker) == null) {
+                return null;
+            } else {
+                this.flushListener = null;
+            }
+        }
+
+        while (true) {
+            ChunkAccess chunks = this.controller.map.visible();
+
+            // acquire a flush listener now so that we can be sure nothing has changed since we checked the entries
+            ChunkMap.FlushListener flushListener = this.controller.map.awaitFlush();
+
+            ChunkUpgrade upgrade = this.prepareUpgrade(chunks, this.targetStatus);
+
+            // not all of the required entries are loaded: wait for the entry list to update
+            if (upgrade == null) {
+                // if a flush has happened since we last checked, try again now
+                if (flushListener.poll(waker) != null) {
+                    continue;
+                }
+
+                this.flushListener = flushListener;
+                return null;
+            }
+
+            // we have everything we need: we don't need to listen for flushes anymore
+            flushListener.invalidate();
+
+            return upgrade;
+        }
+    }
+
+    @Nullable
+    private ChunkUpgrade prepareUpgrade(ChunkAccess chunks, ChunkStatus targetStatus) {
         int centerX = this.pos.x;
         int centerZ = this.pos.z;
 
         ChunkStatus minimumStatus = ChunkStatus.FULL;
 
-        ChunkMap chunks = this.controller.access.getMap();
-
         int radius = this.upgradeKernel.getRadius();
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
                 ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);
+
+                // all chunk entries must be available before upgrading
                 if (entry == null) {
                     return null;
                 }
 
-                ChunkStatus status = entry.getCurrentStatus();
-                if (status == null) {
-                    return null;
+                // we've reached the absolute minimum status: no point comparing
+                if (minimumStatus == null) {
+                    continue;
                 }
 
-                if (!minimumStatus.isAtLeast(status)) {
+                ChunkStatus status = entry.getCurrentStatus();
+                if (status == null || !minimumStatus.isAtLeast(status)) {
                     minimumStatus = status;
                 }
             }
         }
 
-        return minimumStatus;
+        return new ChunkUpgrade(minimumStatus, targetStatus);
     }
 }

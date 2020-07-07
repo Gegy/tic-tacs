@@ -3,7 +3,6 @@ package net.gegy1000.acttwo.chunk.loader.upgrade;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
-import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.VanillaChunkFuture;
@@ -11,6 +10,7 @@ import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 import net.gegy1000.acttwo.chunk.worker.ChunkWorker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
@@ -63,30 +63,30 @@ public final class ChunkUpgrader {
         return new ChunkUpgradeFuture(this.controller, entry.getPos(), status);
     }
 
-    Future<Chunk> runUpgradeTask(ChunkStatus status, List<Chunk> context) {
+    Future<Chunk> runUpgradeTask(ChunkEntryState entry, ChunkStatus status, List<Chunk> context) {
         return VanillaChunkFuture.of(status.runTask(
                 this.world,
                 this.generator,
                 this.structures,
                 this.lighting,
-                c -> CompletableFuture.completedFuture(Either.left(c)),
+                chunk -> this.runFinalizeTask(entry, status, chunk),
                 context
         ));
     }
 
-    Future<Chunk> runFinalizeTask(ChunkEntryState entry, ChunkStatus status, Chunk chunk) {
+    CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> runFinalizeTask(ChunkEntryState entry, ChunkStatus status, Chunk chunk) {
         if (status == ChunkStatus.FULL) {
-            FutureHandle<Chunk> handle = new FutureHandle<>();
+            CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> completableFuture = new CompletableFuture<>();
 
             this.controller.spawnOnMainThread(entry.parent, () -> {
-                WorldChunk worldChunk = entry.finalizeChunk(this.world, this.controller.access::tryAddFullChunk);
-                handle.complete(worldChunk);
+                WorldChunk worldChunk = entry.finalizeChunk(this.world, this.controller.map::tryAddFullChunk);
+                completableFuture.complete(Either.left(worldChunk));
             });
 
-            return handle;
+            return completableFuture;
         }
 
-        return Future.ready(chunk);
+        return CompletableFuture.completedFuture(Either.left(chunk));
     }
 
     void completeUpgradeOk(ChunkEntryState entry, ChunkStatus status, Chunk chunk) {

@@ -16,6 +16,10 @@ public final class ChunkUpgrade {
         this.steps = fixSteps(steps);
     }
 
+    public boolean isEmpty() {
+        return this.steps.length == 0;
+    }
+
     private static ChunkStatus[] fixSteps(ChunkStatus[] steps) {
         // TODO
         return steps;

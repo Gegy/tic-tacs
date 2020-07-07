@@ -1,6 +1,6 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
-import net.gegy1000.acttwo.chunk.ChunkMap;
+import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.lock.JoinedRead;
@@ -25,6 +25,9 @@ final class ChunkEntryKernel {
     private final RwLock<ChunkEntryState>[] writeLocks;
     private final RwLock<ChunkEntryState>[] readLocks;
 
+    // TODO: there is a chance that we don't need the joined read/write at all: when choosing to pursue this,
+    //       there was a bug in the code that would mean way too many entries attempted to acquire write access
+    //       when they didn't need it.
     private final JoinedRead<ChunkEntryState> joinedRead;
     private final JoinedWrite<ChunkEntryState> joinedWrite;
 
@@ -48,7 +51,7 @@ final class ChunkEntryKernel {
         this.joinedWrite = new JoinedWrite<>(this.writeLocks, this.entries);
     }
 
-    public boolean prepareWriters(ChunkMap chunks, ChunkPos pos, ChunkStatus targetStatus) {
+    public boolean prepareWriters(ChunkAccess chunks, ChunkPos pos, ChunkStatus targetStatus) {
         this.idle = false;
 
         int writeCount = 0;
@@ -60,10 +63,7 @@ final class ChunkEntryKernel {
 
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
-                ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);
-                if (entry == null) {
-                    continue;
-                }
+                ChunkEntry entry = chunks.expectEntry(x + centerX, z + centerZ);
 
                 int idx = (x + radius) + (z + radius) * size;
 
@@ -84,7 +84,7 @@ final class ChunkEntryKernel {
     }
 
     // TODO: there is a lot of iteration here
-    public void prepareReaders(ChunkMap chunks, ChunkPos pos, ChunkStatus targetStatus) {
+    public void prepareReaders(ChunkAccess chunks, ChunkPos pos, ChunkStatus targetStatus) {
         int radius = this.kernel.getRadius();
         int size = this.kernel.getSize();
 
@@ -101,7 +101,7 @@ final class ChunkEntryKernel {
         }
     }
 
-    private void addMargin(ChunkMap chunks, ChunkPos pos, int centerX, int centerZ, int margin) {
+    private void addMargin(ChunkAccess chunks, ChunkPos pos, int centerX, int centerZ, int margin) {
         RwLock<ChunkEntryState>[] writeLocks = this.writeLocks;
 
         int radius = this.kernel.getRadius();
@@ -117,11 +117,7 @@ final class ChunkEntryKernel {
                 int idx = (x + radius) + (z + radius) * size;
 
                 if (writeLocks[idx] == null) {
-                    ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
-                    if (entry == null) {
-                        continue;
-                    }
-
+                    ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
                     this.readLocks[idx] = entry.getState();
                 }
             }
@@ -161,6 +157,7 @@ final class ChunkEntryKernel {
     public void release() {
         Arrays.fill(this.writeLocks, null);
         Arrays.fill(this.readLocks, null);
+        Arrays.fill(this.entries, null);
 
         if (this.writeEntries != null) {
             this.writeEntries.release();
