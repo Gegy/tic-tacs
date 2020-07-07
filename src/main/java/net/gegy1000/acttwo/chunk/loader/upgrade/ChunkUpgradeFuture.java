@@ -15,14 +15,14 @@ import net.minecraft.world.chunk.ChunkStatus;
 
 import javax.annotation.Nullable;
 
-public final class ChunkUpgradeFuture implements Future<Unit> {
+final class ChunkUpgradeFuture implements Future<Unit> {
     final ChunkController controller;
 
     final ChunkPos pos;
     final ChunkStatus targetStatus;
     final ChunkUpgradeKernel upgradeKernel;
 
-    private final ChunkEntryKernel entryKernel;
+    private final AcquireChunkEntries acquireEntries;
     private final ChunkUpgradeStepper stepper;
 
     private Future<Unit> flushListener;
@@ -40,7 +40,7 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
         this.targetStatus = targetStatus;
 
         this.upgradeKernel = ChunkUpgradeKernel.byStatus(targetStatus);
-        this.entryKernel = new ChunkEntryKernel(this.upgradeKernel);
+        this.acquireEntries = new AcquireChunkEntries(this.upgradeKernel, controller.map);
         this.stepper = new ChunkUpgradeStepper(this);
     }
 
@@ -63,40 +63,33 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
 
         while (true) {
             ChunkStatus currentStatus = this.upgrade.steps[this.stepIdx];
-            ChunkEntryKernel entries = this.entryKernel;
+            AcquireChunkEntries acquireEntries = this.acquireEntries;
 
-            if (entries.isIdle()) {
-                // collect all the chunk entries within the kernel that still need to be upgraded to currentStatus
-                ChunkAccess chunks = this.controller.map.visible();
-
-                if (!entries.prepareWriters(chunks, this.pos, currentStatus)) {
-                    // we don't need to acquire any writers: we must be finished
-                    return Unit.INSTANCE;
-                }
-
-                entries.prepareReaders(chunks, this.pos, currentStatus);
+            if (!acquireEntries.isReady()) {
+                acquireEntries.prepare(this.pos, currentStatus);
             }
 
-            // wait to acquire access to all the required entries
-            if (entries.pollEntries(waker) == null) {
+            // poll to acquire read/write access to all the relevant entries
+            AcquiredChunks chunks = acquireEntries.poll(waker);
+            if (chunks == null) {
                 return null;
             }
 
             try {
-                Chunk[] pollChunks = this.stepper.pollStep(waker, entries, currentStatus);
+                Chunk[] pollChunks = this.stepper.pollStep(waker, chunks, currentStatus);
                 if (pollChunks == null) {
                     return null;
                 }
 
-                this.notifyChunkUpgrades(pollChunks, entries, currentStatus);
+                this.notifyChunkUpgrades(pollChunks, chunks, currentStatus);
             } catch (ChunkNotLoadedException err) {
-                this.notifyChunkUpgradeError(entries, currentStatus, err);
+                this.notifyChunkUpgradeError(chunks, currentStatus, err);
                 throw err;
             }
 
             // we're done with the current step: release all locks and allocations
             this.stepper.reset();
-            entries.release();
+            acquireEntries.release();
 
             if (++this.stepIdx >= this.upgrade.steps.length) {
                 // we've finished upgrading this chunk!
@@ -105,8 +98,8 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
         }
     }
 
-    private void notifyChunkUpgrades(Chunk[] chunks, ChunkEntryKernel entryKernel, ChunkStatus status) {
-        ChunkEntryState[] entries = entryKernel.getEntries();
+    private void notifyChunkUpgrades(Chunk[] chunks, AcquiredChunks acquiredChunks, ChunkStatus status) {
+        ChunkEntryState[] entries = acquiredChunks.writerEntries;
 
         int radius = this.upgradeKernel.getRadius();
         int size = this.upgradeKernel.getSize();
@@ -126,8 +119,8 @@ public final class ChunkUpgradeFuture implements Future<Unit> {
         }
     }
 
-    private void notifyChunkUpgradeError(ChunkEntryKernel entryKernel, ChunkStatus status, ChunkNotLoadedException err) {
-        ChunkEntryState[] entries = entryKernel.getEntries();
+    private void notifyChunkUpgradeError(AcquiredChunks chunks, ChunkStatus status, ChunkNotLoadedException err) {
+        ChunkEntryState[] entries = chunks.writerEntries;
 
         int radius = this.upgradeKernel.getRadius();
         int size = this.upgradeKernel.getSize();

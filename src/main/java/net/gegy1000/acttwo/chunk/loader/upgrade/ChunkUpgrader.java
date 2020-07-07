@@ -55,6 +55,7 @@ public final class ChunkUpgrader {
             return;
         }
 
+        // TODO: we should notify of our target status already here so that this doesn't get spawned again
         this.worker.spawn(entry, this.upgradeTo(entry, status));
     }
 

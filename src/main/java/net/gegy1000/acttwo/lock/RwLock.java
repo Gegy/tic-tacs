@@ -38,27 +38,25 @@ public final class RwLock<T> {
         return this.inner;
     }
 
-    void registerWaiting(Waiting waiting, Waker waker) {
-        // initialize the waker on the waiting object
-        waiting.waker = waker;
-
-        // this waiting object is already registered to the queue
-        if (waiting.previous != null) {
-            return;
-        }
-
-        while (true) {
-            // try swap the root node with our node. if it fails, try again
-            Waiting root = this.waiting.get();
-            waiting.previous = root;
-
-            if (this.waiting.compareAndSet(root, waiting)) {
-                return;
-            }
-        }
+    public boolean tryAcquireRead() {
+        int state = this.state.get();
+        return state != WRITING && RwLock.this.state.compareAndSet(state, state + 1);
     }
 
-    void releaseWrite() {
+    public boolean canAcquireRead() {
+        return this.state.get() != WRITING;
+    }
+
+    public boolean tryAcquireWrite() {
+        int state = this.state.get();
+        return state == FREE && RwLock.this.state.compareAndSet(FREE, WRITING);
+    }
+
+    public boolean canAcquireWrite() {
+        return this.state.get() == FREE;
+    }
+
+    public void releaseWrite() {
         if (!this.state.compareAndSet(WRITING, FREE)) {
             throw new IllegalStateException("write lock not acquired");
         }
@@ -66,7 +64,7 @@ public final class RwLock<T> {
         this.wake();
     }
 
-    void releaseRead() {
+    public void releaseRead() {
         int state = this.state.getAndDecrement();
         if (state <= 0) {
             throw new IllegalStateException("read lock not acquired");
@@ -78,6 +76,32 @@ public final class RwLock<T> {
         }
     }
 
+    public void registerWaiting(Waiting waiting, Waker waker) {
+        // initialize the waker on the waiting object
+        waiting.waker = waker;
+
+        // this waiting object is already registered to the queue
+        if (waiting.previous != null) {
+            return;
+        }
+
+        while (true) {
+            // try swap the root node with our node. if it fails, try again
+            Waiting root = this.waiting.get();
+
+            // this waiting object is already registered to the queue
+            if (root == waiting) {
+                return;
+            }
+
+            waiting.previous = root;
+
+            if (this.waiting.compareAndSet(root, waiting)) {
+                return;
+            }
+        }
+    }
+
     private void wake() {
         Waiting waiting = this.waiting.getAndSet(null);
         if (waiting != null) {
@@ -85,37 +109,21 @@ public final class RwLock<T> {
         }
     }
 
-    boolean tryAcquireRead() {
-        int state = this.state.get();
-        return state != WRITING && RwLock.this.state.compareAndSet(state, state + 1);
-    }
-
-    boolean canAcquireRead() {
-        return this.state.get() != WRITING;
-    }
-
-    boolean tryAcquireWrite() {
-        int state = this.state.get();
-        return state == FREE && RwLock.this.state.compareAndSet(FREE, WRITING);
-    }
-
-    boolean canAcquireWrite() {
-        return this.state.get() == FREE;
-    }
-
-    static class Waiting {
+    public static class Waiting {
         // we don't need atomic here because they can only be modified by their owner
         volatile Waker waker;
         volatile Waiting previous;
 
         void wake() {
-            Waiting next = this.previous;
-            if (next != null) {
-                next.wake();
+            Waiting previous = this.previous;
+            if (previous != null) {
+                this.previous = null;
+                previous.wake();
             }
 
             Waker waker = this.waker;
             if (waker != null) {
+                this.waker = null;
                 waker.wake();
             }
         }

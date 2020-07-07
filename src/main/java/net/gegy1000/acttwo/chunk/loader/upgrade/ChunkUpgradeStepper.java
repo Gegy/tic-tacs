@@ -41,42 +41,42 @@ final class ChunkUpgradeStepper {
     }
 
     @Nullable
-    Chunk[] pollStep(Waker waker, ChunkEntryKernel entries, ChunkStatus status) {
+    Chunk[] pollStep(Waker waker, AcquiredChunks chunks, ChunkStatus status) {
         Future<Chunk>[] tasks = this.tasks;
 
         if (!this.pollingTasks) {
             this.pollingTasks = true;
             if (status == ChunkStatus.EMPTY) {
-                this.openLoadTasks(entries, tasks);
+                this.openLoadTasks(chunks, tasks);
             } else {
-                this.openUpgradeTasks(entries, status, tasks);
+                this.openUpgradeTasks(chunks, status, tasks);
             }
         }
 
         return JoinAllArray.poll(waker, tasks, this.chunks);
     }
 
-    private void openUpgradeTasks(ChunkEntryKernel entries, ChunkStatus status, Future<Chunk>[] tasks) {
-        entries.openWriteTasks(tasks, entry -> this.upgradeChunk(entry, entries, status));
+    private void openUpgradeTasks(AcquiredChunks chunks, ChunkStatus status, Future<Chunk>[] tasks) {
+        chunks.openWriteTasks(tasks, entry -> this.upgradeChunk(entry, chunks, status));
     }
 
-    private void openLoadTasks(ChunkEntryKernel entries, Future<Chunk>[] tasks) {
-        entries.openWriteTasks(tasks, this::loadChunk);
+    private void openLoadTasks(AcquiredChunks chunks, Future<Chunk>[] tasks) {
+        chunks.openWriteTasks(tasks, this::loadChunk);
     }
 
-    private Future<Chunk> upgradeChunk(ChunkEntryState entry, ChunkEntryKernel entryKernel, ChunkStatus status) {
-        ContextView context = this.openContext(entry, entryKernel, status);
+    private Future<Chunk> upgradeChunk(ChunkEntryState entry, AcquiredChunks chunks, ChunkStatus status) {
+        ContextView context = this.openContext(entry, chunks, status);
 
         Future<Chunk> future = this.parent.controller.upgrader.runUpgradeTask(entry, status, context);
         return this.createTaskWithContext(future, context);
     }
 
-    private ContextView openContext(ChunkEntryState entry, ChunkEntryKernel entryKernel, ChunkStatus status) {
+    private ContextView openContext(ChunkEntryState entry, AcquiredChunks chunks, ChunkStatus status) {
         ContextView context = CONTEXT_POOL.acquire();
         ChunkPos targetPos = entry.getPos();
         int targetRadius = status.getTaskMargin();
 
-        context.open(this.parent.pos, entryKernel, targetPos, targetRadius);
+        context.open(this.parent.pos, chunks, targetPos, targetRadius);
 
         return context;
     }
@@ -120,25 +120,21 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private ChunkEntryState[] source;
-        private int sourceSize;
+        private AcquiredChunks source;
         private int targetSize;
 
         private int targetToSourceOffsetX;
         private int targetToSourceOffsetZ;
 
         void open(
-                ChunkPos sourceOrigin, ChunkEntryKernel entryKernel,
+                ChunkPos sourceOrigin, AcquiredChunks chunks,
                 ChunkPos targetOrigin, int targetRadius
         ) {
-            int sourceRadius = entryKernel.getRadius();
-            this.source = entryKernel.getEntries();
-
-            this.sourceSize = sourceRadius * 2 + 1;
+            this.source = chunks;
             this.targetSize = targetRadius * 2 + 1;
 
-            this.targetToSourceOffsetX = (targetOrigin.x - targetRadius) - (sourceOrigin.x - sourceRadius);
-            this.targetToSourceOffsetZ = (targetOrigin.z - targetRadius) - (sourceOrigin.z - sourceRadius);
+            this.targetToSourceOffsetX = (targetOrigin.x - targetRadius) - sourceOrigin.x;
+            this.targetToSourceOffsetZ = (targetOrigin.z - targetRadius) - sourceOrigin.z;
         }
 
         @Override
@@ -148,8 +144,12 @@ final class ChunkUpgradeStepper {
             int sourceX = targetX + this.targetToSourceOffsetX;
             int sourceZ = targetZ + this.targetToSourceOffsetZ;
 
-            int sourceIndex = sourceX + sourceZ * this.sourceSize;
-            return this.source[sourceIndex].getChunk();
+            ChunkEntryState entry = this.source.getEntry(sourceX, sourceZ);
+            if (entry == null) {
+                return null;
+            }
+
+            return entry.getChunk();
         }
 
         @Override

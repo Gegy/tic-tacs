@@ -37,8 +37,12 @@ final class ChunkUpgradeKernel {
     }
 
     public ChunkStatus get(int x, int z) {
-        int idx = (x + this.radius) + (z + this.radius) * this.size;
+        int idx = this.index(x, z);
         return this.table[idx];
+    }
+
+    public int index(int x, int z) {
+        return (x + this.radius) + (z + this.radius) * this.size;
     }
 
     private static ChunkUpgradeKernel createForStatus(ChunkStatus focusStatus) {
