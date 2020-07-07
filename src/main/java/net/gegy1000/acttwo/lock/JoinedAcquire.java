@@ -50,34 +50,18 @@ public abstract class JoinedAcquire extends RwLock.Waiting {
 
     protected abstract <T> void releaseLock(RwLock<T> lock);
 
-    private <T> boolean tryAcquireLocks(RwLock<T>[] locks) {
+    @Nullable
+    private <T> RwLock<T> tryAcquireLocks(RwLock<T>[] locks) {
         for (int i = 0; i < locks.length; i++) {
             RwLock<T> lock = locks[i];
             if (lock != null && !this.tryAcquireLock(lock)) {
                 // if we failed to acquire, we need to release all the locks before us
                 this.releaseUpTo(locks, i);
-                return false;
+                return lock;
             }
         }
 
-        return true;
-    }
-
-    private <T> boolean canAcquireLocks(RwLock<T>[] locks) {
-        for (RwLock<T> lock : locks) {
-            if (lock != null && !this.canAcquireLock(lock)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private <T> void registerWaker(Waker waker, RwLock<T>[] locks) {
-        for (RwLock<T> lock : locks) {
-            if (lock != null) {
-                lock.registerWaiting(this, waker);
-            }
-        }
+        return null;
     }
 
     @Nullable
@@ -87,15 +71,16 @@ public abstract class JoinedAcquire extends RwLock.Waiting {
             this.invalidateWaker();
 
             // if we are able to successfully acquire every lock, return our result
-            if (this.tryAcquireLocks(locks)) {
+            RwLock<T> blockingLock = this.tryAcquireLocks(locks);
+            if (blockingLock == null) {
                 return this.makeResult(locks, result);
             }
 
-            // we failed to acquire the Write lock, register our waker
-            this.registerWaker(waker, locks);
+            // we failed to acquire the locks, register our waker
+            blockingLock.registerWaiting(this, waker);
 
-            // if anything is still locked, there's nothing more we can do for now
-            if (!this.canAcquireLocks(locks)) {
+            // if we're still blocked, there's nothing more we can do for now
+            if (!this.canAcquireLock(blockingLock)) {
                 return null;
             }
         }

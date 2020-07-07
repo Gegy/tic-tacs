@@ -119,9 +119,7 @@ final class AcquireChunkEntries implements Future<AcquiredChunks> {
         return this.readerLocks;
     }
 
-    private void addReaderMargin(
-            int centerX, int centerZ, int margin
-    ) {
+    private void addReaderMargin(int centerX, int centerZ, int margin) {
         ChunkAccess chunks = this.chunkMap.visible();
 
         ChunkPos pos = this.pos;
