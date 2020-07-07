@@ -50,10 +50,6 @@ public final class ChunkEntryState {
         return this.status;
     }
 
-    public boolean canUpgradeTo(ChunkStatus targetStatus) {
-        return this.status == null || !this.status.isAtLeast(targetStatus);
-    }
-
     public void completeUpgradeOk(ChunkStatus status, Chunk chunk) {
         this.includeStatus(status);
         this.chunk = chunk;

@@ -20,6 +20,7 @@ import net.minecraft.world.chunk.light.LightingProvider;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 public final class ChunkEntry extends ChunkHolder {
     private static final LevelUpdateListener LEVEL_UPDATE_LISTENER = (pos, get, level, set) -> set.accept(level);
@@ -29,6 +30,8 @@ public final class ChunkEntry extends ChunkHolder {
     final ChunkEntryListener[] listeners = new ChunkEntryListener[STATUSES.length];
 
     private final RwLock<ChunkEntryState> state = new RwLock<>(new ChunkEntryState(this));
+
+    private final AtomicReference<ChunkStatus> spawnedStatus = new AtomicReference<>();
 
     private final SharedUnitListener accessibleListener = new SharedUnitListener();
     private final SharedUnitListener tickableListener = new SharedUnitListener();
@@ -67,14 +70,29 @@ public final class ChunkEntry extends ChunkHolder {
         return this.state.getInnerUnsafe().getCurrentStatus();
     }
 
-    public boolean canUpgradeTo(ChunkStatus status) {
-        if (!this.getTargetStatus().isAtLeast(status)) {
+    public boolean trySpawnUpgradeTo(ChunkStatus toStatus) {
+        while (true) {
+            ChunkStatus fromStatus = this.spawnedStatus.get();
+            if (fromStatus != null && fromStatus.isAtLeast(toStatus)) {
+                return false;
+            }
+
+            if (this.spawnedStatus.compareAndSet(fromStatus, toStatus)) {
+                return true;
+            }
+        }
+    }
+
+    public boolean canUpgradeTo(ChunkStatus toStatus) {
+        if (!this.getTargetStatus().isAtLeast(toStatus)) {
             return false;
         }
 
         // safety: status can never be downgraded, so this should always be safe
         ChunkEntryState peekState = this.state.getInnerUnsafe();
-        return peekState.canUpgradeTo(status);
+
+        ChunkStatus currentStatus = peekState.getCurrentStatus();
+        return currentStatus == null || !currentStatus.isAtLeast(toStatus);
     }
 
     public ChunkStatus getTargetStatus() {
