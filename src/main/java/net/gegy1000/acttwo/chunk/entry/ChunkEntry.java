@@ -20,12 +20,16 @@ import net.minecraft.world.chunk.light.LightingProvider;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ChunkEntry extends ChunkHolder {
     private static final LevelUpdateListener LEVEL_UPDATE_LISTENER = (pos, get, level, set) -> set.accept(level);
 
     private static final ChunkStatus[] STATUSES = ChunkStatus.createOrderedList().toArray(new ChunkStatus[0]);
+
+    private static final ConcurrentMap<ChunkPos, Future<Unit>> TICKABLE_PENDING = new ConcurrentHashMap<>();
 
     final ChunkEntryListener[] listeners = new ChunkEntryListener[STATUSES.length];
 
@@ -128,18 +132,23 @@ public final class ChunkEntry extends ChunkHolder {
         if (isTicking != wasTicking) {
             if (isTicking) {
                 Future<Unit> future = controller.loader.loadRadius(this.pos, 1, ChunkStatus.FULL);
-                controller.spawnOnMainThread(this, future.andThen(unit -> this.write()).map(guard -> {
+                Future<Unit> pending = future.andThen(unit -> this.write()).map(guard -> {
                     try {
                         ChunkEntryState state = guard.get();
                         state.makeChunkTickable(controller);
+                        controller.map.incrementTickingChunksLoaded();
 
                         this.tickableListener.complete();
                     } finally {
                         guard.release();
+                        TICKABLE_PENDING.remove(this.pos);
                     }
 
                     return Unit.INSTANCE;
-                }));
+                });
+
+                TICKABLE_PENDING.put(this.pos, pending);
+                controller.spawnOnMainThread(this, pending);
             } else {
                 this.tickableListener.reset();
             }

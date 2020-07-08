@@ -37,6 +37,8 @@ public final class ChunkLoader {
     public Future<Unit> loadRadius(ChunkPos pos, int radius, ChunkStatus status) {
         ChunkAccess chunks = this.controller.map.visible();
 
+        ChunkMap.FlushListener flushListener = this.controller.map.awaitFlush();
+
         int size = radius * 2 + 1;
         Future<ChunkEntry>[] futures = new Future[size * size];
         for (int z = -radius; z <= radius; z++) {
@@ -44,13 +46,15 @@ public final class ChunkLoader {
                 int idx = (x + radius) + (z + radius) * size;
                 ChunkEntry entry = chunks.getEntry(pos.x + x, pos.z + z);
                 if (entry == null) {
-                    return this.controller.map.awaitFlush().andThen(unit -> this.loadRadius(pos, radius, status));
+                    return flushListener.andThen(unit -> this.loadRadius(pos, radius, status));
                 }
 
                 this.controller.upgrader.spawnUpgradeTo(entry, status);
                 futures[idx] = entry.getListenerFor(status);
             }
         }
+
+        flushListener.invalidate();
 
         return new AwaitAll<>(futures);
     }

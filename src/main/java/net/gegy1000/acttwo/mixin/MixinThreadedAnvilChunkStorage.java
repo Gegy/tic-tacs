@@ -187,6 +187,15 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
      */
     @Overwrite
     public int getTotalChunksLoadedCount() {
+        return this.controller.map.getTickingChunksLoaded();
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public int getLoadedChunkCount() {
         return this.controller.map.getEntryCount();
     }
 

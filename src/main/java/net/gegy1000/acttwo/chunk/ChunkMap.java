@@ -38,6 +38,7 @@ public final class ChunkMap {
     private final ChunkAccess visible = new Visible();
 
     private final LongSet fullChunks = new LongOpenHashSet();
+    private final AtomicInteger tickingChunksLoaded = new AtomicInteger();
 
     private final AtomicReference<FlushListener> flushListener = new AtomicReference<>();
 
@@ -78,6 +79,10 @@ public final class ChunkMap {
 
     public boolean tryRemoveFullChunk(ChunkPos pos) {
         return this.fullChunks.remove(pos.toLong());
+    }
+
+    public void incrementTickingChunksLoaded() {
+        this.tickingChunksLoaded.getAndIncrement();
     }
 
     public ChunkQueues getQueues() {
@@ -123,6 +128,10 @@ public final class ChunkMap {
 
     public int getEntryCount() {
         return this.primaryEntries.size();
+    }
+
+    public int getTickingChunksLoaded() {
+        return this.tickingChunksLoaded.get();
     }
 
     void lockWrite() {

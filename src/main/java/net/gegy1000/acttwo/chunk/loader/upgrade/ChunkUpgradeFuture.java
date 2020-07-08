@@ -82,20 +82,24 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                 }
 
                 this.notifyChunkUpgrades(pollChunks, chunks, currentStatus);
+                this.releaseStep();
             } catch (ChunkNotLoadedException err) {
                 this.notifyChunkUpgradeError(chunks, currentStatus, err);
+                this.releaseStep();
+
                 throw err;
             }
-
-            // we're done with the current step: release all locks and allocations
-            this.stepper.reset();
-            acquireEntries.release();
 
             if (++this.stepIdx >= this.upgrade.steps.length) {
                 // we've finished upgrading this chunk!
                 return Unit.INSTANCE;
             }
         }
+    }
+
+    private void releaseStep() {
+        this.stepper.reset();
+        this.acquireEntries.release();
     }
 
     private void notifyChunkUpgrades(Chunk[] chunks, AcquiredChunks acquiredChunks, ChunkStatus status) {
