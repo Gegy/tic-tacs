@@ -90,7 +90,7 @@ public abstract class JoinedAcquire extends RwLock.Waiting {
         for (int i = 0; i < locks.length; i++) {
             RwLock<T> lock = locks[i];
             if (lock != null) {
-                result[i] = lock.inner;
+                result[i] = lock.getInnerUnsafe();
             }
         }
 
@@ -102,7 +102,11 @@ public abstract class JoinedAcquire extends RwLock.Waiting {
 
             @Override
             public void release() {
-                JoinedAcquire.this.releaseUpTo(locks, locks.length);
+                for (RwLock<T> lock : locks) {
+                    if (lock != null) {
+                        JoinedAcquire.this.releaseLock(lock);
+                    }
+                }
                 Arrays.fill(locks, null);
                 Arrays.fill(result, null);
             }

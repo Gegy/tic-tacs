@@ -29,7 +29,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     final ChunkEntryListener[] listeners = new ChunkEntryListener[STATUSES.length];
 
-    private final RwLock<ChunkEntryState> state = new RwLock<>(new ChunkEntryState(this));
+    private final RwLock<ChunkEntryState> state = RwLock.create(new ChunkEntryState(this));
 
     private final AtomicReference<ChunkStatus> spawnedStatus = new AtomicReference<>();
 

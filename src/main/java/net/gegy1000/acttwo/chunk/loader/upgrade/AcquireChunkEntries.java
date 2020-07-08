@@ -150,8 +150,12 @@ final class AcquireChunkEntries implements Future<AcquiredChunks> {
             return null;
         }
 
-        if (this.needsReaders() && !this.pollReaders(waker)) {
-            return null;
+        if (this.needsReaders()) {
+            if (!this.pollReaders(waker)) {
+                this.writerGuard.release();
+                this.writerGuard = null;
+                return null;
+            }
         }
 
         return this.acquiredChunks;
