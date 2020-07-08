@@ -6,7 +6,8 @@
   "mixins": [
     "MixinServerChunkManager",
     "MixinTaskExecutor",
-    "MixinThreadedAnvilChunkStorage"
+    "MixinThreadedAnvilChunkStorage",
+    "MixinWeightedList"
   ],
   "injectors": {
     "defaultRequire": 1
