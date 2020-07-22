@@ -3,8 +3,6 @@ package net.gegy1000.acttwo.chunk.worker;
 import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ChunkHolder;
 
-import java.util.List;
-
 public final class ChunkExecutor implements AutoCloseable {
     private final ChunkTaskQueue queue = new ChunkTaskQueue();
 
@@ -14,11 +12,9 @@ public final class ChunkExecutor implements AutoCloseable {
     }
 
     public void run() throws InterruptedException {
-        List<ChunkTask<?>> queue;
-        while ((queue = this.queue.take()) != null) {
-            for (ChunkTask<?> task : queue) {
-                task.advance();
-            }
+        ChunkTask<?> task;
+        while ((task = this.queue.take()) != null) {
+            task.advance();
         }
     }
 

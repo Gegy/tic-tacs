@@ -4,6 +4,7 @@ import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -16,6 +17,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     private volatile boolean open = true;
 
     private final Object lock = new Object();
+    private Runnable notify;
 
     public ChunkTaskQueue() {
         this.levels = new Level[LEVEL_COUNT];
@@ -24,6 +26,11 @@ public final class ChunkTaskQueue implements AutoCloseable {
         }
 
         this.minLevel = LEVEL_COUNT;
+    }
+
+    // TODO: don't like this
+    public void onNotify(Runnable notify) {
+        this.notify = notify;
     }
 
     public void enqueue(ChunkTask<?> task) {
@@ -40,21 +47,23 @@ public final class ChunkTaskQueue implements AutoCloseable {
                 this.lock.notify();
             }
         }
+
+        if (this.notify != null) {
+            this.notify.run();
+        }
     }
 
     // TODO: can we make this faster / reduce queue allocation?
     //         we can make use of LockSupport.park/unpark and atomics and avoid the lock
 
     @Nullable
-    public List<ChunkTask<?>> take() throws InterruptedException {
+    public ChunkTask<?> take() throws InterruptedException {
         while (this.open) {
             synchronized (this.lock) {
                 if (this.minLevel < LEVEL_COUNT) {
-                    Level level = this.levels[this.minLevel];
-                    List<ChunkTask<?>> tasks = level.take();
-                    if (tasks != null) {
-                        this.findMinLevel();
-                        return tasks;
+                    ChunkTask<?> task = this.tryTakeTask(this.minLevel);
+                    if (task != null) {
+                        return task;
                     }
                 }
 
@@ -66,14 +75,13 @@ public final class ChunkTaskQueue implements AutoCloseable {
     }
 
     @Nullable
-    public List<ChunkTask<?>> remove() {
+    public ChunkTask<?> remove() {
         synchronized (this.lock) {
-            if (this.minLevel < LEVEL_COUNT) {
-                Level level = this.levels[this.minLevel];
-                List<ChunkTask<?>> tasks = level.take();
-                if (tasks != null) {
-                    this.findMinLevel();
-                    return tasks;
+            int minLevel = this.minLevel;
+            if (minLevel < LEVEL_COUNT) {
+                ChunkTask<?> task = this.tryTakeTask(minLevel);
+                if (task != null) {
+                    return task;
                 }
             }
         }
@@ -81,12 +89,21 @@ public final class ChunkTaskQueue implements AutoCloseable {
         return null;
     }
 
-    private void findMinLevel() {
-        while (++this.minLevel < LEVEL_COUNT) {
-            if (!this.levels[this.minLevel].isEmpty()) {
-                break;
-            }
+    @Nullable
+    private ChunkTask<?> tryTakeTask(int level) {
+        ChunkTask<?> task = this.levels[level].take();
+        if (task != null) {
+            this.minLevel = this.findMinLevel(level);
+            return task;
         }
+        return null;
+    }
+
+    private int findMinLevel(int level) {
+        while (level < LEVEL_COUNT && this.levels[level].isEmpty()) {
+            level++;
+        }
+        return level;
     }
 
     @Override
@@ -101,17 +118,24 @@ public final class ChunkTaskQueue implements AutoCloseable {
         return new Waker(task);
     }
 
+    public boolean isEmpty() {
+        for (Level level : this.levels) {
+            if (!level.isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     static class Level {
-        List<ChunkTask<?>> queue = this.newQueue();
+        LinkedList<ChunkTask<?>> queue = new LinkedList<>();
 
         void enqueue(ChunkTask<?> task) {
             this.queue.add(task);
         }
 
-        List<ChunkTask<?>> take() {
-            List<ChunkTask<?>> queue = this.queue;
-            this.queue = this.newQueue();
-            return queue;
+        ChunkTask<?> take() {
+            return this.queue.remove();
         }
 
         boolean isEmpty() {

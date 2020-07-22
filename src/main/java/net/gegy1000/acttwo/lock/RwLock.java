@@ -39,16 +39,20 @@ public interface RwLock<T> {
         volatile Waiting previous;
 
         void wake() {
-            Waiting previous = this.previous;
-            if (previous != null) {
-                this.previous = null;
-                previous.wake();
-            }
+            Waiting waiting = this;
 
-            Waker waker = this.waker;
-            if (waker != null) {
-                this.waker = null;
-                waker.wake();
+            while (waiting != null) {
+                Waiting next = waiting.previous;
+
+                Waker waker = waiting.waker;
+                if (waker != null) {
+                    waker.wake();
+                }
+
+                waiting.waker = null;
+                waiting.previous = null;
+
+                waiting = next;
             }
         }
 

@@ -50,6 +50,12 @@ public abstract class SharedListener<T> implements Future<T> {
         while (true) {
             // try swap the root node with our node. if it fails, try again
             Waiting root = this.waiting.get();
+
+            // this waiting object is already registered to the queue
+            if (root == waiting) {
+                return waiting;
+            }
+
             waiting.previous = root;
 
             if (this.waiting.compareAndSet(root, waiting)) {
@@ -74,19 +80,21 @@ public abstract class SharedListener<T> implements Future<T> {
         }
 
         void wake() {
-            Waiting previous = this.previous;
-            if (previous != null) {
-                previous.wake();
+            Waiting waiting = this;
+
+            while (waiting != null) {
+                Waiting next = waiting.previous;
+
+                Waker waker = waiting.waker;
+                if (waker != null) {
+                    waker.wake();
+                }
+
+                waiting.waker = null;
+                waiting.previous = null;
+
+                waiting = next;
             }
-
-            Waker waker = this.waker;
-
-            if (waker != null) {
-                waker.wake();
-            }
-
-            this.previous = null;
-            this.waker = null;
         }
     }
 }
