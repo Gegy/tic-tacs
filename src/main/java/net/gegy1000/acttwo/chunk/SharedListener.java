@@ -51,11 +51,6 @@ public abstract class SharedListener<T> implements Future<T> {
             // try swap the root node with our node. if it fails, try again
             Waiting root = this.waiting.get();
 
-            // this waiting object is already registered to the queue
-            if (root == waiting) {
-                return waiting;
-            }
-
             waiting.previous = root;
 
             if (this.waiting.compareAndSet(root, waiting)) {

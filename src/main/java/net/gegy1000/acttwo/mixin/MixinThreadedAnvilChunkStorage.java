@@ -10,7 +10,9 @@ import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.entity.Entity;
 import net.minecraft.server.WorldGenerationProgressListener;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
@@ -175,6 +177,33 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     @Overwrite
     public boolean updateHolderMap() {
         return this.controller.map.flushToVisible();
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void updateCameraPosition(ServerPlayerEntity player) {
+        this.controller.tracker.updatePlayerTracker(player);
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void loadEntity(Entity entity) {
+        this.controller.tracker.addEntity(entity);
+    }
+
+    /**
+     * @reason delegate to controller
+     * @author gegy1000
+     */
+    @Overwrite
+    public void unloadEntity(Entity entity) {
+        this.controller.tracker.removeEntity(entity);
     }
 
     /**
