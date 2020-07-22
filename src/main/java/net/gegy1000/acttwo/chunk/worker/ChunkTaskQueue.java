@@ -44,7 +44,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
 
             if (level <= this.minLevel) {
                 this.minLevel = level;
-                this.lock.notify();
+                this.lock.notifyAll();
             }
         }
 
@@ -110,7 +110,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     public void close() {
         synchronized (this.lock) {
             this.open = false;
-            this.lock.notify();
+            this.lock.notifyAll();
         }
     }
 

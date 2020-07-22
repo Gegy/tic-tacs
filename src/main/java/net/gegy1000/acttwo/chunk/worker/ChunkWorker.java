@@ -12,10 +12,13 @@ public final class ChunkWorker implements AutoCloseable {
     private final ChunkExecutor executor = new ChunkExecutor();
 
     private ChunkWorker() {
-        Thread thread = new Thread(this::run);
-        thread.setName("worldgen-worker");
-        thread.setDaemon(true);
-        thread.start();
+        // TODO: change thread count based on config / core count
+        for (int i = 0; i < 4; i++) {
+            Thread thread = new Thread(this::run);
+            thread.setName("worldgen-worker-" + (i + 1));
+            thread.setDaemon(true);
+            thread.start();
+        }
     }
 
     public <T> void spawn(ChunkHolder holder, Future<T> future) {
