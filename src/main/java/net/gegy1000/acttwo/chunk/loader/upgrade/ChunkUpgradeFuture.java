@@ -202,7 +202,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                 }
 
                 ChunkStatus status = entry.getCurrentStatus();
-                if (status == null || !minimumStatus.isAtLeast(status)) {
+                if (status == null || !status.isAtLeast(minimumStatus)) {
                     minimumStatus = status;
                 }
             }
