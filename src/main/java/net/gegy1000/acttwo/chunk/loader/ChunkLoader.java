@@ -41,7 +41,7 @@ public final class ChunkLoader {
         ChunkMap.FlushListener flushListener = this.controller.map.awaitFlush();
 
         int size = radius * 2 + 1;
-        Future<ChunkEntry>[] futures = new Future[size * size];
+        Future<Chunk>[] futures = new Future[size * size];
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
                 int idx = (x + radius) + (z + radius) * size;

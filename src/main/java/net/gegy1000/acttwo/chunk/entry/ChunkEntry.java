@@ -33,7 +33,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     private static final ConcurrentMap<ChunkPos, Future<Unit>> TICKABLE_PENDING = new ConcurrentHashMap<>();
 
-    final ChunkEntryListener[] listeners = new ChunkEntryListener[ChunkStep.STEPS.length];
+    final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.length];
 
     private final RwLock<ChunkEntryState> state = RwLock.create(new ChunkEntryState(this));
 
@@ -51,7 +51,7 @@ public final class ChunkEntry extends ChunkHolder {
         super(pos, level, lighting, LEVEL_UPDATE_LISTENER, watchers);
 
         for (int i = 0; i < this.listeners.length; i++) {
-            this.listeners[i] = new ChunkEntryListener(this);
+            this.listeners[i] = new ChunkListener();
         }
     }
 
@@ -67,7 +67,7 @@ public final class ChunkEntry extends ChunkHolder {
         return this.state;
     }
 
-    public ChunkEntryListener getListenerFor(ChunkStep step) {
+    public ChunkListener getListenerFor(ChunkStep step) {
         return this.listeners[step.getIndex()];
     }
 

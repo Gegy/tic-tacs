@@ -22,7 +22,9 @@ import java.util.function.Predicate;
 public final class ChunkEntryState {
     public final ChunkEntry parent;
 
-    private volatile Chunk chunk;
+    private volatile ProtoChunk chunk;
+    private volatile WorldChunk worldChunk;
+
     private volatile ChunkStep step;
 
     public ChunkEntryState(ChunkEntry parent) {
@@ -34,16 +36,13 @@ public final class ChunkEntryState {
     }
 
     @Nullable
-    public Chunk getChunk() {
+    public ProtoChunk getChunk() {
         return this.chunk;
     }
 
     @Nullable
     public WorldChunk getWorldChunk() {
-        if (this.chunk instanceof WorldChunk) {
-            return (WorldChunk) this.chunk;
-        }
-        return null;
+        return this.worldChunk;
     }
 
     public ChunkStep getCurrentStep() {
@@ -52,7 +51,10 @@ public final class ChunkEntryState {
 
     public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
         this.includeStep(step);
-        this.chunk = chunk;
+
+        if (chunk instanceof ProtoChunk) {
+            this.chunk = (ProtoChunk) chunk;
+        }
 
         for (int i = step.getIndex(); i >= 0; i--) {
             this.parent.listeners[i].completeOk(chunk);
@@ -73,15 +75,28 @@ public final class ChunkEntryState {
         }
     }
 
+    private WorldChunk upgradeToWorldChunk(ServerWorld world, ProtoChunk protoChunk) {
+        this.worldChunk = new WorldChunk(world, protoChunk);
+
+        ReadOnlyChunk readOnlyChunk = new ReadOnlyChunk(this.worldChunk);
+        this.chunk = readOnlyChunk;
+
+        for (ChunkStep step : ChunkStep.STEPS) {
+            if (step != ChunkStep.FULL) {
+                this.parent.getListenerFor(step).completeOk(readOnlyChunk);
+            }
+        }
+
+        return this.worldChunk;
+    }
+
     public WorldChunk finalizeChunk(ServerWorld world, Predicate<ChunkPos> loadToWorld) {
         ChunkEntry entry = this.parent;
         ChunkPos pos = entry.getPos();
 
         WorldChunk worldChunk = unwrapWorldChunk(this.chunk);
         if (worldChunk == null) {
-            worldChunk = new WorldChunk(world, (ProtoChunk) this.chunk);
-            this.chunk = worldChunk;
-            // TODO: vanilla replaces all protochunk listeners with readonlychunk wrapper: should we be doing this?
+            worldChunk = this.upgradeToWorldChunk(world, (ProtoChunk) this.chunk);
         }
 
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));

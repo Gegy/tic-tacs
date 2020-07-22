@@ -69,8 +69,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
-                if (entry.canUpgradeTo(step)) {
+                ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
+                if (entry != null && entry.canUpgradeTo(step)) {
                     int idx = kernel.index(x, z);
                     locks[idx] = entry.getState();
                     this.upgradeChunks.set(idx);
@@ -110,8 +110,10 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                 int idx = kernel.index(x, z);
 
                 if (locks[idx] == null && !this.upgradeChunks.get(idx)) {
-                    ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
-                    locks[idx] = entry.getState();
+                    ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
+                    if (entry != null) {
+                        locks[idx] = entry.getState();
+                    }
                 }
             }
         }

@@ -9,31 +9,24 @@ import net.minecraft.world.chunk.Chunk;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
-public final class ChunkEntryListener extends SharedListener<ChunkEntry> {
-    private final ChunkEntry entry;
-
-    volatile boolean ok;
+public final class ChunkListener extends SharedListener<Chunk> {
+    volatile Chunk ok;
     volatile Throwable err;
 
     CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla = new CompletableFuture<>();
 
-    ChunkEntryListener(ChunkEntry entry) {
-        this.entry = entry;
-    }
-
     @Nullable
     @Override
-    protected ChunkEntry get() {
+    protected Chunk get() {
         if (this.err != null) {
             throw encodeException(this.err);
         }
 
-        return this.ok ? this.entry : null;
+        return this.ok;
     }
 
     public void completeOk(Chunk chunk) {
-        this.ok = true;
-
+        this.ok = chunk;
         this.vanilla.complete(Either.left(chunk));
 
         this.wake();
