@@ -28,6 +28,11 @@ public final class ChunkStep {
             Heightmap.Type.WORLD_SURFACE
     );
 
+    private static final EnumSet<Heightmap.Type> WG_HEIGHTMAPS = EnumSet.of(
+            Heightmap.Type.OCEAN_FLOOR_WG,
+            Heightmap.Type.WORLD_SURFACE_WG
+    );
+
     public static final ChunkStep EMPTY = new ChunkStep("empty")
             .includes(ChunkStatus.EMPTY)
             .margin(ChunkMargin.none());
@@ -283,6 +288,8 @@ public final class ChunkStep {
 
         generator.buildSurface(region, chunk);
         trySetStatus(chunk, ChunkStatus.SURFACE);
+
+        Heightmap.populateHeightmaps(ctx.chunk, WG_HEIGHTMAPS);
 
         generator.carve(world.getSeed(), world.getBiomeAccess(), chunk, GenerationStep.Carver.AIR);
         trySetStatus(chunk, ChunkStatus.CARVERS);
