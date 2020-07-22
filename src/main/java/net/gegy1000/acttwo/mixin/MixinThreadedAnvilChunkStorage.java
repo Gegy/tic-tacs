@@ -7,6 +7,7 @@ import net.gegy1000.acttwo.VoidActor;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.TacsExt;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.WorldGenerationProgressListener;
@@ -47,6 +48,11 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
     private ServerLightingProvider serverLightingProvider;
 
     private ChunkController controller;
+
+    @Redirect(method = "<clinit>", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/ChunkStatus;getMaxTargetGenerationRadius()I"))
+    private static int getMaxTargetGenerationRadius() {
+        return ChunkStep.getMaxDistance() + 1;
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(
@@ -110,9 +116,11 @@ public abstract class MixinThreadedAnvilChunkStorage implements TacsExt {
      */
     @Overwrite
     public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunkFuture(ChunkHolder holder, ChunkStatus status) {
+        ChunkStep step = ChunkStep.byStatus(status);
+
         ChunkEntry entry = (ChunkEntry) holder;
-        this.controller.upgrader.spawnUpgradeTo(entry, status);
-        return entry.getListenerFor(status).asVanilla();
+        this.controller.upgrader.spawnUpgradeTo(entry, step);
+        return entry.getListenerFor(step).asVanilla();
     }
 
     /**

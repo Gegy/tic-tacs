@@ -1,97 +1,57 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
-import net.minecraft.world.chunk.ChunkStatus;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 
-final class ChunkUpgradeKernel {
-    private static final ChunkStatus[] STATUSES = ChunkStatus.createOrderedList().toArray(new ChunkStatus[0]);
+import java.util.function.IntFunction;
 
-    private static final ChunkUpgradeKernel[] BY_STATUS = new ChunkUpgradeKernel[STATUSES.length];
+public final class ChunkUpgradeKernel {
+    private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.length];
+    private static final boolean DEBUG = true;
 
     static {
-        for (ChunkStatus status : STATUSES) {
-            BY_STATUS[status.getIndex()] = createForStatus(status);
+        ChunkStep[] steps = ChunkStep.STEPS;
+        for (int i = 0; i < steps.length; i++) {
+            FOR_STEP[i] = new ChunkUpgradeKernel(steps[i]);
         }
     }
 
+    private final ChunkStep focus;
     private final int radius;
     private final int size;
 
-    private final ChunkStatus[] table;
-
-    private ChunkUpgradeKernel(int radius, int size, ChunkStatus[] table) {
-        this.radius = radius;
-        this.size = size;
-        this.table = table;
+    private ChunkUpgradeKernel(ChunkStep focus) {
+        this.focus = focus;
+        this.radius = ChunkStep.getRequiredRadius(focus);
+        this.size = this.radius * 2 + 1;
     }
 
-    public static ChunkUpgradeKernel byStatus(ChunkStatus status) {
-        return BY_STATUS[status.getIndex()];
-    }
-
-    public int getSize() {
-        return this.size;
+    public static ChunkUpgradeKernel forStep(ChunkStep step) {
+        return FOR_STEP[step.getIndex()];
     }
 
     public int getRadius() {
         return this.radius;
     }
 
-    public ChunkStatus get(int x, int z) {
-        int idx = this.index(x, z);
-        return this.table[idx];
+    public int getRadiusFor(ChunkStep step) {
+        return ChunkStep.getDistanceFromFull(step) - ChunkStep.getDistanceFromFull(this.focus);
+    }
+
+    public int getSize() {
+        return this.size;
     }
 
     public int index(int x, int z) {
-        return (x + this.radius) + (z + this.radius) * this.size;
-    }
-
-    private static ChunkUpgradeKernel createForStatus(ChunkStatus focusStatus) {
-        int radius = resolveRadiusFor(focusStatus);
-        int size = radius * 2 + 1;
-
-        int focusGenerationRadius = ChunkStatus.getTargetGenerationRadius(focusStatus);
-
-        ChunkStatus[] table = new ChunkStatus[size * size];
-        for (int z = -radius; z <= radius; z++) {
-            for (int x = -radius; x <= radius; x++) {
-                int idx = (x + radius) + (z + radius) * size;
-                int distance = Math.max(Math.abs(x), Math.abs(z));
-
-                ChunkStatus status = focusStatus;
-                if (distance > 0) {
-                    status = ChunkStatus.getTargetGenerationStatus(focusGenerationRadius + distance);
-                }
-
-                table[idx] = status;
+        int radius = this.radius;
+        if (DEBUG) {
+            if (x < -radius || z < -radius || x > radius || z > radius) {
+                throw new IllegalArgumentException("[" + x + "; " + z + "] out of radius=" + this.radius);
             }
         }
-
-        return new ChunkUpgradeKernel(radius, size, table);
+        return (x + radius) + (z + radius) * this.size;
     }
 
-    private static int resolveRadiusFor(ChunkStatus focusStatus) {
-        int focusGenerationRadius = ChunkStatus.getTargetGenerationRadius(focusStatus);
-
-        int maxRadius = 0;
-        for (int distance = 0; distance <= maxRadius; distance++) {
-            ChunkStatus status = ChunkStatus.getTargetGenerationStatus(focusGenerationRadius + distance);
-
-            int radius = distance + getMaxMarginFor(status);
-            maxRadius = Math.max(maxRadius, radius);
-        }
-
-        return maxRadius;
-    }
-
-    private static int getMaxMarginFor(ChunkStatus focusStatus) {
-        int maxMargin = 0;
-
-        ChunkStatus currentStatus = focusStatus;
-        while (currentStatus != ChunkStatus.EMPTY) {
-            maxMargin = Math.max(maxMargin, currentStatus.getTaskMargin());
-            currentStatus = currentStatus.getPrevious();
-        }
-
-        return maxMargin;
+    public <T> T create(IntFunction<T> function) {
+        return function.apply(this.size * this.size);
     }
 }

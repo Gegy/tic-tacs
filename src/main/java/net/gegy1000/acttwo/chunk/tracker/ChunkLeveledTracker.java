@@ -137,7 +137,7 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
         if (!tickets.isEmpty()) {
             return tickets.first().getLevel();
         }
-        return ThreadedAnvilChunkStorage.MAX_LEVEL + 1;
+        return MAX_LEVEL + 1;
     }
 
     @Override

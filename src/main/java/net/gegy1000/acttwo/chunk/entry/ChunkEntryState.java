@@ -2,6 +2,7 @@ package net.gegy1000.acttwo.chunk.entry;
 
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
@@ -9,7 +10,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.collection.TypeFilterableList;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
 import net.minecraft.world.chunk.ReadOnlyChunk;
 import net.minecraft.world.chunk.WorldChunk;
@@ -23,7 +23,7 @@ public final class ChunkEntryState {
     public final ChunkEntry parent;
 
     private volatile Chunk chunk;
-    private volatile ChunkStatus status;
+    private volatile ChunkStep step;
 
     public ChunkEntryState(ChunkEntry parent) {
         this.parent = parent;
@@ -46,30 +46,30 @@ public final class ChunkEntryState {
         return null;
     }
 
-    public ChunkStatus getCurrentStatus() {
-        return this.status;
+    public ChunkStep getCurrentStep() {
+        return this.step;
     }
 
-    public void completeUpgradeOk(ChunkStatus status, Chunk chunk) {
-        this.includeStatus(status);
+    public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
+        this.includeStep(step);
         this.chunk = chunk;
 
-        for (int i = status.getIndex(); i >= 0; i--) {
+        for (int i = step.getIndex(); i >= 0; i--) {
             this.parent.listeners[i].completeOk(chunk);
         }
     }
 
-    public void completeUpgradeErr(ChunkStatus status, ChunkNotLoadedException err) {
-        this.includeStatus(status);
+    public void completeUpgradeErr(ChunkStep step, ChunkNotLoadedException err) {
+        this.includeStep(step);
 
-        for (int i = status.getIndex(); i >= 0; i--) {
-            this.parent.listeners[status.getIndex()].completeErr(err);
+        for (int i = step.getIndex(); i >= 0; i--) {
+            this.parent.listeners[step.getIndex()].completeErr(err);
         }
     }
 
-    private void includeStatus(ChunkStatus status) {
-        if (this.status == null || status.isAtLeast(this.status)) {
-            this.status = status;
+    private void includeStep(ChunkStep step) {
+        if (this.step == null || step.greaterOrEqual(this.step)) {
+            this.step = step;
         }
     }
 

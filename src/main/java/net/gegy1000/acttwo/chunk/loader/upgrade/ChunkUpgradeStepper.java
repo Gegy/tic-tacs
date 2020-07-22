@@ -3,11 +3,11 @@ package net.gegy1000.acttwo.chunk.loader.upgrade;
 import net.gegy1000.acttwo.AtomicPool;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.JoinAllArray;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkStatus;
 
 import javax.annotation.Nullable;
 import java.util.AbstractList;
@@ -29,9 +29,8 @@ final class ChunkUpgradeStepper {
     ChunkUpgradeStepper(ChunkUpgradeFuture parent) {
         this.parent = parent;
 
-        int size = parent.upgradeKernel.getSize();
-        this.tasks = new Future[size * size];
-        this.chunks = new Chunk[size * size];
+        this.tasks = parent.kernel.create(Future[]::new);
+        this.chunks = parent.kernel.create(Chunk[]::new);
     }
 
     void reset() {
@@ -41,40 +40,40 @@ final class ChunkUpgradeStepper {
     }
 
     @Nullable
-    Chunk[] pollStep(Waker waker, AcquiredChunks chunks, ChunkStatus status) {
+    Chunk[] pollStep(Waker waker, AcquireChunks.Result chunks, ChunkStep step) {
         Future<Chunk>[] tasks = this.tasks;
 
         if (!this.pollingTasks) {
             this.pollingTasks = true;
-            if (status == ChunkStatus.EMPTY) {
+            if (step == ChunkStep.EMPTY) {
                 this.openLoadTasks(chunks, tasks);
             } else {
-                this.openUpgradeTasks(chunks, status, tasks);
+                this.openUpgradeTasks(chunks, step, tasks);
             }
         }
 
         return JoinAllArray.poll(waker, tasks, this.chunks);
     }
 
-    private void openUpgradeTasks(AcquiredChunks chunks, ChunkStatus status, Future<Chunk>[] tasks) {
-        chunks.openWriteTasks(tasks, entry -> this.upgradeChunk(entry, chunks, status));
+    private void openUpgradeTasks(AcquireChunks.Result chunks, ChunkStep step, Future<Chunk>[] tasks) {
+        chunks.openUpgradeTasks(tasks, entry -> this.upgradeChunk(entry, chunks, step));
     }
 
-    private void openLoadTasks(AcquiredChunks chunks, Future<Chunk>[] tasks) {
-        chunks.openWriteTasks(tasks, this::loadChunk);
+    private void openLoadTasks(AcquireChunks.Result chunks, Future<Chunk>[] tasks) {
+        chunks.openUpgradeTasks(tasks, this::loadChunk);
     }
 
-    private Future<Chunk> upgradeChunk(ChunkEntryState entry, AcquiredChunks chunks, ChunkStatus status) {
-        ContextView context = this.openContext(entry, chunks, status);
+    private Future<Chunk> upgradeChunk(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
+        ContextView context = this.openContext(entry, chunks, step);
 
-        Future<Chunk> future = this.parent.controller.upgrader.runUpgradeTask(entry, status, context);
+        Future<Chunk> future = this.parent.controller.upgrader.runStepTask(entry, step, context);
         return this.createTaskWithContext(future, context);
     }
 
-    private ContextView openContext(ChunkEntryState entry, AcquiredChunks chunks, ChunkStatus status) {
+    private ContextView openContext(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
         ContextView context = CONTEXT_POOL.acquire();
         ChunkPos targetPos = entry.getPos();
-        int targetRadius = status.getTaskMargin();
+        int targetRadius = step.getMargin().radius;
 
         context.open(this.parent.pos, chunks, targetPos, targetRadius);
 
@@ -120,14 +119,14 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private AcquiredChunks source;
+        private AcquireChunks.Result source;
         private int targetSize;
 
         private int targetToSourceOffsetX;
         private int targetToSourceOffsetZ;
 
         void open(
-                ChunkPos sourceOrigin, AcquiredChunks chunks,
+                ChunkPos sourceOrigin, AcquireChunks.Result chunks,
                 ChunkPos targetOrigin, int targetRadius
         ) {
             this.source = chunks;

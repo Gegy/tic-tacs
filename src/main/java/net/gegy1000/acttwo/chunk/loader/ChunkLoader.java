@@ -7,6 +7,7 @@ import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.future.AwaitAll;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.acttwo.chunk.tracker.ChunkQueues;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -34,7 +35,7 @@ public final class ChunkLoader {
         this.progressListener = progressListener;
     }
 
-    public Future<Unit> loadRadius(ChunkPos pos, int radius, ChunkStatus status) {
+    public Future<Unit> loadRadius(ChunkPos pos, int radius, ChunkStep step) {
         ChunkAccess chunks = this.controller.map.visible();
 
         ChunkMap.FlushListener flushListener = this.controller.map.awaitFlush();
@@ -46,11 +47,11 @@ public final class ChunkLoader {
                 int idx = (x + radius) + (z + radius) * size;
                 ChunkEntry entry = chunks.getEntry(pos.x + x, pos.z + z);
                 if (entry == null) {
-                    return flushListener.andThen(unit -> this.loadRadius(pos, radius, status));
+                    return flushListener.andThen(unit -> this.loadRadius(pos, radius, step));
                 }
 
-                this.controller.upgrader.spawnUpgradeTo(entry, status);
-                futures[idx] = entry.getListenerFor(status);
+                this.controller.upgrader.spawnUpgradeTo(entry, step);
+                futures[idx] = entry.getListenerFor(step);
             }
         }
 

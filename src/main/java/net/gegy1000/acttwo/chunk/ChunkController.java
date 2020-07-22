@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.util.concurrent.Executor;
 import java.util.function.BooleanSupplier;
 
+// TODO: fabric lifecycle load and unload events
 public final class ChunkController implements AutoCloseable {
     public final ServerWorld world;
 

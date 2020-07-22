@@ -1,6 +1,6 @@
 package net.gegy1000.acttwo.chunk.worker;
 
-import net.minecraft.server.world.ThreadedAnvilChunkStorage;
+import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkTaskQueue implements AutoCloseable {
-    private static final int LEVEL_COUNT = ThreadedAnvilChunkStorage.MAX_LEVEL + 2;
+    private static final int LEVEL_COUNT = ChunkLeveledTracker.MAX_LEVEL + 2;
 
     private final Level[] levels;
     private volatile int minLevel;
@@ -28,7 +28,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
 
     public void enqueue(ChunkTask<?> task) {
         int level = task.holder.getLevel();
-        if (level > ThreadedAnvilChunkStorage.MAX_LEVEL) {
+        if (level > ChunkLeveledTracker.MAX_LEVEL) {
             return;
         }
 
