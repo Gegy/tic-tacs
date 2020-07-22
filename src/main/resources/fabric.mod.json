@@ -7,7 +7,7 @@
   "description": "Performance improvements to the actor system used for off-thread processing",
   "authors": ["gegy1000"],
 
-  "license": "CC0-1.0",
+  "license": "LGPLv3",
 
   "environment": "*",
   "entrypoints": {},
