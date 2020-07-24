@@ -4,11 +4,11 @@ import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.SharedUnitListener;
+import net.gegy1000.acttwo.chunk.lock.ChunkAccessLock;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
-import net.gegy1000.acttwo.lock.RwGuard;
-import net.gegy1000.acttwo.lock.RwLock;
-import net.gegy1000.acttwo.lock.WriteRwGuard;
+import net.gegy1000.acttwo.lock.Lock;
+import net.gegy1000.acttwo.lock.LockGuard;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ChunkHolder;
@@ -22,8 +22,6 @@ import net.minecraft.world.chunk.light.LightingProvider;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class ChunkEntry extends ChunkHolder {
@@ -31,11 +29,10 @@ public final class ChunkEntry extends ChunkHolder {
 
     private static final LevelUpdateListener LEVEL_UPDATE_LISTENER = (pos, get, level, set) -> set.accept(level);
 
-    private static final ConcurrentMap<ChunkPos, Future<Unit>> TICKABLE_PENDING = new ConcurrentHashMap<>();
+    final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.size()];
 
-    final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.length];
-
-    private final RwLock<ChunkEntryState> state = RwLock.create(new ChunkEntryState(this));
+    private final ChunkEntryState state = new ChunkEntryState(this);
+    private final ChunkAccessLock lock = new ChunkAccessLock();
 
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
 
@@ -55,15 +52,16 @@ public final class ChunkEntry extends ChunkHolder {
         }
     }
 
-    public Future<RwGuard<ChunkEntryState>> read() {
-        return this.state.read();
+    public Future<LockGuard<ChunkEntryState>> write() {
+        Lock lock = this.lock.write();
+        return Lock.acquireAsync(lock).map(u -> new LockGuard<>(lock, this.state));
     }
 
-    public Future<WriteRwGuard<ChunkEntryState>> write() {
-        return this.state.write();
+    public ChunkAccessLock getLock() {
+        return this.lock;
     }
 
-    public RwLock<ChunkEntryState> getState() {
+    public ChunkEntryState getStateUnsafe() {
         return this.state;
     }
 
@@ -73,7 +71,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     @Nullable
     public ChunkStep getCurrentStep() {
-        return this.state.getInnerUnsafe().getCurrentStep();
+        return this.state.getCurrentStep();
     }
 
     public boolean trySpawnUpgradeTo(ChunkStep toStep) {
@@ -94,10 +92,7 @@ public final class ChunkEntry extends ChunkHolder {
             return false;
         }
 
-        // safety: step can never be downgraded, so this should always be safe
-        ChunkEntryState peekState = this.state.getInnerUnsafe();
-
-        ChunkStep currentStep = peekState.getCurrentStep();
+        ChunkStep currentStep = this.state.getCurrentStep();
         return currentStep == null || !currentStep.greaterOrEqual(toStep);
     }
 
@@ -148,13 +143,11 @@ public final class ChunkEntry extends ChunkHolder {
                         this.tickableListener.complete();
                     } finally {
                         guard.release();
-                        TICKABLE_PENDING.remove(this.pos);
                     }
 
                     return Unit.INSTANCE;
                 });
 
-                TICKABLE_PENDING.put(this.pos, pending);
                 controller.spawnOnMainThread(this, pending);
             } else {
                 this.tickableListener.reset();
@@ -207,7 +200,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     public WorldChunk getWorldChunk() {
         // safety: once upgraded to world chunk, the lock is supposed to have no write access
-        return this.state.getInnerUnsafe().getWorldChunk();
+        return this.getStateUnsafe().getWorldChunk();
     }
 
     public Future<Unit> awaitAccessible() {
@@ -250,8 +243,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public CompletableFuture<Chunk> getFuture() {
-        ChunkEntryState peekState = this.state.getInnerUnsafe();
-        return this.getListenerFor(peekState.getCurrentStep()).vanilla
+        return this.getListenerFor(this.state.getCurrentStep()).vanilla
                 .thenApply(result -> {
                     return result.map(chunk -> chunk, err -> null);
                 });
@@ -261,7 +253,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Nullable
     @Deprecated
     public Chunk getCompletedChunk() {
-        return this.state.getInnerUnsafe().getChunk();
+        return this.state.getChunk();
     }
 
     @Override

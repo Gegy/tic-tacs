@@ -2,16 +2,17 @@ package net.gegy1000.acttwo.chunk.loader.upgrade;
 
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 
+import java.util.List;
 import java.util.function.IntFunction;
 
 public final class ChunkUpgradeKernel {
-    private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.length];
+    private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.size()];
     private static final boolean DEBUG = true;
 
     static {
-        ChunkStep[] steps = ChunkStep.STEPS;
-        for (int i = 0; i < steps.length; i++) {
-            FOR_STEP[i] = new ChunkUpgradeKernel(steps[i]);
+        List<ChunkStep> steps = ChunkStep.STEPS;
+        for (int i = 0; i < steps.size(); i++) {
+            FOR_STEP[i] = new ChunkUpgradeKernel(steps.get(i));
         }
     }
 

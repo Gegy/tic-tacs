@@ -73,8 +73,8 @@ final class ChunkUpgradeStepper {
     private ContextView openContext(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
         ContextView context = CONTEXT_POOL.acquire();
         ChunkPos targetPos = entry.getPos();
-        int targetRadius = step.getMargin().radius;
 
+        int targetRadius = step.getRequirements().getRadius();
         context.open(this.parent.pos, chunks, targetPos, targetRadius);
 
         return context;

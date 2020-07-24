@@ -16,6 +16,7 @@ import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -28,13 +29,19 @@ public final class ChunkStep {
             Heightmap.Type.WORLD_SURFACE
     );
 
+    // TODO: loading order issue: requirements builder depends on other initialization already happening..!
+    //       also note: it can't simply be made lazy, because the static initialization itself depends on the requirements stuffs
+    //       how do
+
+    public static final List<ChunkStep> STEPS = new ArrayList<>();
+
     public static final ChunkStep EMPTY = new ChunkStep("empty")
             .includes(ChunkStatus.EMPTY)
-            .margin(ChunkMargin.none());
+            .requires(ChunkRequirements.none());
 
     public static final ChunkStep STRUCTURE_STARTS = new ChunkStep("structure_starts")
             .includes(ChunkStatus.STRUCTURE_STARTS)
-            .margin(ChunkMargin.none())
+            .requires(ChunkRequirements.from(ChunkStep.EMPTY))
             .runSync(ChunkStep::addStructureStarts);
 
     public static final ChunkStep SURFACE = new ChunkStep("surface")
@@ -43,26 +50,33 @@ public final class ChunkStep {
                     ChunkStatus.NOISE, ChunkStatus.SURFACE,
                     ChunkStatus.CARVERS, ChunkStatus.LIQUID_CARVERS
             )
-            .margin(ChunkMargin.read(8))
+            .requires(
+                    ChunkRequirements.from(ChunkStep.STRUCTURE_STARTS)
+                            .read(ChunkStep.STRUCTURE_STARTS, 8)
+            )
             .runSync(ChunkStep::generateSurface);
 
-    // TODO: huge feature radius
     public static final ChunkStep FEATURES = new ChunkStep("features")
             .includes(ChunkStatus.FEATURES)
-            .margin(ChunkMargin.write(8))
+            .requires(
+                    ChunkRequirements.from(ChunkStep.SURFACE)
+                            .write(ChunkStep.SURFACE, 1)
+                            .read(ChunkStep.STRUCTURE_STARTS, 8)
+            )
             .runSync(ChunkStep::addFeatures);
 
     public static final ChunkStep LIGHTING = new ChunkStep("lighting")
             .includes(ChunkStatus.LIGHT)
-            .margin(ChunkMargin.read(1))
+            .requires(
+                    ChunkRequirements.from(ChunkStep.FEATURES)
+                            .read(ChunkStep.FEATURES, 1)
+            )
             .runAsync(ChunkStep::lightChunk);
 
     public static final ChunkStep FULL = new ChunkStep("full")
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
-            .margin(ChunkMargin.none())
+            .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
             .runSync(ChunkStep::addEntities);
-
-    public static final ChunkStep[] STEPS = { EMPTY, STRUCTURE_STARTS, SURFACE, FEATURES, LIGHTING, FULL };
 
     private static final ChunkStep[] STATUS_TO_STEP;
 
@@ -72,18 +86,22 @@ public final class ChunkStep {
     private static final int[] STEP_TO_DISTANCE;
     private static final ChunkStep[] DISTANCE_TO_STEP;
 
+    private final int index;
     private final String name;
     private ChunkStatus[] statuses = new ChunkStatus[0];
     private AsyncTask task = AsyncTask.noop();
-    private ChunkMargin margin = ChunkMargin.none();
-    private int index = -1;
+    private ChunkRequirements requirements = ChunkRequirements.none();
 
     ChunkStep(String name) {
+        int index = STEPS.size();
+        STEPS.add(this);
+
+        this.index = index;
         this.name = name;
     }
 
-    ChunkStep margin(ChunkMargin margin) {
-        this.margin = margin;
+    ChunkStep requires(ChunkRequirements requirements) {
+        this.requirements = requirements;
         return this;
     }
 
@@ -106,8 +124,8 @@ public final class ChunkStep {
         return this.task.run(ctx);
     }
 
-    public ChunkMargin getMargin() {
-        return this.margin;
+    public ChunkRequirements getRequirements() {
+        return this.requirements;
     }
 
     public ChunkStatus getMaximumStatus() {
@@ -149,12 +167,25 @@ public final class ChunkStep {
         return byIndex(this.index + 1);
     }
 
+    public static ChunkStep min(ChunkStep a, ChunkStep b) {
+        if (a == null || b == null) return null;
+
+        return a.index < b.index ? a : b;
+    }
+
+    public static ChunkStep max(ChunkStep a, ChunkStep b) {
+        if (a == null) return b;
+        if (b == null) return a;
+
+        return a.index > b.index ? a : b;
+    }
+
     @Nullable
     public static ChunkStep byIndex(int index) {
-        if (index < 0 || index >= STEPS.length) {
+        if (index < 0 || index >= STEPS.size()) {
             return null;
         }
-        return STEPS[index];
+        return STEPS.get(index);
     }
 
     public static ChunkStep byStatus(ChunkStatus status) {
@@ -180,16 +211,6 @@ public final class ChunkStep {
         return MAX_DISTANCE;
     }
 
-    private static int computeRadiusFor(ChunkStep step) {
-        int radius = 0;
-        while (step != null) {
-            radius += step.getMargin().radius;
-            step = step.getPrevious();
-        }
-
-        return radius;
-    }
-
     static {
         // initialize status -> step mapping
         List<ChunkStatus> statuses = ChunkStatus.createOrderedList();
@@ -201,58 +222,12 @@ public final class ChunkStep {
             }
         }
 
-        // initialize step indices
-        for (int index = 0; index < STEPS.length; index++) {
-            STEPS[index].index = index;
-        }
+        StepKernelResolver.Results results = new StepKernelResolver(STEPS).resolve();
 
-        // compute the effective radius for each step
-        int maxDistance = 0;
-        int[] stepToRadius = new int[STEPS.length];
-
-        for (ChunkStep step : STEPS) {
-            int radius = computeRadiusFor(step);
-            stepToRadius[step.getIndex()] = radius;
-
-            maxDistance = Math.max(radius, maxDistance);
-        }
-
-        STEP_TO_RADIUS = stepToRadius;
-        MAX_DISTANCE = maxDistance;
-
-        // initialize mappings between distance -> step and step -> distance
-
-        ChunkStep[] distanceToStep = new ChunkStep[MAX_DISTANCE + 1];
-        int[] stepToDistance = new int[STEPS.length];
-
-        ChunkStep currentStep = STEPS[STEPS.length - 1];
-        int currentDistance = 0;
-
-        distanceToStep[0] = currentStep;
-
-        while (currentStep != null) {
-            int index = currentStep.getIndex();
-            stepToDistance[index] = currentDistance;
-
-            ChunkStep prevStep = currentStep.getPrevious();
-
-            ChunkMargin margin = currentStep.getMargin();
-
-            // minimum and maximum distance for the previous chunk step
-            int start = currentDistance + 1;
-            int end = currentDistance + margin.radius;
-
-            for (int distance = start; distance <= end; distance++) {
-                distanceToStep[distance] = prevStep;
-            }
-
-            currentDistance = end;
-
-            currentStep = prevStep;
-        }
-
-        DISTANCE_TO_STEP = distanceToStep;
-        STEP_TO_DISTANCE = stepToDistance;
+        MAX_DISTANCE = results.maxDistance;
+        STEP_TO_RADIUS = results.stepToRadius;
+        DISTANCE_TO_STEP = results.distanceToStep;
+        STEP_TO_DISTANCE = results.stepToDistance;
     }
 
     private static Chunk addStructureStarts(ChunkStepContext ctx) {

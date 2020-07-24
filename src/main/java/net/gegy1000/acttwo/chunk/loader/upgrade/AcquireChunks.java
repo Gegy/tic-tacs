@@ -4,13 +4,15 @@ import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
-import net.gegy1000.acttwo.chunk.step.ChunkMargin;
+import net.gegy1000.acttwo.chunk.lock.ChunkAccessLock;
+import net.gegy1000.acttwo.chunk.step.ChunkRequirement;
+import net.gegy1000.acttwo.chunk.step.ChunkRequirements;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
-import net.gegy1000.acttwo.lock.JoinedAcquire;
-import net.gegy1000.acttwo.lock.RwGuard;
-import net.gegy1000.acttwo.lock.RwLock;
+import net.gegy1000.acttwo.lock.JoinLock;
+import net.gegy1000.acttwo.lock.Lock;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
@@ -29,165 +31,161 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
     private final BitSet upgradeChunks;
 
-    private final RwLock<ChunkEntryState>[] writerLocks;
-    private final RwLock<ChunkEntryState>[] readerLocks;
+    private final Lock[] locks;
+    private final Future<Unit> joinLock;
 
-    private final JoinedAcquire acquireWrite = JoinedAcquire.write();
-    private final JoinedAcquire acquireRead = JoinedAcquire.read();
+    private boolean prepared;
+    private boolean acquired;
 
-    private RwGuard<ChunkEntryState[]> writerGuard;
-    private RwGuard<ChunkEntryState[]> readerGuard;
-
-    private boolean ready;
-
-    @SuppressWarnings("unchecked")
     public AcquireChunks(ChunkUpgradeKernel kernel, ChunkMap chunkMap) {
         this.kernel = kernel;
 
         this.chunkMap = chunkMap;
         this.upgradeChunks = kernel.create(BitSet::new);
-        this.writerLocks = kernel.create(RwLock[]::new);
-        this.readerLocks = kernel.create(RwLock[]::new);
+
+        this.locks = kernel.create(Lock[]::new);
+        this.joinLock = Lock.acquireAsync(new JoinLock(this.locks));
 
         this.result = kernel.create(Result::new);
     }
 
     public void prepare(ChunkPos pos, ChunkStep currentStep) {
-        this.ready = true;
+        this.prepared = true;
         this.pos = pos;
         this.currentStep = currentStep;
     }
 
-    private void collectUpgradeLocks(RwLock<ChunkEntryState>[] locks) {
+    private void clearBuffers() {
+        this.upgradeChunks.clear();
+        Arrays.fill(this.locks, null);
+        Arrays.fill(this.result.entries, null);
+    }
+
+    @Nullable
+    @Override
+    public Result poll(Waker waker) {
+        if (this.acquired) {
+            return this.result;
+        }
+
+        this.addUpgradeChunks(this.currentStep);
+        this.addContextChunks(this.currentStep);
+
+        if (this.joinLock.poll(waker) != null) {
+            this.acquired = true;
+            return this.result;
+        } else {
+            this.clearBuffers();
+            return null;
+        }
+    }
+
+    private void addUpgradeChunks(ChunkStep step) {
         ChunkAccess chunks = this.chunkMap.visible();
+
+        Lock[] locks = this.locks;
+        ChunkEntryState[] entries = this.result.entries;
+        BitSet upgradeChunks = this.upgradeChunks;
 
         ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
 
-        ChunkStep step = this.currentStep;
-        int radiusForStep = this.kernel.getRadiusFor(step);
+        int radiusForStep = kernel.getRadiusFor(step);
 
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
-                if (entry != null && entry.canUpgradeTo(step)) {
+                ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
+
+                if (entry.canUpgradeTo(step)) {
                     int idx = kernel.index(x, z);
-                    locks[idx] = entry.getState();
-                    this.upgradeChunks.set(idx);
+
+                    upgradeChunks.set(idx);
+                    entries[idx] = entry.getStateUnsafe();
+                    locks[idx] = entry.getLock().write();
                 }
             }
         }
     }
 
-    private void collectContextLocks(RwLock<ChunkEntryState>[] locks, int margin) {
-        int radius = this.kernel.getRadiusFor(this.currentStep);
+    private void addContextChunks(ChunkStep step) {
+        ChunkRequirements requirements = step.getRequirements();
+        if (requirements.getRadius() <= 0) {
+            return;
+        }
+
         ChunkUpgradeKernel kernel = this.kernel;
+        BitSet upgradeChunks = this.upgradeChunks;
 
-        for (int z = -radius; z <= radius; z++) {
-            for (int x = -radius; x <= radius; x++) {
-                int idx = kernel.index(x, z);
-                if (this.upgradeChunks.get(idx)) {
-                    this.addContextMargin(x, z, margin, locks);
+        int radiusForStep = kernel.getRadiusFor(step);
+        for (int z = -radiusForStep; z <= radiusForStep; z++) {
+            for (int x = -radiusForStep; x <= radiusForStep; x++) {
+                if (upgradeChunks.get(kernel.index(x, z))) {
+                    this.addContextMargin(x, z, requirements);
                 }
             }
         }
     }
 
-    private void addContextMargin(int centerX, int centerZ, int margin, RwLock<ChunkEntryState>[] locks) {
+    private void addContextMargin(int centerX, int centerZ, ChunkRequirements requirements) {
         ChunkAccess chunks = this.chunkMap.visible();
+
+        ChunkEntryState[] entries = this.result.entries;
+        Lock[] locks = this.locks;
+        BitSet upgradeChunks = this.upgradeChunks;
 
         ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
-        int radius = kernel.getRadius();
 
-        int minX = Math.max(centerX - margin, -radius);
-        int maxX = Math.min(centerX + margin, radius);
-        int minZ = Math.max(centerZ - margin, -radius);
-        int maxZ = Math.min(centerZ + margin, radius);
+        int kernelRadius = kernel.getRadius();
+        int contextRadius = requirements.getRadius();
+
+        int minX = Math.max(centerX - contextRadius, -kernelRadius);
+        int maxX = Math.min(centerX + contextRadius, kernelRadius);
+        int minZ = Math.max(centerZ - contextRadius, -kernelRadius);
+        int maxZ = Math.min(centerZ + contextRadius, kernelRadius);
 
         for (int z = minZ; z <= maxZ; z++) {
             for (int x = minX; x <= maxX; x++) {
                 int idx = kernel.index(x, z);
 
-                if (locks[idx] == null && !this.upgradeChunks.get(idx)) {
-                    ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
-                    if (entry != null) {
-                        locks[idx] = entry.getState();
+                if (locks[idx] == null && !upgradeChunks.get(idx)) {
+                    int distance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
+                    ChunkRequirement requirement = requirements.byDistance(distance);
+
+                    if (requirement != null) {
+                        ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
+                        ChunkAccessLock lock = entry.getLock();
+
+                        boolean requireWrite = requirement.write;
+
+                        entries[idx] = entry.getStateUnsafe();
+                        locks[idx] = requireWrite ? lock.write() : lock.read();
                     }
                 }
             }
         }
     }
 
-    @Nullable
-    @Override
-    public Result poll(Waker waker) {
-        if (!this.pollWriters(waker)) {
-            return null;
-        }
-
-        if (!this.pollReaders(waker)) {
-            this.writerGuard.release();
-            this.writerGuard = null;
-            return null;
-        }
-
-        return this.result;
-    }
-
-    private boolean pollWriters(Waker waker) {
-        if (this.writerGuard == null) {
-            Arrays.fill(this.writerLocks, null);
-            this.upgradeChunks.clear();
-
-            this.collectUpgradeLocks(this.writerLocks);
-
-            ChunkMargin margin = this.currentStep.getMargin();
-            if (!margin.isEmpty() && margin.write) {
-                this.collectContextLocks(this.writerLocks, margin.radius);
-            }
-
-            this.writerGuard = this.acquireWrite.poll(waker, this.writerLocks, this.result.entries);
-        }
-
-        return this.writerGuard != null;
-    }
-
-    private boolean pollReaders(Waker waker) {
-        ChunkMargin margin = this.currentStep.getMargin();
-        if (margin.isEmpty() || margin.write) {
-            // no readers are required
-            return true;
-        }
-
-        if (this.readerGuard == null) {
-            Arrays.fill(this.readerLocks, null);
-            this.collectContextLocks(this.readerLocks, margin.radius);
-
-            this.readerGuard = this.acquireRead.poll(waker, this.readerLocks, this.result.entries);
-        }
-
-        return this.readerGuard != null;
-    }
-
-    public boolean isReady() {
-        return this.ready;
+    public boolean isPrepared() {
+        return this.prepared;
     }
 
     public void release() {
-        this.ready = false;
+        this.prepared = false;
 
         this.pos = null;
         this.currentStep = null;
 
-        if (this.writerGuard != null) {
-            this.writerGuard.release();
-            this.writerGuard = null;
-        }
+        if (this.acquired) {
+            this.acquired = false;
 
-        if (this.readerGuard != null) {
-            this.readerGuard.release();
-            this.readerGuard = null;
+            for (Lock lock : this.locks) {
+                if (lock != null) {
+                    lock.release();
+                }
+            }
+
+            this.clearBuffers();
         }
     }
 

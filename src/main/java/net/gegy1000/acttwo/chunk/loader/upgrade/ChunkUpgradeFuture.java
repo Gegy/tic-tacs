@@ -69,7 +69,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
             AcquireChunks acquireEntries = this.acquireEntries;
 
-            if (!acquireEntries.isReady()) {
+            if (!acquireEntries.isPrepared()) {
                 acquireEntries.prepare(this.pos, currentStep);
             }
 

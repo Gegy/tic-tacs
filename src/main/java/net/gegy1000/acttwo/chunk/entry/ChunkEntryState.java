@@ -96,7 +96,7 @@ public final class ChunkEntryState {
 
         WorldChunk worldChunk = unwrapWorldChunk(this.chunk);
         if (worldChunk == null) {
-            worldChunk = this.upgradeToWorldChunk(world, (ProtoChunk) this.chunk);
+            worldChunk = this.upgradeToWorldChunk(world, this.chunk);
         }
 
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));

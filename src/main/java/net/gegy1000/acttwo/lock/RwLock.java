@@ -1,104 +1,152 @@
 package net.gegy1000.acttwo.lock;
 
 import net.gegy1000.justnow.Waker;
-import net.gegy1000.justnow.future.Future;
 
-public interface RwLock<T> {
-    int FREE = 0;
-    int WRITING = -1;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
-    static <T> RwLock<T> create(T inner) {
-        return new SimpleRwLock<>(inner);
+public final class RwLock {
+    private static final int FREE = 0;
+    private static final int WRITING = -1;
+
+    private final Read read = new Read();
+    private final Write write = new Write();
+
+    private final AtomicInteger state = new AtomicInteger(FREE);
+
+    // linked queue of waiting futures and their corresponding wakers
+    private final AtomicReference<LockWaiter> waiter = new AtomicReference<>();
+
+    public Lock read() {
+        return this.read;
     }
 
-    Future<RwGuard<T>> read();
+    public Lock write() {
+        return this.write;
+    }
 
-    Future<WriteRwGuard<T>> write();
+    boolean tryAcquireRead() {
+        int state = this.state.get();
+        return state != WRITING && this.state.compareAndSet(state, state + 1);
+    }
 
-    void setInnerUnsafe(T inner);
+    boolean canAcquireRead() {
+        return this.state.get() != WRITING;
+    }
 
-    T getInnerUnsafe();
+    boolean tryAcquireWrite() {
+        int state = this.state.get();
+        return state == FREE && this.state.compareAndSet(FREE, WRITING);
+    }
 
-    boolean tryAcquireRead();
+    boolean canAcquireWrite() {
+        return this.state.get() == FREE;
+    }
 
-    boolean canAcquireRead();
+    void releaseWrite() {
+        if (!this.state.compareAndSet(WRITING, FREE)) {
+            throw new IllegalStateException("write lock not acquired");
+        }
 
-    boolean tryAcquireWrite();
+        this.wake();
+    }
 
-    boolean canAcquireWrite();
+    void releaseRead() {
+        int state = this.state.getAndDecrement();
+        if (state <= 0) {
+            throw new IllegalStateException("read lock not acquired");
+        }
 
-    void releaseWrite();
+        int readCount = state - 1;
+        if (readCount <= 0) {
+            this.wake();
+        }
+    }
 
-    void releaseRead();
+    void registerWaiter(LockWaiter waiter, Waker waker) {
+        // initialize the waker on the waiter object
+        waiter.setWaker(waker);
 
-    void registerWaiting(Waiting waiting, Waker waker);
+        // this waiter object is already registered to the queue
+        if (waiter.isLinked()) {
+            return;
+        }
 
-    class Waiting {
-        // we don't need atomic here because they can only be modified by their owner
-        volatile Waker waker;
-        volatile Waiting previous;
+        while (true) {
+            // try swap the root node with our node. if it fails, try again
+            LockWaiter root = this.waiter.get();
 
-        void wake() {
-            Waiting waiting = this;
+            // this waiter object is already registered to the queue
+            if (root == waiter) {
+                return;
+            }
 
-            while (waiting != null) {
-                Waiting next = waiting.previous;
+            waiter.linkTo(root);
 
-                Waker waker = waiting.waker;
-                if (waker != null) {
-                    waker.wake();
-                }
-
-                waiting.waker = null;
-                waiting.previous = null;
-
-                waiting = next;
+            if (this.waiter.compareAndSet(root, waiter)) {
+                return;
             }
         }
+    }
 
-        void invalidateWaker() {
-            this.waker = null;
+    void wake() {
+        LockWaiter waiter = this.waiter.getAndSet(null);
+        if (waiter != null) {
+            waiter.wake();
         }
     }
 
-    final class Read<T> implements RwGuard<T> {
-        private final RwLock<T> lock;
-
-        public Read(RwLock<T> lock) {
-            this.lock = lock;
+    private final class Read implements Lock {
+        @Override
+        public boolean tryAcquire() {
+            return RwLock.this.tryAcquireRead();
         }
 
         @Override
-        public T get() {
-            return this.lock.getInnerUnsafe();
+        public boolean canAcquire() {
+            return RwLock.this.canAcquireRead();
         }
 
         @Override
         public void release() {
-            this.lock.releaseRead();
+            RwLock.this.releaseRead();
+        }
+
+        @Override
+        public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
+            if (this.tryAcquire()) {
+                return true;
+            }
+
+            RwLock.this.registerWaiter(waiter, waker);
+            return false;
         }
     }
 
-    final class Write<T> implements WriteRwGuard<T> {
-        private final RwLock<T> lock;
-
-        public Write(RwLock<T> lock) {
-            this.lock = lock;
+    private final class Write implements Lock {
+        @Override
+        public boolean tryAcquire() {
+            return RwLock.this.tryAcquireWrite();
         }
 
         @Override
-        public void set(T value) {
-            this.lock.setInnerUnsafe(value);
-        }
-
-        @Override
-        public T get() {
-            return this.lock.getInnerUnsafe();
+        public boolean canAcquire() {
+            return RwLock.this.canAcquireWrite();
         }
 
         @Override
         public void release() {
-            this.lock.releaseWrite();
+            RwLock.this.releaseWrite();
+        }
+
+        @Override
+        public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
+            if (this.tryAcquire()) {
+                return true;
+            }
+
+            RwLock.this.registerWaiter(waiter, waker);
+            return false;
         }
     }
 }
