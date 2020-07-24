@@ -1,10 +1,11 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
 import net.gegy1000.acttwo.chunk.ChunkAccess;
+import net.gegy1000.acttwo.chunk.ChunkLockType;
 import net.gegy1000.acttwo.chunk.ChunkMap;
+import net.gegy1000.acttwo.chunk.entry.ChunkAccessLock;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
-import net.gegy1000.acttwo.chunk.lock.ChunkAccessLock;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirement;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirements;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
@@ -17,7 +18,6 @@ import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.function.Function;
 
 final class AcquireChunks implements Future<AcquireChunks.Result> {
@@ -29,10 +29,11 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     private ChunkPos pos;
     private ChunkStep currentStep;
 
-    private final BitSet upgradeChunks;
-
+    private final Lock[] upgradeLocks;
     private final Lock[] locks;
-    private final Future<Unit> joinLock;
+
+    private final Lock joinLock;
+    private final Future<Unit> acquireJoinLock;
 
     private boolean prepared;
     private boolean acquired;
@@ -41,10 +42,16 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         this.kernel = kernel;
 
         this.chunkMap = chunkMap;
-        this.upgradeChunks = kernel.create(BitSet::new);
 
+        this.upgradeLocks = kernel.create(Lock[]::new);
         this.locks = kernel.create(Lock[]::new);
-        this.joinLock = Lock.acquireAsync(new JoinLock(this.locks));
+
+        this.joinLock = new JoinLock(new Lock[] {
+                // TODO: should this join between upgrade locks be at the chunkentry level or at the acquire level?
+                new JoinLock(this.upgradeLocks),
+                new JoinLock(this.locks)
+        });
+        this.acquireJoinLock = Lock.acquireAsync(this.joinLock);
 
         this.result = kernel.create(Result::new);
     }
@@ -56,7 +63,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     }
 
     private void clearBuffers() {
-        this.upgradeChunks.clear();
+        Arrays.fill(this.upgradeLocks, null);
         Arrays.fill(this.locks, null);
         Arrays.fill(this.result.entries, null);
     }
@@ -71,7 +78,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         this.addUpgradeChunks(this.currentStep);
         this.addContextChunks(this.currentStep);
 
-        if (this.joinLock.poll(waker) != null) {
+        if (this.acquireJoinLock.poll(waker) != null) {
             this.acquired = true;
             return this.result;
         } else {
@@ -83,9 +90,9 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     private void addUpgradeChunks(ChunkStep step) {
         ChunkAccess chunks = this.chunkMap.visible();
 
+        Lock[] upgradeLocks = this.upgradeLocks;
         Lock[] locks = this.locks;
         ChunkEntryState[] entries = this.result.entries;
-        BitSet upgradeChunks = this.upgradeChunks;
 
         ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
@@ -99,9 +106,10 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                 if (entry.canUpgradeTo(step)) {
                     int idx = kernel.index(x, z);
 
-                    upgradeChunks.set(idx);
-                    entries[idx] = entry.getStateUnsafe();
-                    locks[idx] = entry.getLock().write();
+                    entries[idx] = entry.getState();
+
+                    upgradeLocks[idx] = entry.getLock().upgrade();
+                    locks[idx] = entry.getLock().write(step.getResource());
                 }
             }
         }
@@ -114,12 +122,12 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         }
 
         ChunkUpgradeKernel kernel = this.kernel;
-        BitSet upgradeChunks = this.upgradeChunks;
+        Lock[] upgradeLocks = this.upgradeLocks;
 
         int radiusForStep = kernel.getRadiusFor(step);
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                if (upgradeChunks.get(kernel.index(x, z))) {
+                if (upgradeLocks[kernel.index(x, z)] != null) {
                     this.addContextMargin(x, z, requirements);
                 }
             }
@@ -131,7 +139,6 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
         ChunkEntryState[] entries = this.result.entries;
         Lock[] locks = this.locks;
-        BitSet upgradeChunks = this.upgradeChunks;
 
         ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
@@ -148,7 +155,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
             for (int x = minX; x <= maxX; x++) {
                 int idx = kernel.index(x, z);
 
-                if (locks[idx] == null && !upgradeChunks.get(idx)) {
+                if (locks[idx] == null) {
                     int distance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
                     ChunkRequirement requirement = requirements.byDistance(distance);
 
@@ -156,10 +163,11 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                         ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
                         ChunkAccessLock lock = entry.getLock();
 
+                        ChunkLockType resource = requirement.step.getResource();
                         boolean requireWrite = requirement.write;
 
-                        entries[idx] = entry.getStateUnsafe();
-                        locks[idx] = requireWrite ? lock.write() : lock.read();
+                        entries[idx] = entry.getState();
+                        locks[idx] = requireWrite ? lock.write(resource) : lock.read(resource);
                     }
                 }
             }
@@ -179,11 +187,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         if (this.acquired) {
             this.acquired = false;
 
-            for (Lock lock : this.locks) {
-                if (lock != null) {
-                    lock.release();
-                }
-            }
+            this.joinLock.release();
 
             this.clearBuffers();
         }
@@ -201,7 +205,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
             for (int i = 0; i < entries.length; i++) {
                 ChunkEntryState entry = entries[i];
-                if (entry != null && AcquireChunks.this.upgradeChunks.get(i)) {
+                if (entry != null && AcquireChunks.this.upgradeLocks[i] != null) {
                     tasks[i] = function.apply(entry);
                 }
             }

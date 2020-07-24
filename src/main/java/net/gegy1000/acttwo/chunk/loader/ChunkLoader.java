@@ -97,9 +97,9 @@ public final class ChunkLoader {
     }
 
     private Future<Unit> unloadChunk(ChunkEntry entry) {
-        return entry.write().map(write -> {
+        return entry.lock().map(guard -> {
             try {
-                ChunkEntryState entryState = write.get();
+                ChunkEntryState entryState = guard.get();
 
                 Chunk chunk = entryState.getChunk();
                 if (chunk == null) {
@@ -108,10 +108,11 @@ public final class ChunkLoader {
 
                 ChunkPos pos = entryState.getPos();
 
-                if (chunk instanceof WorldChunk) {
-                    ((WorldChunk) chunk).setLoadedToWorld(false);
+                WorldChunk worldChunk = entryState.getWorldChunk();
+                if (worldChunk != null) {
+                    worldChunk.setLoadedToWorld(false);
                     if (this.controller.map.tryRemoveFullChunk(pos)) {
-                        this.world.unloadEntities((WorldChunk) chunk);
+                        this.world.unloadEntities(worldChunk);
                     }
                 }
 
@@ -119,7 +120,7 @@ public final class ChunkLoader {
 
                 this.notifyUnload(pos);
             } finally {
-                write.release();
+                guard.release();
             }
 
             return Unit.INSTANCE;

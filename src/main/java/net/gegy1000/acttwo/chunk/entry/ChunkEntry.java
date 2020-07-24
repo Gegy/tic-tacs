@@ -4,7 +4,6 @@ import com.mojang.datafixers.util.Either;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.SharedUnitListener;
-import net.gegy1000.acttwo.chunk.lock.ChunkAccessLock;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 import net.gegy1000.acttwo.lock.Lock;
@@ -52,8 +51,8 @@ public final class ChunkEntry extends ChunkHolder {
         }
     }
 
-    public Future<LockGuard<ChunkEntryState>> write() {
-        Lock lock = this.lock.write();
+    public Future<LockGuard<ChunkEntryState>> lock() {
+        Lock lock = this.lock.lockAll();
         return Lock.acquireAsync(lock).map(u -> new LockGuard<>(lock, this.state));
     }
 
@@ -61,7 +60,7 @@ public final class ChunkEntry extends ChunkHolder {
         return this.lock;
     }
 
-    public ChunkEntryState getStateUnsafe() {
+    public ChunkEntryState getState() {
         return this.state;
     }
 
@@ -134,7 +133,7 @@ public final class ChunkEntry extends ChunkHolder {
         if (isTicking != wasTicking) {
             if (isTicking) {
                 Future<Unit> future = controller.loader.loadRadius(this.pos, 1, ChunkStep.FULL);
-                Future<Unit> pending = future.andThen(unit -> this.write()).map(guard -> {
+                Future<Unit> pending = future.andThen(unit -> this.lock()).map(guard -> {
                     try {
                         ChunkEntryState state = guard.get();
                         state.makeChunkTickable(controller);
@@ -200,7 +199,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     public WorldChunk getWorldChunk() {
         // safety: once upgraded to world chunk, the lock is supposed to have no write access
-        return this.getStateUnsafe().getWorldChunk();
+        return this.getState().getWorldChunk();
     }
 
     public Future<Unit> awaitAccessible() {

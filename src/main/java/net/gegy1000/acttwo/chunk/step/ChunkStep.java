@@ -1,6 +1,7 @@
 package net.gegy1000.acttwo.chunk.step;
 
 import com.mojang.datafixers.util.Either;
+import net.gegy1000.acttwo.chunk.ChunkLockType;
 import net.gegy1000.acttwo.chunk.future.VanillaChunkFuture;
 import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ServerLightingProvider;
@@ -33,10 +34,12 @@ public final class ChunkStep {
 
     public static final ChunkStep EMPTY = new ChunkStep("empty")
             .includes(ChunkStatus.EMPTY)
+            .resource(ChunkLockType.EARLY_GENERATION)
             .requires(ChunkRequirements.none());
 
     public static final ChunkStep STRUCTURE_STARTS = new ChunkStep("structure_starts")
             .includes(ChunkStatus.STRUCTURE_STARTS)
+            .resource(ChunkLockType.EARLY_GENERATION)
             .requires(ChunkRequirements.from(ChunkStep.EMPTY))
             .runSync(ChunkStep::addStructureStarts);
 
@@ -46,6 +49,7 @@ public final class ChunkStep {
                     ChunkStatus.NOISE, ChunkStatus.SURFACE,
                     ChunkStatus.CARVERS, ChunkStatus.LIQUID_CARVERS
             )
+            .resource(ChunkLockType.LATE_GENERATION)
             .requires(
                     ChunkRequirements.from(ChunkStep.STRUCTURE_STARTS)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
@@ -59,6 +63,7 @@ public final class ChunkStep {
                             .write(ChunkStep.SURFACE, 1)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
+            .resource(ChunkLockType.LATE_GENERATION)
             .runSync(ChunkStep::addFeatures);
 
     public static final ChunkStep LIGHTING = new ChunkStep("lighting")
@@ -67,11 +72,13 @@ public final class ChunkStep {
                     ChunkRequirements.from(ChunkStep.FEATURES)
                             .read(ChunkStep.FEATURES, 1)
             )
+            .resource(ChunkLockType.LATE_GENERATION)
             .runAsync(ChunkStep::lightChunk);
 
     public static final ChunkStep FULL = new ChunkStep("full")
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
             .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
+            .resource(ChunkLockType.LATE_GENERATION)
             .runSync(ChunkStep::addEntities);
 
     private static final ChunkStep[] STATUS_TO_STEP;
@@ -85,6 +92,7 @@ public final class ChunkStep {
     private final int index;
     private final String name;
     private ChunkStatus[] statuses = new ChunkStatus[0];
+    private ChunkLockType resource;
     private AsyncTask task = AsyncTask.noop();
     private ChunkRequirements requirements = ChunkRequirements.none();
 
@@ -96,13 +104,18 @@ public final class ChunkStep {
         this.name = name;
     }
 
-    ChunkStep requires(ChunkRequirements requirements) {
-        this.requirements = requirements;
+    ChunkStep includes(ChunkStatus... statuses) {
+        this.statuses = statuses;
         return this;
     }
 
-    ChunkStep includes(ChunkStatus... statuses) {
-        this.statuses = statuses;
+    ChunkStep resource(ChunkLockType resource) {
+        this.resource = resource;
+        return this;
+    }
+
+    ChunkStep requires(ChunkRequirements requirements) {
+        this.requirements = requirements;
         return this;
     }
 
@@ -122,6 +135,10 @@ public final class ChunkStep {
 
     public ChunkRequirements getRequirements() {
         return this.requirements;
+    }
+
+    public ChunkLockType getResource() {
+        return this.resource;
     }
 
     public ChunkStatus getMaximumStatus() {
