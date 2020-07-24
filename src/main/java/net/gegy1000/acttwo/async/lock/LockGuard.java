@@ -1,4 +1,4 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async.lock;
 
 public final class LockGuard<T> implements AutoCloseable {
     private final Lock lock;

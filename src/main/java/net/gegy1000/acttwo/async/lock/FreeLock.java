@@ -1,5 +1,6 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async.lock;
 
+import net.gegy1000.acttwo.async.LinkedWaiter;
 import net.gegy1000.justnow.Waker;
 
 public final class FreeLock implements Lock {
@@ -23,7 +24,7 @@ public final class FreeLock implements Lock {
     }
 
     @Override
-    public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
+    public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
         return true;
     }
 }

@@ -6,8 +6,8 @@ import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.SharedUnitListener;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
-import net.gegy1000.acttwo.lock.Lock;
-import net.gegy1000.acttwo.lock.LockGuard;
+import net.gegy1000.acttwo.async.lock.Lock;
+import net.gegy1000.acttwo.async.lock.LockGuard;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ChunkHolder;
@@ -53,7 +53,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     public Future<LockGuard<ChunkEntryState>> lock() {
         Lock lock = this.lock.lockAll();
-        return Lock.acquireAsync(lock).map(u -> new LockGuard<>(lock, this.state));
+        return lock.acquireAsync().map(u -> new LockGuard<>(lock, this.state));
     }
 
     public ChunkAccessLock getLock() {

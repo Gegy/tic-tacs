@@ -9,8 +9,8 @@ import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirement;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirements;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
-import net.gegy1000.acttwo.lock.JoinLock;
-import net.gegy1000.acttwo.lock.Lock;
+import net.gegy1000.acttwo.async.lock.JoinLock;
+import net.gegy1000.acttwo.async.lock.Lock;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -35,7 +35,6 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     private final Lock joinLock;
     private final Future<Unit> acquireJoinLock;
 
-    private boolean prepared;
     private boolean acquired;
 
     public AcquireChunks(ChunkUpgradeKernel kernel, ChunkMap chunkMap) {
@@ -51,13 +50,12 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                 new JoinLock(this.upgradeLocks),
                 new JoinLock(this.locks)
         });
-        this.acquireJoinLock = Lock.acquireAsync(this.joinLock);
+        this.acquireJoinLock = new Lock.AcquireFuture(this.joinLock);
 
         this.result = kernel.create(Result::new);
     }
 
-    public void prepare(ChunkPos pos, ChunkStep currentStep) {
-        this.prepared = true;
+    public void setup(ChunkPos pos, ChunkStep currentStep) {
         this.pos = pos;
         this.currentStep = currentStep;
     }
@@ -109,7 +107,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                     entries[idx] = entry.getState();
 
                     upgradeLocks[idx] = entry.getLock().upgrade();
-                    locks[idx] = entry.getLock().write(step.getResource());
+                    locks[idx] = entry.getLock().write(step.getLock());
                 }
             }
         }
@@ -163,7 +161,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                         ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
                         ChunkAccessLock lock = entry.getLock();
 
-                        ChunkLockType resource = requirement.step.getResource();
+                        ChunkLockType resource = requirement.step.getLock();
                         boolean requireWrite = requirement.write;
 
                         entries[idx] = entry.getState();
@@ -174,13 +172,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         }
     }
 
-    public boolean isPrepared() {
-        return this.prepared;
-    }
-
     public void release() {
-        this.prepared = false;
-
         this.pos = null;
         this.currentStep = null;
 

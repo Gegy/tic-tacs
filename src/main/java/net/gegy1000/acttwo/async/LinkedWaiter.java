@@ -1,16 +1,16 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async;
 
 import net.gegy1000.justnow.Waker;
 
-public class LockWaiter {
+public class LinkedWaiter {
     volatile Waker waker;
-    volatile LockWaiter previous;
+    volatile LinkedWaiter previous;
 
     public void setWaker(Waker waker) {
         this.waker = waker;
     }
 
-    public void linkTo(LockWaiter previous) {
+    public void linkTo(LinkedWaiter previous) {
         this.previous = previous;
     }
 
@@ -19,10 +19,10 @@ public class LockWaiter {
     }
 
     public void wake() {
-        LockWaiter waiter = this;
+        LinkedWaiter waiter = this;
 
         while (waiter != null) {
-            LockWaiter next = waiter.previous;
+            LinkedWaiter next = waiter.previous;
 
             Waker waker = waiter.waker;
             if (waker != null) {

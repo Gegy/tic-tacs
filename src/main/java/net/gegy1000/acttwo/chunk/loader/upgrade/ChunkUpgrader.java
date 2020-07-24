@@ -1,5 +1,6 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
+import net.gegy1000.acttwo.async.lock.Semaphore;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.FutureHandle;
@@ -34,6 +35,8 @@ public final class ChunkUpgrader {
     private final StructureManager structures;
     private final ServerLightingProvider lighting;
 
+    public final Semaphore lightingThrottler = new Semaphore(16);
+
     public ChunkUpgrader(
             ServerWorld world,
             ChunkController controller,
@@ -67,7 +70,7 @@ public final class ChunkUpgrader {
 
     Future<Chunk> runStepTask(ChunkEntryState entry, ChunkStep step, List<Chunk> chunks) {
         // TODO: reuse context objects
-        Future<Chunk> future = step.run(new ChunkStepContext(this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks));
+        Future<Chunk> future = step.run(new ChunkStepContext(this.controller, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks));
 
         // TODO: should this logic be in the chunkstep itself?
         if (step == ChunkStep.FULL) {

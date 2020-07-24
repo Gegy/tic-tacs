@@ -1,10 +1,10 @@
 package net.gegy1000.acttwo.chunk.entry;
 
 import net.gegy1000.acttwo.chunk.ChunkLockType;
-import net.gegy1000.acttwo.lock.JoinLock;
-import net.gegy1000.acttwo.lock.Lock;
-import net.gegy1000.acttwo.lock.Mutex;
-import net.gegy1000.acttwo.lock.RwLock;
+import net.gegy1000.acttwo.async.lock.JoinLock;
+import net.gegy1000.acttwo.async.lock.Lock;
+import net.gegy1000.acttwo.async.lock.Mutex;
+import net.gegy1000.acttwo.async.lock.RwLock;
 
 import java.util.Arrays;
 

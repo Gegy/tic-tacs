@@ -28,6 +28,9 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private ChunkStep currentStep;
 
+    private Future<Unit> runWhenListener;
+    private boolean stepReady;
+
     private Future<Unit> flushListener;
 
     public ChunkUpgradeFuture(
@@ -67,11 +70,12 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         while (true) {
             ChunkStep currentStep = this.currentStep;
 
-            AcquireChunks acquireEntries = this.acquireEntries;
-
-            if (!acquireEntries.isPrepared()) {
-                acquireEntries.prepare(this.pos, currentStep);
+            if (!this.pollStepReady(currentStep, waker)) {
+                return null;
             }
+
+            AcquireChunks acquireEntries = this.acquireEntries;
+            acquireEntries.setup(this.pos, currentStep);
 
             // poll to acquire read/write access to all the relevant entries
             AcquireChunks.Result chunks = acquireEntries.poll(waker);
@@ -103,7 +107,34 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         }
     }
 
+    private boolean pollStepReady(ChunkStep currentStep, Waker waker) {
+        if (this.stepReady) {
+            return true;
+        }
+
+        if (this.runWhenListener == null) {
+            ChunkStep.RunWhen runWhen = currentStep.getRunWhen();
+            if (runWhen == null) {
+                this.stepReady = true;
+                return true;
+            }
+
+            this.runWhenListener = runWhen.await(this.controller);
+        }
+
+        if (this.runWhenListener.poll(waker) != null) {
+            this.stepReady = true;
+            this.runWhenListener = null;
+            return true;
+        }
+
+        return false;
+    }
+
     private void releaseStep() {
+        this.runWhenListener = null;
+        this.stepReady = false;
+
         this.stepper.reset();
         this.acquireEntries.release();
     }

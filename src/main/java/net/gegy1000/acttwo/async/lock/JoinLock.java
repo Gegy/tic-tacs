@@ -1,5 +1,6 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async.lock;
 
+import net.gegy1000.acttwo.async.LinkedWaiter;
 import net.gegy1000.justnow.Waker;
 
 public final class JoinLock implements Lock {
@@ -22,7 +23,7 @@ public final class JoinLock implements Lock {
     }
 
     @Override
-    public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
+    public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
         for (int i = 0; i < this.locks.length; i++) {
             Lock lock = this.locks[i];
             if (lock != null && !lock.tryAcquireAsync(waiter, waker)) {

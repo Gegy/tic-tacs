@@ -1,5 +1,6 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async.lock;
 
+import net.gegy1000.acttwo.async.LinkedWaiter;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -7,22 +8,29 @@ import net.gegy1000.justnow.tuple.Unit;
 import javax.annotation.Nullable;
 
 public interface Lock {
+    Future<Unit> READY_FUTURE = Future.ready(Unit.INSTANCE);
+
     boolean tryAcquire();
 
     boolean canAcquire();
 
     void release();
 
-    boolean tryAcquireAsync(LockWaiter waiter, Waker waker);
+    boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker);
 
-    static Future<Unit> acquireAsync(Lock lock) {
-        return new AcquireFuture(lock);
+    default Future<Unit> acquireAsync() {
+        // try acquire now to avoid the allocation: this is technically bad future behaviour, but we'll allow it
+        if (this.tryAcquire()) {
+            return READY_FUTURE;
+        }
+
+        return new AcquireFuture(this);
     }
 
-    final class AcquireFuture extends LockWaiter implements Future<Unit> {
+    final class AcquireFuture extends LinkedWaiter implements Future<Unit> {
         final Lock lock;
 
-        AcquireFuture(Lock lock) {
+        public AcquireFuture(Lock lock) {
             this.lock = lock;
         }
 

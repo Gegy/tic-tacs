@@ -1,9 +1,10 @@
-package net.gegy1000.acttwo.lock;
+package net.gegy1000.acttwo.async.lock;
 
+import net.gegy1000.acttwo.async.LinkedWaiter;
+import net.gegy1000.acttwo.async.WaiterList;
 import net.gegy1000.justnow.Waker;
 
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 public final class RwLock {
     private static final int FREE = 0;
@@ -14,8 +15,7 @@ public final class RwLock {
 
     private final AtomicInteger state = new AtomicInteger(FREE);
 
-    // linked queue of waiting futures and their corresponding wakers
-    private final AtomicReference<LockWaiter> waiter = new AtomicReference<>();
+    private final WaiterList waiters = new WaiterList();
 
     public Lock read() {
         return this.read;
@@ -48,7 +48,7 @@ public final class RwLock {
             throw new IllegalStateException("write lock not acquired");
         }
 
-        this.wake();
+        this.waiters.wake();
     }
 
     void releaseRead() {
@@ -59,40 +59,7 @@ public final class RwLock {
 
         int readCount = state - 1;
         if (readCount <= 0) {
-            this.wake();
-        }
-    }
-
-    void registerWaiter(LockWaiter waiter, Waker waker) {
-        // initialize the waker on the waiter object
-        waiter.setWaker(waker);
-
-        // this waiter object is already registered to the queue
-        if (waiter.isLinked()) {
-            return;
-        }
-
-        while (true) {
-            // try swap the root node with our node. if it fails, try again
-            LockWaiter root = this.waiter.get();
-
-            // this waiter object is already registered to the queue
-            if (root == waiter) {
-                return;
-            }
-
-            waiter.linkTo(root);
-
-            if (this.waiter.compareAndSet(root, waiter)) {
-                return;
-            }
-        }
-    }
-
-    void wake() {
-        LockWaiter waiter = this.waiter.getAndSet(null);
-        if (waiter != null) {
-            waiter.wake();
+            this.waiters.wake();
         }
     }
 
@@ -113,13 +80,13 @@ public final class RwLock {
         }
 
         @Override
-        public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
-            if (this.tryAcquire()) {
-                return true;
+        public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
+            if (!this.tryAcquire()) {
+                RwLock.this.waiters.registerWaiter(waiter, waker);
+                return false;
             }
 
-            RwLock.this.registerWaiter(waiter, waker);
-            return false;
+            return true;
         }
     }
 
@@ -140,12 +107,12 @@ public final class RwLock {
         }
 
         @Override
-        public boolean tryAcquireAsync(LockWaiter waiter, Waker waker) {
+        public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
             if (this.tryAcquire()) {
                 return true;
             }
 
-            RwLock.this.registerWaiter(waiter, waker);
+            RwLock.this.waiters.registerWaiter(waiter, waker);
             return false;
         }
     }

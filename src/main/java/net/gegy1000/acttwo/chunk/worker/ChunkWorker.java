@@ -13,7 +13,7 @@ public final class ChunkWorker implements AutoCloseable {
 
     private ChunkWorker() {
         // TODO: change thread count based on config / core count
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 1; i++) {
             Thread thread = new Thread(this::run);
             thread.setName("worldgen-worker-" + (i + 1));
             thread.setDaemon(true);
