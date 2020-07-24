@@ -10,7 +10,14 @@
   "license": "LGPLv3",
 
   "environment": "*",
-  "entrypoints": {},
+  "entrypoints": {
+    "main": [
+      "net.gegy1000.acttwo.ActTwo"
+    ],
+    "client": [
+      "net.gegy1000.acttwo.ActTwoClient"
+    ]
+  },
   "mixins": [
     "act_two.mixins.json",
     {

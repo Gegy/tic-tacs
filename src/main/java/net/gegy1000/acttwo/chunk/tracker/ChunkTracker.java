@@ -40,7 +40,7 @@ public final class ChunkTracker implements ChunkHolder.PlayersWatchingChunkProvi
 
         this.entityTracker = new ChunkEntityTracker(world, this);
 
-        this.leveledTracker = new ChunkLeveledTracker(this.chunks, threadPool, mainThread);
+        this.leveledTracker = new ChunkLeveledTracker(world, this.chunks, threadPool, mainThread);
         this.playerWatchers = new ChunkPlayerWatchers(world);
     }
 

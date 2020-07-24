@@ -1,33 +1,55 @@
 package net.gegy1000.acttwo.chunk.tracker;
 
+import io.netty.buffer.Unpooled;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.ObjectIterator;
+import net.gegy1000.acttwo.ActTwo;
+import net.gegy1000.acttwo.ActTwoDebugData;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkMap;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
+
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTaskPrioritySystem;
 import net.minecraft.server.world.ChunkTicket;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
+import net.minecraft.util.Pair;
 import net.minecraft.util.collection.SortedArraySet;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
+
+import java.util.ArrayDeque;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.function.IntConsumer;
 import java.util.function.IntSupplier;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import net.fabricmc.fabric.api.network.ServerSidePacketRegistry;
+import net.fabricmc.fabric.api.server.PlayerStream;
 
 public final class ChunkLeveledTracker extends ChunkTicketManager implements ChunkHolder.LevelUpdateListener {
     public static final int MAX_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL;
 
+    private final ServerWorld world;
     private final ChunkMap access;
 
-    ChunkLeveledTracker(ChunkMap access, Executor threadPool, Executor mainThread) {
+    // Debug only!
+    private final Queue<Pair<Long, Integer>> ticketCache = new ArrayDeque<>();
+
+    ChunkLeveledTracker(ServerWorld world, ChunkMap access, Executor threadPool, Executor mainThread) {
         super(threadPool, mainThread);
+        this.world = world;
         this.access = access;
     }
 
@@ -169,6 +191,24 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
             return entry;
         }
 
+        // Send debug data if enabled
+        if (ActTwoDebugData.RENDER_CHUNK_TICKETS) {
+            List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
+
+            if (players.size() > 0) {
+                players.forEach((player) -> sendChunkTicketData(player, pos, toLevel));
+
+                while (ticketCache.size() > 0) {
+                    Pair<Long, Integer> val = ticketCache.poll();
+
+                    players.forEach((player) -> sendChunkTicketData(player, val.getLeft(), val.getRight()));
+                }
+
+            } else {
+                ticketCache.add(new Pair<>(pos, toLevel));
+            }
+        }
+
         if (entry != null) {
             return this.updateLevel(pos, toLevel, entry);
         } else {
@@ -208,5 +248,15 @@ public final class ChunkLeveledTracker extends ChunkTicketManager implements Chu
 
     public static boolean isUnloaded(int level) {
         return level > MAX_LEVEL;
+    }
+
+    private void sendChunkTicketData(PlayerEntity player, long pos, int toLevel) {
+        PacketByteBuf data = new PacketByteBuf(Unpooled.buffer());
+
+        data.writeLong(pos);
+        data.writeInt(toLevel);
+        data.writeLong(System.currentTimeMillis() + 2000);
+
+        ServerSidePacketRegistry.INSTANCE.sendToPlayer(player, ActTwo.DEBUG_CHUNK_TICKETS, data);
     }
 }
