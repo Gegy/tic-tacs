@@ -29,10 +29,6 @@ public final class ChunkStep {
             Heightmap.Type.WORLD_SURFACE
     );
 
-    // TODO: loading order issue: requirements builder depends on other initialization already happening..!
-    //       also note: it can't simply be made lazy, because the static initialization itself depends on the requirements stuffs
-    //       how do
-
     public static final List<ChunkStep> STEPS = new ArrayList<>();
 
     public static final ChunkStep EMPTY = new ChunkStep("empty")
