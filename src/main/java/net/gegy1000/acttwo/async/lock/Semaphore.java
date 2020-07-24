@@ -47,12 +47,13 @@ public final class Semaphore implements Lock {
 
     @Override
     public void release() {
-        int count = this.count.decrementAndGet();
-        if (count < 0) {
+        int count = this.count.getAndDecrement();
+        if (count <= 0) {
             throw new IllegalStateException("semaphore not acquired");
         }
 
-        if (this.canAcquire(count)) {
+        int newCount = count - 1;
+        if (newCount <= 0) {
             this.waiters.wake();
         }
     }

@@ -3,9 +3,7 @@ package net.gegy1000.acttwo.chunk.worker;
 import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkTaskQueue implements AutoCloseable {
@@ -118,15 +116,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
         return new Waker(task);
     }
 
-    public boolean isEmpty() {
-        for (Level level : this.levels) {
-            if (!level.isEmpty()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     static class Level {
         LinkedList<ChunkTask<?>> queue = new LinkedList<>();
 
@@ -140,10 +129,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
 
         boolean isEmpty() {
             return this.queue.isEmpty();
-        }
-
-        List<ChunkTask<?>> newQueue() {
-            return new ArrayList<>(4);
         }
     }
 

@@ -1,5 +1,7 @@
 package net.gegy1000.acttwo.chunk.loader.upgrade;
 
+import net.gegy1000.acttwo.async.lock.JoinLock;
+import net.gegy1000.acttwo.async.lock.Lock;
 import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkLockType;
 import net.gegy1000.acttwo.chunk.ChunkMap;
@@ -9,8 +11,6 @@ import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirement;
 import net.gegy1000.acttwo.chunk.step.ChunkRequirements;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
-import net.gegy1000.acttwo.async.lock.JoinLock;
-import net.gegy1000.acttwo.async.lock.Lock;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -26,14 +26,14 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
     private final Result result;
 
-    private ChunkPos pos;
-    private ChunkStep currentStep;
-
     private final Lock[] upgradeLocks;
     private final Lock[] locks;
 
     private final Lock joinLock;
     private final Future<Unit> acquireJoinLock;
+
+    private ChunkPos pos;
+    private ChunkStep currentStep;
 
     private boolean acquired;
 

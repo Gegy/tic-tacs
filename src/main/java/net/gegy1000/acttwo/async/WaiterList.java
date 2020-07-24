@@ -1,40 +1,47 @@
 package net.gegy1000.acttwo.async;
 
+import net.gegy1000.acttwo.util.UnsafeAccess;
 import net.gegy1000.justnow.Waker;
-
-import java.util.concurrent.atomic.AtomicReference;
+import sun.misc.Unsafe;
 
 public final class WaiterList {
-    private final AtomicReference<LinkedWaiter> root = new AtomicReference<>();
+    // use unsafe for atomic operations without allocating an AtomicReference
+    private static final Unsafe UNSAFE = UnsafeAccess.get();
+
+    private static final long ROOT_OFFSET;
+
+    static {
+        try {
+            ROOT_OFFSET = UNSAFE.objectFieldOffset(WaiterList.class.getDeclaredField("root"));
+        } catch (NoSuchFieldException e) {
+            throw new Error("Failed to get waiter field offsets", e);
+        }
+    }
+
+    private volatile LinkedWaiter root;
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
-        // initialize the waker on the waiter object
-        waiter.setWaker(waker);
-
         // this waiter object is already registered to the queue
         if (waiter.isLinked()) {
             return;
         }
 
+        // initialize the waker on the waiter object
+        waiter.setWaker(waker);
+
         while (true) {
             // try swap the root node with our node. if it fails, try again
-            LinkedWaiter root = this.root.get();
-
-            // this waiter object is already registered to the queue
-            if (root == waiter) {
-                return;
-            }
-
+            LinkedWaiter root = this.root;
             waiter.linkTo(root);
 
-            if (this.root.compareAndSet(root, waiter)) {
+            if (UNSAFE.compareAndSwapObject(this, ROOT_OFFSET, root, waiter)) {
                 return;
             }
         }
     }
 
     public void wake() {
-        LinkedWaiter waiter = this.root.getAndSet(null);
+        LinkedWaiter waiter = (LinkedWaiter) UNSAFE.getAndSetObject(this, ROOT_OFFSET, null);
         if (waiter != null) {
             waiter.wake();
         }
