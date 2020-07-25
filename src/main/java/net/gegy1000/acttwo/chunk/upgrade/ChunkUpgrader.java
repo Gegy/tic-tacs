@@ -65,7 +65,18 @@ public final class ChunkUpgrader {
 
     Future<Chunk> runStepTask(ChunkEntryState entry, ChunkStep step, List<Chunk> chunks) {
         // TODO: reuse context objects
-        return step.run(new ChunkStepContext(this.controller, entry, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks));
+        ChunkStepContext context = new ChunkStepContext(this.controller, entry, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks);
+
+        if (this.hasAlreadyUpgradedTo(entry, step)) {
+            return step.runLoad(context);
+        } else {
+            return step.runUpgrade(context);
+        }
+    }
+
+    private boolean hasAlreadyUpgradedTo(ChunkEntryState entry, ChunkStep step) {
+        ProtoChunk currentChunk = entry.getChunk();
+        return currentChunk != null && currentChunk.getStatus().isAtLeast(step.getMaximumStatus());
     }
 
     void completeUpgradeOk(ChunkEntryState entry, ChunkStep step, Chunk chunk) {

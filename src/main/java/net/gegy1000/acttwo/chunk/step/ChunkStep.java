@@ -32,11 +32,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public final class ChunkStep {
-    // TODO: specific behaviour for when a chunk is loaded, but has already been generated to a certain step
-    //       currently we don't have chunk saving so this doesn't matter, but it will be important.
-    //       FULL for example needs to do the conversion to full chunk still, and LIGHT needs to run the lighting
-    //       updates (but true for `excludeBlocks`)
-
     private static final EnumSet<Heightmap.Type> REQUIRED_FEATURE_HEIGHTMAPS = EnumSet.of(
             Heightmap.Type.MOTION_BLOCKING,
             Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
@@ -55,7 +50,7 @@ public final class ChunkStep {
             .includes(ChunkStatus.STRUCTURE_STARTS)
             .locks(ChunkLockType.EARLY_GENERATION)
             .requires(ChunkRequirements.from(ChunkStep.EMPTY))
-            .runSync(ChunkStep::addStructureStarts);
+            .upgradeSync(ChunkStep::addStructureStarts);
 
     public static final ChunkStep SURFACE = new ChunkStep("surface")
             .includes(
@@ -68,7 +63,7 @@ public final class ChunkStep {
                     ChunkRequirements.from(ChunkStep.STRUCTURE_STARTS)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
-            .runSync(ChunkStep::generateSurface);
+            .upgradeSync(ChunkStep::generateSurface);
 
     // TODO: featuregen experiencing multiple-thread access
     public static final ChunkStep FEATURES = new ChunkStep("features")
@@ -79,7 +74,7 @@ public final class ChunkStep {
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)
-            .runSync(ChunkStep::addFeatures);
+            .upgradeSync(ChunkStep::addFeatures);
 
     public static final ChunkStep LIGHTING = new ChunkStep("lighting")
             .includes(ChunkStatus.LIGHT)
@@ -89,13 +84,15 @@ public final class ChunkStep {
             )
             .locks(ChunkLockType.LATE_GENERATION)
             .prerequisite(ChunkStep::waitForLight)
-            .runAsync(ChunkStep::lightChunk);
+            .upgradeAsync(ctx -> ChunkStep.lightChunk(ctx, false))
+            .loadAsync(ctx -> ChunkStep.lightChunk(ctx, true));
 
     public static final ChunkStep FULL = new ChunkStep("full")
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
             .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
             .locks(ChunkLockType.LATE_GENERATION)
-            .runAsync(ChunkStep::makeFull);
+            .upgradeAsync(ChunkStep::makeFull)
+            .loadAsync(ChunkStep::makeFull);
 
     private static final ChunkStep[] STATUS_TO_STEP;
 
@@ -109,9 +106,11 @@ public final class ChunkStep {
     private final String name;
     private ChunkStatus[] statuses = new ChunkStatus[0];
     private ChunkLockType lock;
-    private AsyncTask task = AsyncTask.noop();
-    private Prerequisite prerequisite;
     private ChunkRequirements requirements = ChunkRequirements.none();
+
+    private AsyncTask upgradeTask = AsyncTask.noop();
+    private AsyncTask loadTask = AsyncTask.noop();
+    private Prerequisite prerequisite;
 
     ChunkStep(String name) {
         int index = STEPS.size();
@@ -136,13 +135,18 @@ public final class ChunkStep {
         return this;
     }
 
-    ChunkStep runAsync(AsyncTask task) {
-        this.task = task;
+    ChunkStep upgradeAsync(AsyncTask task) {
+        this.upgradeTask = task;
         return this;
     }
 
-    ChunkStep runSync(SyncTask task) {
-        this.task = AsyncTask.from(task);
+    ChunkStep upgradeSync(SyncTask task) {
+        this.upgradeTask = AsyncTask.from(task);
+        return this;
+    }
+
+    ChunkStep loadAsync(AsyncTask task) {
+        this.loadTask = task;
         return this;
     }
 
@@ -151,8 +155,12 @@ public final class ChunkStep {
         return this;
     }
 
-    public Future<Chunk> run(ChunkStepContext ctx) {
-        return this.task.run(ctx);
+    public Future<Chunk> runUpgrade(ChunkStepContext ctx) {
+        return this.upgradeTask.run(ctx);
+    }
+
+    public Future<Chunk> runLoad(ChunkStepContext ctx) {
+        return this.loadTask.run(ctx);
     }
 
     public ChunkRequirements getRequirements() {
@@ -319,9 +327,7 @@ public final class ChunkStep {
         return ctx.chunk;
     }
 
-    private static Future<Chunk> lightChunk(ChunkStepContext ctx) {
-        CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, false);
-
+    private static Future<Chunk> lightChunk(ChunkStepContext ctx, boolean excludeBlocks) {
         ChunkTicketManager ticketManager = ctx.controller.getTicketManager();
 
         ChunkPos pos = ctx.entry.getPos();
@@ -330,6 +336,7 @@ public final class ChunkStep {
             ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ticketLevel, pos);
         });
 
+        CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, excludeBlocks);
         return VanillaChunkFuture.of(future.thenApply(chunk -> {
             ctx.controller.getUpgrader().lightingThrottler.release();
             return Either.left(chunk);
