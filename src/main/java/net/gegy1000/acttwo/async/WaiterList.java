@@ -21,14 +21,14 @@ public final class WaiterList {
     private volatile LinkedWaiter root;
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
+        // initialize the waker on the waiter object
+        waiter.setWaker(waker);
+
         // this waiter object is already registered to the queue
         // we know this waiter hasn't been woken up yet if it is linked: the link is the first thing reset
         if (waiter.isLinked()) {
             return;
         }
-
-        // initialize the waker on the waiter object
-        waiter.setWaker(waker);
 
         while (true) {
             // try swap the root node with our node. if it fails, try again
