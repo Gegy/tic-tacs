@@ -6,7 +6,6 @@ import net.gegy1000.acttwo.chunk.ChunkLockType;
 import net.gegy1000.acttwo.chunk.future.VanillaChunkFuture;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
-import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.Heightmap;
@@ -25,6 +24,11 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 public final class ChunkStep {
+    // TODO: specific behaviour for when a chunk is loaded, but has already been generated to a certain step
+    //       currently we don't have chunk saving so this doesn't matter, but it will be important.
+    //       FULL for example needs to do the conversion to full chunk still, and LIGHT needs to run the lighting
+    //       updates (but true for `excludeBlocks`)
+
     private static final EnumSet<Heightmap.Type> REQUIRED_FEATURE_HEIGHTMAPS = EnumSet.of(
             Heightmap.Type.MOTION_BLOCKING,
             Heightmap.Type.MOTION_BLOCKING_NO_LEAVES,
@@ -58,11 +62,12 @@ public final class ChunkStep {
             )
             .runSync(ChunkStep::generateSurface);
 
+    // TODO: featuregen experiencing multiple-thread access
     public static final ChunkStep FEATURES = new ChunkStep("features")
             .includes(ChunkStatus.FEATURES)
             .requires(
                     ChunkRequirements.from(ChunkStep.SURFACE)
-                            .write(ChunkStep.SURFACE, 2)
+                            .write(ChunkStep.SURFACE, 1)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)
@@ -307,11 +312,7 @@ public final class ChunkStep {
     }
 
     private static Future<Chunk> lightChunk(ChunkStepContext ctx) {
-        // TODO: Not sure that this replicates vanilla lighting exactly!
-        //       might even be slower than vanilla to do this, so we need to investigate
-        ServerLightingProvider lighting = ctx.lighting;
-        CompletableFuture<Chunk> future = lighting.light(ctx.chunk, false)
-                .thenCompose(chunk -> lighting.light(chunk, true));
+        CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, false);
 
         return VanillaChunkFuture.of(future.thenApply(chunk -> {
             ctx.controller.upgrader.lightingThrottler.release();

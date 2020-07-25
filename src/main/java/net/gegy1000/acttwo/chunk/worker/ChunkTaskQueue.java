@@ -52,9 +52,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
         }
     }
 
-    // TODO: can we make this faster / reduce queue allocation?
-    //         we can make use of LockSupport.park/unpark and atomics and avoid the lock
-
     @Nullable
     public ChunkTask<?> take() throws InterruptedException {
         while (this.open) {
@@ -118,7 +115,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     }
 
     static class Level {
-        LinkedList<ChunkTask<?>> queue = new LinkedList<>();
+        private final LinkedList<ChunkTask<?>> queue = new LinkedList<>();
 
         void enqueue(ChunkTask<?> task) {
             this.queue.add(task);
@@ -134,6 +131,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     }
 
     public static class Waker implements net.gegy1000.justnow.Waker {
+        // use unsafe for atomic operations without allocating an AtomicReference
         private static final Unsafe UNSAFE = UnsafeAccess.get();
         private static final long STATE_OFFSET;
 
