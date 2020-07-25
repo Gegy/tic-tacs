@@ -62,7 +62,7 @@ public final class ChunkStep {
             .includes(ChunkStatus.FEATURES)
             .requires(
                     ChunkRequirements.from(ChunkStep.SURFACE)
-                            .write(ChunkStep.SURFACE, 1)
+                            .write(ChunkStep.SURFACE, 2)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)
@@ -307,6 +307,8 @@ public final class ChunkStep {
     }
 
     private static Future<Chunk> lightChunk(ChunkStepContext ctx) {
+        // TODO: Not sure that this replicates vanilla lighting exactly!
+        //       might even be slower than vanilla to do this, so we need to investigate
         ServerLightingProvider lighting = ctx.lighting;
         CompletableFuture<Chunk> future = lighting.light(ctx.chunk, false)
                 .thenCompose(chunk -> lighting.light(chunk, true));

@@ -41,7 +41,6 @@ public final class JoinLock implements Lock {
                 return false;
             }
         }
-
         return true;
     }
 

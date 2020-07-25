@@ -26,8 +26,16 @@ public final class RwLock {
     }
 
     boolean tryAcquireRead() {
-        int state = this.state.get();
-        return state != WRITING && this.state.compareAndSet(state, state + 1);
+        while (true) {
+            int state = this.state.get();
+            if (state == WRITING) {
+                return false;
+            }
+
+            if (this.state.compareAndSet(state, state + 1)) {
+                return true;
+            }
+        }
     }
 
     boolean canAcquireRead() {
@@ -35,8 +43,7 @@ public final class RwLock {
     }
 
     boolean tryAcquireWrite() {
-        int state = this.state.get();
-        return state == FREE && this.state.compareAndSet(FREE, WRITING);
+        return this.state.compareAndSet(FREE, WRITING);
     }
 
     boolean canAcquireWrite() {
@@ -108,12 +115,12 @@ public final class RwLock {
 
         @Override
         public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
-            if (this.tryAcquire()) {
-                return true;
+            if (!this.tryAcquire()) {
+                RwLock.this.waiters.registerWaiter(waiter, waker);
+                return false;
             }
 
-            RwLock.this.waiters.registerWaiter(waiter, waker);
-            return false;
+            return true;
         }
     }
 }

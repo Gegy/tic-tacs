@@ -23,19 +23,21 @@ public class LinkedWaiter {
     private volatile Waker waker;
     private volatile LinkedWaiter previous;
 
-    public void setWaker(Waker waker) {
-        this.waker = waker;
+    void setWaker(Waker waker) {
+        if (!UNSAFE.compareAndSwapObject(this, WAKER_OFFSET, null, waker)) {
+            throw new IllegalStateException("tried to swap existing waker");
+        }
     }
 
-    public void linkTo(LinkedWaiter previous) {
+    void linkTo(LinkedWaiter previous) {
         this.previous = previous;
     }
 
-    public boolean isLinked() {
+    boolean isLinked() {
         return this.previous != null;
     }
 
-    public void wake() {
+    void wake() {
         LinkedWaiter waiter = this;
 
         while (waiter != null) {

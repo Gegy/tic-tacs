@@ -22,12 +22,16 @@ public final class Semaphore implements Lock {
 
     @Override
     public boolean tryAcquire() {
-        int count = this.count.get();
-        if (!this.canAcquire(count)) {
-            return false;
-        }
+        while (true) {
+            int count = this.count.get();
+            if (!this.canAcquire(count)) {
+                return false;
+            }
 
-        return this.count.compareAndSet(count, count + 1);
+            if (this.count.compareAndSet(count, count + 1)) {
+                return true;
+            }
+        }
     }
 
     @Override
@@ -47,13 +51,13 @@ public final class Semaphore implements Lock {
 
     @Override
     public void release() {
-        int count = this.count.getAndDecrement();
-        if (count <= 0) {
+        int prevCount = this.count.getAndDecrement();
+        if (prevCount <= 0) {
             throw new IllegalStateException("semaphore not acquired");
         }
 
-        int newCount = count - 1;
-        if (newCount <= 0) {
+        int newCount = prevCount - 1;
+        if (!this.canAcquire(prevCount) && this.canAcquire(newCount)) {
             this.waiters.wake();
         }
     }

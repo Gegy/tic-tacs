@@ -15,8 +15,7 @@ public final class Mutex implements Lock {
 
     @Override
     public boolean tryAcquire() {
-        int state = this.state.get();
-        return state == FREE && this.state.compareAndSet(FREE, ACQUIRED);
+        return this.state.compareAndSet(FREE, ACQUIRED);
     }
 
     @Override
