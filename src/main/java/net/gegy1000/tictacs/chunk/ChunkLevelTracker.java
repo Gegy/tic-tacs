@@ -5,7 +5,6 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import net.fabricmc.fabric.api.network.ServerSidePacketRegistry;
 import net.fabricmc.fabric.api.server.PlayerStream;
 import net.gegy1000.tictacs.TicTacs;
-import net.gegy1000.tictacs.TicTacsDebugData;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.entity.player.PlayerEntity;
@@ -45,7 +44,7 @@ public final class ChunkLevelTracker implements ChunkHolder.LevelUpdateListener 
         }
 
         // Send debug data if enabled
-        if (TicTacsDebugData.RENDER_CHUNK_TICKETS) {
+        if (TicTacs.CONFIG.debugChunkTickets) {
             List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
 
             if (players.size() > 0) {
