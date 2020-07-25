@@ -3,6 +3,7 @@ package net.gegy1000.tictacs.mixin;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.minecraft.server.world.ChunkHolder;
+import net.minecraft.server.world.ChunkTaskPrioritySystem;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -17,4 +18,7 @@ public interface TacsAccessor {
 
     @Accessor("field_18807")
     Long2ObjectLinkedOpenHashMap<ChunkHolder> getUnloadingChunks();
+
+    @Accessor
+    ChunkTaskPrioritySystem getChunkTaskPrioritySystem();
 }

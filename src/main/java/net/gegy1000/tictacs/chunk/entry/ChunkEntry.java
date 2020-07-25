@@ -25,8 +25,6 @@ public final class ChunkEntry extends ChunkHolder {
 
     public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
 
-    private static final LevelUpdateListener LEVEL_UPDATE_LISTENER = (pos, get, level, set) -> set.accept(level);
-
     final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.size()];
 
     private final ChunkEntryState state = new ChunkEntryState(this);
@@ -37,9 +35,10 @@ public final class ChunkEntry extends ChunkHolder {
     public ChunkEntry(
             ChunkPos pos, int level,
             LightingProvider lighting,
+            LevelUpdateListener levelUpdateListener,
             PlayersWatchingChunkProvider watchers
     ) {
-        super(pos, level, lighting, LEVEL_UPDATE_LISTENER, watchers);
+        super(pos, level, lighting, levelUpdateListener, watchers);
 
         for (int i = 0; i < this.listeners.length; i++) {
             this.listeners[i] = new ChunkListener();
@@ -105,8 +104,6 @@ public final class ChunkEntry extends ChunkHolder {
         }
 
         super.tick(tacs);
-
-        this.completedLevel = this.level;
     }
 
     private void reduceLevel(int lastLevel, int level) {

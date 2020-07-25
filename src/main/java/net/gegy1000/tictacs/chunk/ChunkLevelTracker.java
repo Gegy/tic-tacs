@@ -20,11 +20,9 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Queue;
-import java.util.function.IntConsumer;
-import java.util.function.IntSupplier;
 import java.util.stream.Collectors;
 
-public final class ChunkLevelTracker implements ChunkHolder.LevelUpdateListener {
+public final class ChunkLevelTracker {
     public static final int MAX_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL;
 
     private final ServerWorld world;
@@ -89,11 +87,6 @@ public final class ChunkLevelTracker implements ChunkHolder.LevelUpdateListener 
         }
 
         return this.controller.getMap().getOrCreateEntry(new ChunkPos(pos), toLevel);
-    }
-
-    @Override
-    public void updateLevel(ChunkPos pos, IntSupplier levelGetter, int targetLevel, IntConsumer levelSetter) {
-        levelSetter.accept(targetLevel);
     }
 
     public static boolean isLoaded(int level) {

@@ -3,12 +3,13 @@ package net.gegy1000.tictacs.chunk;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
@@ -62,14 +63,16 @@ public final class ChunkMap {
     }
 
     private ChunkEntry createEntry(ChunkPos pos, int level) {
+        ThreadedAnvilChunkStorage tacs = this.controller.asTacs();
         TacsAccessor accessor = (TacsAccessor) this.controller;
+
         ChunkEntry unloadingEntry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos.toLong());
         if (unloadingEntry != null) {
             unloadingEntry.setLevel(level);
             return unloadingEntry;
         }
 
-        return new ChunkEntry(pos, level, this.world.getLightingProvider(), this.controller.asTacs());
+        return new ChunkEntry(pos, level, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
     }
 
     public FlushListener awaitFlush() {
