@@ -1,6 +1,8 @@
 package net.gegy1000.acttwo.mixin;
 
+import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.gen.Accessor;
@@ -8,8 +10,11 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 @Mixin(ThreadedAnvilChunkStorage.class)
 public interface TacsAccessor {
     @Accessor
-    LongSet getUnloadedChunks();
-
-    @Accessor
     LongSet getLoadedChunks();
+
+    @Accessor("unloadedChunks")
+    LongSet getQueuedUnloads();
+
+    @Accessor("field_18807")
+    Long2ObjectLinkedOpenHashMap<ChunkHolder> getUnloadingChunks();
 }

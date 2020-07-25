@@ -44,6 +44,7 @@ public final class ChunkEntryState {
         return this.worldChunk;
     }
 
+    @Nullable
     public ChunkStep getCurrentStep() {
         return this.step;
     }

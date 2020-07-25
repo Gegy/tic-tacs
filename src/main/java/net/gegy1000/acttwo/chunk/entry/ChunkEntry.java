@@ -161,7 +161,12 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public CompletableFuture<Chunk> getFuture() {
-        return this.getListenerFor(this.state.getCurrentStep()).vanilla
+        ChunkStep currentStep = this.state.getCurrentStep();
+        if (currentStep == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        return this.getListenerFor(currentStep).vanilla
                 .thenApply(result -> {
                     return result.map(chunk -> chunk, err -> null);
                 });

@@ -70,7 +70,9 @@ public final class ChunkLevelTracker implements ChunkHolder.LevelUpdateListener 
     private ChunkEntry updateLevel(long pos, int toLevel, ChunkEntry entry) {
         entry.setLevel(toLevel);
 
-        LongSet unloadedChunks = ((TacsAccessor) this.controller).getUnloadedChunks();
+        TacsAccessor accessor = (TacsAccessor) this.controller;
+        LongSet unloadedChunks = accessor.getQueuedUnloads();
+
         if (isUnloaded(toLevel)) {
             unloadedChunks.add(pos);
         } else {

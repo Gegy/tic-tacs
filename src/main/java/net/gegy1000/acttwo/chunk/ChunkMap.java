@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
+import net.gegy1000.acttwo.mixin.TacsAccessor;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -41,18 +42,33 @@ public final class ChunkMap {
     }
 
     public ChunkEntry getOrCreateEntry(ChunkPos pos, int level) {
-        ChunkAccess access = this.primary();
+        ChunkEntry entry = this.primary.getEntry(pos);
 
-        ChunkEntry entry = access.getEntry(pos);
+        if (entry == null) {
+            TacsAccessor accessor = (TacsAccessor) this.controller;
+            entry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos.toLong());
+
+            if (entry != null) {
+                entry.setLevel(level);
+            }
+        }
+
         if (entry == null) {
             entry = this.createEntry(pos, level);
-            access.putEntry(entry);
+            this.primary.putEntry(entry);
         }
 
         return entry;
     }
 
-    public ChunkEntry createEntry(ChunkPos pos, int level) {
+    private ChunkEntry createEntry(ChunkPos pos, int level) {
+        TacsAccessor accessor = (TacsAccessor) this.controller;
+        ChunkEntry unloadingEntry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos.toLong());
+        if (unloadingEntry != null) {
+            unloadingEntry.setLevel(level);
+            return unloadingEntry;
+        }
+
         return new ChunkEntry(pos, level, this.world.getLightingProvider(), this.controller.asTacs());
     }
 
