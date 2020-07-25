@@ -1,32 +1,28 @@
 {
   "schemaVersion": 1,
-  "id": "act_two",
+  "id": "tic_tacs",
   "version": "${version}",
 
-  "name": "Act II",
-  "description": "Performance improvements to the actor system used for off-thread processing",
+  "name": "Tic-TACS",
+  "description": "Rewrite of Minecraft's asynchronous chunk generation to improve performance and allow multithreading",
   "authors": ["gegy1000"],
 
   "license": "LGPLv3",
 
   "environment": "*",
   "entrypoints": {
-    "main": [
-      "net.gegy1000.acttwo.ActTwo"
-    ],
-    "client": [
-      "net.gegy1000.acttwo.ActTwoClient"
-    ]
+    "main": ["net.gegy1000.tictacs.TicTacs"],
+    "client": ["net.gegy1000.tictacs.TicTacsClient"]
   },
   "mixins": [
-    "act_two.mixins.json",
+    "tic_tacs.mixins.json",
     {
-      "config": "act_two.client-mixins.json",
+      "config": "tic_tacs.client-mixins.json",
       "environment": "client"
     }
   ],
 
-  "accessWidener": "act_two.accesswidener",
+  "accessWidener": "tic_tacs.accesswidener",
 
   "depends": {
     "fabricloader": ">=0.8.8",

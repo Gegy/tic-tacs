@@ -1,0 +1,16 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.gegy1000.tictacs.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "mixins": [
+    "MixinChunkStatus",
+    "MixinTaskExecutor",
+    "MixinThreadedAnvilChunkStorage",
+    "MixinWeightedList",
+    "TacsAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
