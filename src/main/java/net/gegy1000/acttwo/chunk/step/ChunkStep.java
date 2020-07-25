@@ -332,8 +332,7 @@ public final class ChunkStep {
 
         ChunkPos pos = ctx.entry.getPos();
         ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
-            int ticketLevel = ChunkEntry.FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.FEATURES);
-            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ticketLevel, pos);
+            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
         });
 
         CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, excludeBlocks);

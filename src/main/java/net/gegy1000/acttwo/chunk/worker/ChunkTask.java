@@ -27,10 +27,9 @@ public final class ChunkTask<T> {
             } else {
                 this.waker.ready();
             }
-        } catch (Throwable exception) {
-            // TODO: error handling very bad
-            exception.printStackTrace();
+        } catch (RuntimeException e) {
             this.invalidated = true;
+            throw new Error(e);
         }
     }
 }

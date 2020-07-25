@@ -23,6 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class ChunkEntry extends ChunkHolder {
     public static final int FULL_LEVEL = 33;
 
+    public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
+
     private static final LevelUpdateListener LEVEL_UPDATE_LISTENER = (pos, get, level, set) -> set.accept(level);
 
     final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.size()];

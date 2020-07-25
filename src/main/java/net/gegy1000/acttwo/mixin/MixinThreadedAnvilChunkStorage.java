@@ -21,6 +21,7 @@ import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
+import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -52,6 +53,9 @@ import java.util.function.Supplier;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
 public abstract class MixinThreadedAnvilChunkStorage implements ChunkController {
+    @Shadow
+    @Final
+    private ThreadExecutor<Runnable> mainThreadExecutor;
     @Shadow
     @Final
     private ServerLightingProvider serverLightingProvider;
@@ -245,6 +249,17 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Overwrite
     private ChunkHolder setLevel(long pos, int toLevel, @Nullable ChunkHolder entry, int fromLevel) {
         return this.levelTracker.setLevel(pos, toLevel, (ChunkEntry) entry, fromLevel);
+    }
+
+    /**
+     * @reason replace the level used for light tickets
+     * @author gegy1000
+     */
+    @Overwrite
+    public void releaseLightTicket(ChunkPos pos) {
+        this.mainThreadExecutor.send(() -> {
+            this.ticketManager.removeTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
+        });
     }
 
     /**
