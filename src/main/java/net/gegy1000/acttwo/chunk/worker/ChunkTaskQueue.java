@@ -1,6 +1,6 @@
 package net.gegy1000.acttwo.chunk.worker;
 
-import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
+import net.gegy1000.acttwo.chunk.ChunkLevelTracker;
 import net.gegy1000.acttwo.util.UnsafeAccess;
 import sun.misc.Unsafe;
 
@@ -8,7 +8,7 @@ import javax.annotation.Nullable;
 import java.util.LinkedList;
 
 public final class ChunkTaskQueue implements AutoCloseable {
-    private static final int LEVEL_COUNT = ChunkLeveledTracker.MAX_LEVEL + 2;
+    private static final int LEVEL_COUNT = ChunkLevelTracker.MAX_LEVEL + 2;
 
     private final Level[] levels;
     private volatile int minLevel;
@@ -34,7 +34,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
 
     public void enqueue(ChunkTask<?> task) {
         int level = task.holder.getLevel();
-        if (level > ChunkLeveledTracker.MAX_LEVEL) {
+        if (level > ChunkLevelTracker.MAX_LEVEL) {
             return;
         }
 

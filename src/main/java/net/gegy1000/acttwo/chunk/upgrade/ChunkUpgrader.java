@@ -1,26 +1,21 @@
-package net.gegy1000.acttwo.chunk.loader.upgrade;
+package net.gegy1000.acttwo.chunk.upgrade;
 
 import net.gegy1000.acttwo.async.lock.Semaphore;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
-import net.gegy1000.acttwo.chunk.FutureHandle;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.acttwo.chunk.step.ChunkStepContext;
-import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 import net.gegy1000.acttwo.chunk.worker.ChunkWorker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
-import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.structure.StructureManager;
-import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
-import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 
 import java.util.List;
@@ -70,48 +65,22 @@ public final class ChunkUpgrader {
 
     Future<Chunk> runStepTask(ChunkEntryState entry, ChunkStep step, List<Chunk> chunks) {
         // TODO: reuse context objects
-        Future<Chunk> future = step.run(new ChunkStepContext(this.controller, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks));
-
-        // TODO: should this logic be in the chunkstep itself?
-        if (step == ChunkStep.FULL) {
-            future = future.andThen(chunk -> {
-                FutureHandle<Chunk> handle = new FutureHandle<>();
-                this.controller.spawnOnMainThread(entry.parent, () -> {
-                    WorldChunk worldChunk = entry.finalizeChunk(this.world, this.controller.map::tryAddFullChunk);
-                    handle.complete(worldChunk);
-                });
-
-                return handle;
-            });
-        }
-
-        return future;
+        return step.run(new ChunkStepContext(this.controller, entry, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks));
     }
 
     void completeUpgradeOk(ChunkEntryState entry, ChunkStep step, Chunk chunk) {
         entry.completeUpgradeOk(step, chunk);
 
-        ChunkLeveledTracker leveledTracker = this.controller.tracker.leveledTracker;
-
         ChunkStatus status = step.getMaximumStatus();
 
-        this.controller.loader.notifyStatus(entry.getPos(), status);
+        this.controller.notifyStatus(entry.getPos(), status);
         if (chunk instanceof ProtoChunk) {
             ((ProtoChunk) chunk).setStatus(status);
-        }
-
-        // TODO: should this be apart of the chunkstep task rather?
-        if (step == ChunkStep.LIGHTING) {
-            ChunkPos pos = entry.getPos();
-            this.controller.spawnOnMainThread(entry.parent, () -> {
-                int ticketLevel = 33 + ChunkStatus.getTargetGenerationRadius(ChunkStatus.FEATURES);
-                leveledTracker.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ticketLevel, pos);
-            });
         }
     }
 
     void completeUpgradeErr(ChunkEntryState entry, ChunkStep step, ChunkNotLoadedException err) {
         entry.completeUpgradeErr(step, err);
-        this.controller.loader.notifyStatus(entry.getPos(), null);
+        this.controller.notifyStatus(entry.getPos(), null);
     }
 }

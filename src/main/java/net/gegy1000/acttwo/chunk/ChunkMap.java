@@ -3,10 +3,7 @@ package net.gegy1000.acttwo.chunk;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
-import net.gegy1000.acttwo.chunk.tracker.ChunkQueues;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -24,7 +21,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public final class ChunkMap {
     private final ServerWorld world;
     private final ChunkController controller;
-    private final ChunkQueues queues;
 
     private final Long2ObjectMap<ChunkEntry> primaryEntries = new Long2ObjectOpenHashMap<>();
     private final Long2ObjectMap<ChunkEntry> visibleEntries = new Long2ObjectOpenHashMap<>();
@@ -37,19 +33,27 @@ public final class ChunkMap {
     private final ChunkAccess primary = new Primary();
     private final ChunkAccess visible = new Visible();
 
-    private final LongSet fullChunks = new LongOpenHashSet();
-    private final AtomicInteger tickingChunksLoaded = new AtomicInteger();
-
     private final AtomicReference<FlushListener> flushListener = new AtomicReference<>();
 
     public ChunkMap(ServerWorld world, ChunkController controller) {
         this.world = world;
         this.controller = controller;
-        this.queues = new ChunkQueues(this);
+    }
+
+    public ChunkEntry getOrCreateEntry(ChunkPos pos, int level) {
+        ChunkAccess access = this.primary();
+
+        ChunkEntry entry = access.getEntry(pos);
+        if (entry == null) {
+            entry = this.createEntry(pos, level);
+            access.putEntry(entry);
+        }
+
+        return entry;
     }
 
     public ChunkEntry createEntry(ChunkPos pos, int level) {
-        return new ChunkEntry(pos, level, this.world.getLightingProvider(), this.controller.tracker);
+        return new ChunkEntry(pos, level, this.world.getLightingProvider(), this.controller.asTacs());
     }
 
     public FlushListener awaitFlush() {
@@ -71,22 +75,6 @@ public final class ChunkMap {
 
     public ChunkAccess visible() {
         return this.visible;
-    }
-
-    public boolean tryAddFullChunk(ChunkPos pos) {
-        return this.fullChunks.add(pos.toLong());
-    }
-
-    public boolean tryRemoveFullChunk(ChunkPos pos) {
-        return this.fullChunks.remove(pos.toLong());
-    }
-
-    public void incrementTickingChunksLoaded() {
-        this.tickingChunksLoaded.getAndIncrement();
-    }
-
-    public ChunkQueues getQueues() {
-        return this.queues;
     }
 
     public boolean flushToVisible() {
@@ -128,10 +116,6 @@ public final class ChunkMap {
 
     public int getEntryCount() {
         return this.primaryEntries.size();
-    }
-
-    public int getTickingChunksLoaded() {
-        return this.tickingChunksLoaded.get();
     }
 
     void lockWrite() {

@@ -1,91 +1,36 @@
 package net.gegy1000.acttwo.chunk;
 
 import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
-import net.gegy1000.acttwo.chunk.future.LazyRunnableFuture;
-import net.gegy1000.acttwo.chunk.loader.ChunkLoader;
-import net.gegy1000.acttwo.chunk.loader.ChunkStorage;
-import net.gegy1000.acttwo.chunk.loader.upgrade.ChunkUpgrader;
-import net.gegy1000.acttwo.chunk.tracker.ChunkTracker;
-import net.gegy1000.acttwo.chunk.worker.ChunkMainThreadExecutor;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
+import net.gegy1000.acttwo.chunk.upgrade.ChunkUpgrader;
 import net.gegy1000.justnow.future.Future;
-import net.minecraft.server.WorldGenerationProgressListener;
-import net.minecraft.server.world.ServerLightingProvider;
-import net.minecraft.server.world.ServerWorld;
+import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
-import net.minecraft.structure.StructureManager;
-import net.minecraft.util.profiler.Profiler;
-import net.minecraft.util.thread.ThreadExecutor;
-import net.minecraft.world.gen.chunk.ChunkGenerator;
-import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkStatus;
 
-import java.io.IOException;
-import java.util.concurrent.Executor;
-import java.util.function.BooleanSupplier;
-
-// TODO: fabric lifecycle load and unload events
-public final class ChunkController implements AutoCloseable {
-    public final ServerWorld world;
-
-    public final ChunkMap map;
-
-    public final ChunkStorage storage;
-    public final ChunkUpgrader upgrader;
-    public final ChunkTracker tracker;
-    public final ChunkLoader loader;
-
-    private final ChunkMainThreadExecutor mainExecutor;
-
-    public ChunkController(
-            ServerWorld world,
-            ChunkGenerator generator,
-            StructureManager structures,
-            ServerLightingProvider lighting,
-            LevelStorage.Session storageSession,
-            WorldGenerationProgressListener progressListener,
-            Executor threadPool, ThreadExecutor<Runnable> mainThread
-    ) {
-        this.world = world;
-
-        this.map = new ChunkMap(world, this);
-        this.storage = ChunkStorage.open(world, storageSession);
-        this.tracker = new ChunkTracker(world, this.map, threadPool, mainThread);
-        this.upgrader = new ChunkUpgrader(world, this, generator, structures, lighting);
-        this.loader = new ChunkLoader(world, this, progressListener);
-
-        this.mainExecutor = new ChunkMainThreadExecutor(mainThread);
+public interface ChunkController {
+    default ThreadedAnvilChunkStorage asTacs() {
+        return (ThreadedAnvilChunkStorage) this;
     }
 
-    public static ChunkController from(ThreadedAnvilChunkStorage tacs) {
-        return ((TacsExt) tacs).getController();
-    }
+    ChunkMap getMap();
 
-    public void tick(BooleanSupplier runWhile) {
-        Profiler profiler = this.world.getProfiler();
+    ChunkUpgrader getUpgrader();
 
-        profiler.push("storage");
-        this.storage.tick(runWhile);
+    ChunkLevelTracker getLevelTracker();
 
-        profiler.swap("loader");
-        this.loader.tick(runWhile);
+    ChunkTicketManager getTicketManager();
 
-        profiler.pop();
-    }
+    Future<Unit> getRadiusAs(ChunkPos pos, int radius, ChunkStep step);
 
-    public <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future) {
-        this.mainExecutor.spawn(entry, future);
-    }
+    Future<Chunk> spawnLoadChunk(ChunkEntry entry);
 
-    public void spawnOnMainThread(ChunkEntry entry, Runnable runnable) {
-        this.mainExecutor.spawn(entry, new LazyRunnableFuture(runnable));
-    }
+    void notifyStatus(ChunkPos pos, ChunkStatus status);
 
-    public void saveAll(boolean flush) {
-        // TODO
-    }
+    <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future);
 
-    @Override
-    public void close() throws IOException {
-        this.mainExecutor.close();
-        this.storage.close();
-    }
+    void spawnOnMainThread(ChunkEntry entry, Runnable runnable);
 }

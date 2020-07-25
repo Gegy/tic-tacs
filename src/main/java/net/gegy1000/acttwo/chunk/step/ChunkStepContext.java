@@ -1,6 +1,7 @@
 package net.gegy1000.acttwo.chunk.step;
 
 import net.gegy1000.acttwo.chunk.ChunkController;
+import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.structure.StructureManager;
@@ -13,6 +14,7 @@ import java.util.List;
 
 public final class ChunkStepContext {
     public final ChunkController controller;
+    public final ChunkEntryState entry;
     public final ServerWorld world;
     public final ChunkGenerator generator;
     public final StructureManager structures;
@@ -23,8 +25,9 @@ public final class ChunkStepContext {
     private ChunkRegion region;
     private StructureAccessor structureAccessor;
 
-    public ChunkStepContext(ChunkController controller, ServerWorld world, ChunkGenerator generator, StructureManager structures, ServerLightingProvider lighting, Chunk chunk, List<Chunk> chunks) {
+    public ChunkStepContext(ChunkController controller, ChunkEntryState entry, ServerWorld world, ChunkGenerator generator, StructureManager structures, ServerLightingProvider lighting, Chunk chunk, List<Chunk> chunks) {
         this.controller = controller;
+        this.entry = entry;
         this.world = world;
         this.generator = generator;
         this.structures = structures;

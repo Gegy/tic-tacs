@@ -1,4 +1,4 @@
-package net.gegy1000.acttwo.chunk.loader.upgrade;
+package net.gegy1000.acttwo.chunk.upgrade;
 
 import net.gegy1000.acttwo.chunk.ChunkAccess;
 import net.gegy1000.acttwo.chunk.ChunkController;
@@ -44,7 +44,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
         this.kernel = ChunkUpgradeKernel.forStep(targetStep);
 
-        this.acquireEntries = new AcquireChunks(this.kernel, controller.map);
+        this.acquireEntries = new AcquireChunks(this.kernel, controller.getMap());
         this.stepper = new ChunkUpgradeStepper(this);
     }
 
@@ -155,7 +155,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                     continue;
                 }
 
-                this.controller.upgrader.completeUpgradeOk(entry, step, chunk);
+                this.controller.getUpgrader().completeUpgradeOk(entry, step, chunk);
             }
         }
     }
@@ -175,7 +175,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                     continue;
                 }
 
-                this.controller.upgrader.completeUpgradeErr(entry, step, err);
+                this.controller.getUpgrader().completeUpgradeErr(entry, step, err);
             }
         }
     }
@@ -190,10 +190,10 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         }
 
         while (true) {
-            ChunkAccess chunks = this.controller.map.visible();
+            ChunkAccess chunks = this.controller.getMap().visible();
 
             // acquire a flush listener now so that we can be sure nothing has changed since we checked the entries
-            ChunkMap.FlushListener flushListener = this.controller.map.awaitFlush();
+            ChunkMap.FlushListener flushListener = this.controller.getMap().awaitFlush();
 
             Poll<ChunkStep> minimumStep = this.findMinimumStep(chunks);
 

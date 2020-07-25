@@ -1,17 +1,25 @@
 package net.gegy1000.acttwo.chunk.step;
 
 import com.mojang.datafixers.util.Either;
+import it.unimi.dsi.fastutil.longs.LongSet;
 import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkLockType;
+import net.gegy1000.acttwo.chunk.FutureHandle;
+import net.gegy1000.acttwo.chunk.entry.ChunkEntry;
 import net.gegy1000.acttwo.chunk.future.VanillaChunkFuture;
+import net.gegy1000.acttwo.mixin.TacsAccessor;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.server.world.ChunkTicketManager;
+import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
+import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.gen.GenerationStep;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.StructureAccessor;
@@ -87,7 +95,7 @@ public final class ChunkStep {
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
             .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
             .locks(ChunkLockType.LATE_GENERATION)
-            .runSync(ChunkStep::addEntities);
+            .runAsync(ChunkStep::makeFull);
 
     private static final ChunkStep[] STATUS_TO_STEP;
 
@@ -314,21 +322,38 @@ public final class ChunkStep {
     private static Future<Chunk> lightChunk(ChunkStepContext ctx) {
         CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, false);
 
+        ChunkTicketManager ticketManager = ctx.controller.getTicketManager();
+
+        ChunkPos pos = ctx.entry.getPos();
+        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
+            int ticketLevel = ChunkEntry.FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.FEATURES);
+            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ticketLevel, pos);
+        });
+
         return VanillaChunkFuture.of(future.thenApply(chunk -> {
-            ctx.controller.upgrader.lightingThrottler.release();
+            ctx.controller.getUpgrader().lightingThrottler.release();
             return Either.left(chunk);
         }));
     }
 
     private static Future<Unit> waitForLight(ChunkController controller) {
-        return controller.upgrader.lightingThrottler.acquireAsync();
+        return controller.getUpgrader().lightingThrottler.acquireAsync();
     }
 
-    private static Chunk addEntities(ChunkStepContext ctx) {
+    private static Future<Chunk> makeFull(ChunkStepContext ctx) {
         ChunkRegion region = ctx.asRegion();
         ctx.generator.populateEntities(region);
 
-        return ctx.chunk;
+        FutureHandle<Chunk> handle = new FutureHandle<>();
+
+        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
+            LongSet loadedChunks = ((TacsAccessor) ctx.controller).getLoadedChunks();
+
+            WorldChunk worldChunk = ctx.entry.finalizeChunk(ctx.world, loadedChunks::add);
+            handle.complete(worldChunk);
+        });
+
+        return handle;
     }
 
     private static void trySetStatus(Chunk chunk, ChunkStatus status) {

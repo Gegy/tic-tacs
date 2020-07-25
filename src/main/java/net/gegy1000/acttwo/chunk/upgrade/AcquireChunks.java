@@ -1,4 +1,4 @@
-package net.gegy1000.acttwo.chunk.loader.upgrade;
+package net.gegy1000.acttwo.chunk.upgrade;
 
 import net.gegy1000.acttwo.async.lock.JoinLock;
 import net.gegy1000.acttwo.async.lock.Lock;

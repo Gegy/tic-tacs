@@ -1,6 +1,5 @@
 package net.gegy1000.acttwo.chunk.entry;
 
-import net.gegy1000.acttwo.chunk.ChunkController;
 import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
 import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.minecraft.entity.Entity;
@@ -17,7 +16,7 @@ import net.minecraft.world.chunk.WorldChunk;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.function.Predicate;
+import java.util.function.LongPredicate;
 
 public final class ChunkEntryState {
     public final ChunkEntry parent;
@@ -90,7 +89,7 @@ public final class ChunkEntryState {
         return this.worldChunk;
     }
 
-    public WorldChunk finalizeChunk(ServerWorld world, Predicate<ChunkPos> loadToWorld) {
+    public WorldChunk finalizeChunk(ServerWorld world, LongPredicate loadToWorld) {
         ChunkEntry entry = this.parent;
         ChunkPos pos = entry.getPos();
 
@@ -102,7 +101,7 @@ public final class ChunkEntryState {
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));
         worldChunk.loadToWorld();
 
-        if (loadToWorld.test(pos)) {
+        if (loadToWorld.test(pos.toLong())) {
             worldChunk.setLoadedToWorld(true);
             world.addBlockEntities(worldChunk.getBlockEntities().values());
 
@@ -129,14 +128,6 @@ public final class ChunkEntryState {
         }
 
         return invalidEntities;
-    }
-
-    public void makeChunkTickable(ChunkController controller) {
-        WorldChunk chunk = this.getWorldChunk();
-        if (chunk == null) return;
-
-        chunk.runPostProcessing();
-        controller.tracker.sendChunkToWatchers(this.getPos());
     }
 
     @Nullable

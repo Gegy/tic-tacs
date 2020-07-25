@@ -1,4 +1,4 @@
-package net.gegy1000.acttwo.chunk.loader.upgrade;
+package net.gegy1000.acttwo.chunk.upgrade;
 
 import net.gegy1000.acttwo.AtomicPool;
 import net.gegy1000.acttwo.chunk.entry.ChunkEntryState;
@@ -66,7 +66,7 @@ final class ChunkUpgradeStepper {
     private Future<Chunk> upgradeChunk(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
         ContextView context = this.openContext(entry, chunks, step);
 
-        Future<Chunk> future = this.parent.controller.upgrader.runStepTask(entry, step, context);
+        Future<Chunk> future = this.parent.controller.getUpgrader().runStepTask(entry, step, context);
         return this.createTaskWithContext(future, context);
     }
 
@@ -89,7 +89,7 @@ final class ChunkUpgradeStepper {
     }
 
     private Future<Chunk> loadChunk(ChunkEntryState entry) {
-        return this.parent.controller.loader.spawnLoadChunk(entry.parent);
+        return this.parent.controller.spawnLoadChunk(entry.parent);
     }
 
     static class TaskWithContext implements Future<Chunk> {

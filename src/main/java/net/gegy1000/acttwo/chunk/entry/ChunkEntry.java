@@ -1,15 +1,12 @@
 package net.gegy1000.acttwo.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
-import net.gegy1000.acttwo.chunk.ChunkController;
-import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
-import net.gegy1000.acttwo.chunk.SharedUnitListener;
-import net.gegy1000.acttwo.chunk.step.ChunkStep;
-import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
 import net.gegy1000.acttwo.async.lock.Lock;
 import net.gegy1000.acttwo.async.lock.LockGuard;
+import net.gegy1000.acttwo.chunk.ChunkLevelTracker;
+import net.gegy1000.acttwo.chunk.ChunkNotLoadedException;
+import net.gegy1000.acttwo.chunk.step.ChunkStep;
 import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
@@ -34,10 +31,6 @@ public final class ChunkEntry extends ChunkHolder {
     private final ChunkAccessLock lock = new ChunkAccessLock();
 
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
-
-    private final SharedUnitListener accessibleListener = new SharedUnitListener();
-    private final SharedUnitListener tickableListener = new SharedUnitListener();
-    private final SharedUnitListener entitiesTickableListener = new SharedUnitListener();
 
     public ChunkEntry(
             ChunkPos pos, int level,
@@ -104,80 +97,23 @@ public final class ChunkEntry extends ChunkHolder {
         return ChunkStep.byDistanceFromFull(distanceFromFull);
     }
 
-    public void onUpdateLevel(ChunkController controller) {
+    public void onUpdateLevel(ThreadedAnvilChunkStorage tacs) {
         if (this.level > this.lastTickLevel) {
             this.reduceLevel(this.lastTickLevel, this.level);
         }
 
-        ChunkHolder.LevelType lastLevelType = ChunkHolder.getLevelType(this.lastTickLevel);
-        ChunkHolder.LevelType currentLevelType = ChunkHolder.getLevelType(this.level);
-
-        boolean wasAccessible = lastLevelType.isAfter(ChunkHolder.LevelType.BORDER);
-        boolean isAccessible = currentLevelType.isAfter(ChunkHolder.LevelType.BORDER);
-        this.ticking |= isAccessible;
-
-        if (isAccessible != wasAccessible) {
-            if (isAccessible) {
-                Future<Unit> future = controller.loader.loadRadius(this.pos, 0, ChunkStep.FULL);
-                controller.spawnOnMainThread(this, future.map(unit -> {
-                    this.accessibleListener.complete();
-                    return unit;
-                }));
-            } else {
-                this.accessibleListener.reset();
-            }
-        }
-
-        boolean wasTicking = lastLevelType.isAfter(ChunkHolder.LevelType.TICKING);
-        boolean isTicking = currentLevelType.isAfter(ChunkHolder.LevelType.TICKING);
-        if (isTicking != wasTicking) {
-            if (isTicking) {
-                Future<Unit> future = controller.loader.loadRadius(this.pos, 1, ChunkStep.FULL);
-                Future<Unit> pending = future.andThen(unit -> this.lock()).map(guard -> {
-                    try {
-                        ChunkEntryState state = guard.get();
-                        state.makeChunkTickable(controller);
-                        controller.map.incrementTickingChunksLoaded();
-
-                        this.tickableListener.complete();
-                    } finally {
-                        guard.release();
-                    }
-
-                    return Unit.INSTANCE;
-                });
-
-                controller.spawnOnMainThread(this, pending);
-            } else {
-                this.tickableListener.reset();
-            }
-        }
-
-        boolean wasTickingEntities = lastLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
-        boolean isTickingEntities = currentLevelType.isAfter(ChunkHolder.LevelType.ENTITY_TICKING);
-        if (isTickingEntities != wasTickingEntities) {
-            if (isTickingEntities) {
-                Future<Unit> future = controller.loader.loadRadius(this.pos, 2, ChunkStep.FULL);
-                controller.spawnOnMainThread(this, future.map(unit -> {
-                    this.entitiesTickableListener.complete();
-                    return unit;
-                }));
-            } else {
-                this.entitiesTickableListener.reset();
-            }
-        }
+        super.tick(tacs);
 
         this.completedLevel = this.level;
-        this.lastTickLevel = this.level;
     }
 
     private void reduceLevel(int lastLevel, int level) {
-        boolean wasLoaded = ChunkLeveledTracker.isLoaded(lastLevel);
+        boolean wasLoaded = ChunkLevelTracker.isLoaded(lastLevel);
         if (!wasLoaded) {
             return;
         }
 
-        boolean isLoaded = ChunkLeveledTracker.isLoaded(level);
+        boolean isLoaded = ChunkLevelTracker.isLoaded(level);
 
         ChunkStep lastStep = getTargetStep(lastLevel);
         ChunkStep targetStep = getTargetStep(level);
@@ -200,23 +136,6 @@ public final class ChunkEntry extends ChunkHolder {
     public WorldChunk getWorldChunk() {
         // safety: once upgraded to world chunk, the lock is supposed to have no write access
         return this.getState().getWorldChunk();
-    }
-
-    public Future<Unit> awaitAccessible() {
-        return this.accessibleListener;
-    }
-
-    public Future<Unit> awaitTickable() {
-        return this.tickableListener;
-    }
-
-    public Future<Unit> awaitEntitiesTickable() {
-        return this.entitiesTickableListener;
-    }
-
-    @Override
-    @Deprecated
-    protected void tick(ThreadedAnvilChunkStorage chunkStorage) {
     }
 
     @Override
@@ -246,6 +165,12 @@ public final class ChunkEntry extends ChunkHolder {
                 .thenApply(result -> {
                     return result.map(chunk -> chunk, err -> null);
                 });
+    }
+
+    @Override
+    @Deprecated
+    protected void tick(ThreadedAnvilChunkStorage tacs) {
+        this.onUpdateLevel(tacs);
     }
 
     @Override
