@@ -80,7 +80,7 @@ public final class ChunkStep {
                             .read(ChunkStep.FEATURES, 1)
             )
             .locks(ChunkLockType.LATE_GENERATION)
-            .runWhen(ChunkStep::waitForLight)
+            .prerequisite(ChunkStep::waitForLight)
             .runAsync(ChunkStep::lightChunk);
 
     public static final ChunkStep FULL = new ChunkStep("full")
@@ -102,7 +102,7 @@ public final class ChunkStep {
     private ChunkStatus[] statuses = new ChunkStatus[0];
     private ChunkLockType lock;
     private AsyncTask task = AsyncTask.noop();
-    private RunWhen runWhen;
+    private Prerequisite prerequisite;
     private ChunkRequirements requirements = ChunkRequirements.none();
 
     ChunkStep(String name) {
@@ -138,8 +138,8 @@ public final class ChunkStep {
         return this;
     }
 
-    ChunkStep runWhen(RunWhen when) {
-        this.runWhen = when;
+    ChunkStep prerequisite(Prerequisite when) {
+        this.prerequisite = when;
         return this;
     }
 
@@ -155,8 +155,8 @@ public final class ChunkStep {
         return this.lock;
     }
 
-    public RunWhen getRunWhen() {
-        return this.runWhen;
+    public Prerequisite getPrerequisite() {
+        return this.prerequisite;
     }
 
     public ChunkStatus getMaximumStatus() {
@@ -357,7 +357,7 @@ public final class ChunkStep {
         Chunk run(ChunkStepContext ctx);
     }
 
-    public interface RunWhen {
+    public interface Prerequisite {
         Future<Unit> await(ChunkController controller);
     }
 }

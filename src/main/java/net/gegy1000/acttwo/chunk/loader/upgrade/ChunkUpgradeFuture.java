@@ -28,7 +28,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private ChunkStep currentStep;
 
-    private Future<Unit> runWhenListener;
+    private Future<Unit> prerequisiteListener;
     private boolean stepReady;
 
     private Future<Unit> flushListener;
@@ -112,19 +112,19 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             return true;
         }
 
-        if (this.runWhenListener == null) {
-            ChunkStep.RunWhen runWhen = currentStep.getRunWhen();
-            if (runWhen == null) {
+        if (this.prerequisiteListener == null) {
+            ChunkStep.Prerequisite prerequisite = currentStep.getPrerequisite();
+            if (prerequisite == null) {
                 this.stepReady = true;
                 return true;
             }
 
-            this.runWhenListener = runWhen.await(this.controller);
+            this.prerequisiteListener = prerequisite.await(this.controller);
         }
 
-        if (this.runWhenListener.poll(waker) != null) {
+        if (this.prerequisiteListener.poll(waker) != null) {
             this.stepReady = true;
-            this.runWhenListener = null;
+            this.prerequisiteListener = null;
             return true;
         }
 
@@ -132,7 +132,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     private void releaseStep() {
-        this.runWhenListener = null;
+        this.prerequisiteListener = null;
         this.stepReady = false;
 
         this.stepper.reset();
