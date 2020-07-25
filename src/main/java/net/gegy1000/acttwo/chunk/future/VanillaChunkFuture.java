@@ -35,14 +35,6 @@ public final class VanillaChunkFuture implements Future<Chunk> {
     @Nullable
     @Override
     public Chunk poll(Waker waker) {
-        if (!this.listening && !this.inner.isDone()) {
-            this.listening = true;
-            this.inner.handle((r, t) -> {
-                waker.wake();
-                return null;
-            });
-        }
-
         Either<Chunk, ChunkHolder.Unloaded> result = this.inner.getNow(null);
         if (result != null) {
             Optional<ChunkHolder.Unloaded> err = result.right();
@@ -54,6 +46,12 @@ public final class VanillaChunkFuture implements Future<Chunk> {
             this.release();
 
             return chunk;
+        } else if (!this.listening) {
+            this.listening = true;
+            this.inner.handle((r, t) -> {
+                waker.wake();
+                return null;
+            });
         }
 
         return null;

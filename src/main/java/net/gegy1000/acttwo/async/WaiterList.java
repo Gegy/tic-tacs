@@ -22,6 +22,7 @@ public final class WaiterList {
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
         // this waiter object is already registered to the queue
+        // we know this waiter hasn't been woken up yet if it is linked: the link is the first thing reset
         if (waiter.isLinked()) {
             return;
         }

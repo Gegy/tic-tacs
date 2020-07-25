@@ -1,10 +1,11 @@
 package net.gegy1000.acttwo.chunk.worker;
 
 import net.gegy1000.acttwo.chunk.tracker.ChunkLeveledTracker;
+import net.gegy1000.acttwo.util.UnsafeAccess;
+import sun.misc.Unsafe;
 
 import javax.annotation.Nullable;
 import java.util.LinkedList;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkTaskQueue implements AutoCloseable {
     private static final int LEVEL_COUNT = ChunkLeveledTracker.MAX_LEVEL + 2;
@@ -113,7 +114,7 @@ public final class ChunkTaskQueue implements AutoCloseable {
     }
 
     Waker waker(ChunkTask<?> task) {
-        return new Waker(task);
+        return new Waker(this, task);
     }
 
     static class Level {
@@ -132,42 +133,52 @@ public final class ChunkTaskQueue implements AutoCloseable {
         }
     }
 
-    public class Waker implements net.gegy1000.justnow.Waker {
-        static final int READY = 0;
-        static final int POLLING = 1;
-        static final int AWOKEN = 2;
+    public static class Waker implements net.gegy1000.justnow.Waker {
+        private static final Unsafe UNSAFE = UnsafeAccess.get();
+        private static final long STATE_OFFSET;
 
+        static {
+            try {
+                STATE_OFFSET = UNSAFE.objectFieldOffset(Waker.class.getDeclaredField("state"));
+            } catch (NoSuchFieldException e) {
+                throw new Error("failed to get state offset", e);
+            }
+        }
+
+        private static final int WAITING = 0;
+        private static final int POLLING = 1;
+        private static final int AWOKEN = 2;
+
+        private final ChunkTaskQueue queue;
         private final ChunkTask<?> task;
 
-        final AtomicInteger state = new AtomicInteger(AWOKEN);
+        private volatile int state = AWOKEN;
 
-        Waker(ChunkTask<?> task) {
+        Waker(ChunkTaskQueue queue, ChunkTask<?> task) {
+            this.queue = queue;
             this.task = task;
         }
 
         @Override
         public void wake() {
-            // if we are currently polling, set state to awoken and don't re-enqueue the task until we are ready again
-            if (this.state.compareAndSet(POLLING, AWOKEN)) {
-                return;
-            }
+            int prevState = UNSAFE.getAndSetInt(this, STATE_OFFSET, AWOKEN);
 
-            // if we are currently ready, set state to awoken and re-enqueue the task
-            if (this.state.compareAndSet(READY, AWOKEN)) {
-                ChunkTaskQueue.this.enqueue(this.task);
+            // only enqueue the task if we're still waiting for a signal
+            if (prevState == WAITING) {
+                this.queue.enqueue(this.task);
             }
         }
 
         void polling() {
-            this.state.set(POLLING);
+            this.state = POLLING;
         }
 
         void ready() {
-            // we didn't get a result: set state to ready. we expect state to still be polling, so if that's not
+            // we didn't get a result: set state to waiting. we expect state to still be polling, so if that's *not*
             // the case, we must've been awoken during polling. now that we know this task needs to continue
             // execution, we can re-enqueue it.
-            if (!this.state.compareAndSet(POLLING, READY)) {
-                ChunkTaskQueue.this.enqueue(this.task);
+            if (!UNSAFE.compareAndSwapInt(this, STATE_OFFSET, POLLING, WAITING)) {
+                this.queue.enqueue(this.task);
             }
         }
     }
