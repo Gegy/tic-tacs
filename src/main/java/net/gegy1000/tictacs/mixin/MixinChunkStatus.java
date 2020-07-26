@@ -13,7 +13,7 @@ public class MixinChunkStatus {
      */
     @Overwrite
     public static int getMaxTargetGenerationRadius() {
-        return ChunkStep.getMaxDistance();
+        return ChunkStep.getMaxDistance() + 1;
     }
 
     /**

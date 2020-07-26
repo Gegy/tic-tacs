@@ -41,7 +41,9 @@ public final class ChunkEntry extends ChunkHolder {
         super(pos, level, lighting, levelUpdateListener, watchers);
 
         for (int i = 0; i < this.listeners.length; i++) {
-            this.listeners[i] = new ChunkListener();
+            ChunkListener listener = new ChunkListener();
+            this.listeners[i] = listener;
+            this.futuresByStatus.set(i, listener.asVanilla());
         }
     }
 
@@ -184,7 +186,11 @@ public final class ChunkEntry extends ChunkHolder {
     public void method_20456(ReadOnlyChunk chunk) {
     }
 
-    private void combineSavingFuture(ChunkStep step) {
+    void combineSavingFuture(ChunkStep step) {
         this.updateFuture(this.getListenerFor(step).asVanilla());
+    }
+
+    void combineSavingFuture(Chunk chunk) {
+        this.updateFuture(CompletableFuture.completedFuture(Either.left(chunk)));
     }
 }

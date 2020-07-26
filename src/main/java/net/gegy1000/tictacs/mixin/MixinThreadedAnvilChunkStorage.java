@@ -86,11 +86,6 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Unique
     private ChunkMainThreadExecutor chunkMainExecutor;
 
-    @Redirect(method = "<clinit>", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/chunk/ChunkStatus;getMaxTargetGenerationRadius()I"))
-    private static int getMaxTargetGenerationRadius() {
-        return ChunkStep.getMaxDistance() + 1;
-    }
-
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(
             ServerWorld world,

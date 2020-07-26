@@ -57,7 +57,10 @@ public final class ChunkEntryState {
         }
 
         for (int i = step.getIndex(); i >= 0; i--) {
-            this.parent.listeners[i].completeOk(chunk);
+            ChunkListener listener = this.parent.listeners[i];
+            if (!(listener.ok instanceof ReadOnlyChunk)) {
+                listener.completeOk(chunk);
+            }
         }
     }
 
@@ -85,6 +88,7 @@ public final class ChunkEntryState {
         }
 
         this.worldChunk = worldChunk;
+        this.parent.combineSavingFuture(this.worldChunk);
 
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));
         worldChunk.loadToWorld();
