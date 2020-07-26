@@ -71,7 +71,7 @@ public final class ChunkStep {
             .includes(ChunkStatus.FEATURES)
             .requires(
                     ChunkRequirements.from(ChunkStep.SURFACE)
-                            // Feature gen radius is controlled by the config, it's usually 1 but can be higher.
+                            // Feature gen radius is controlled by the config, it's usually 2 but can be higher.
                             .write(ChunkStep.SURFACE, TicTacsConfig.get().featureGenerationRadius)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )

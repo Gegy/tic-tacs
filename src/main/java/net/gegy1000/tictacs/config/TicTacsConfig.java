@@ -27,7 +27,7 @@ public final class TicTacsConfig {
     public int threadCount = Runtime.getRuntime().availableProcessors();
 
     @SerializedName("feature_generation_radius")
-    public int featureGenerationRadius = 1;
+    public int featureGenerationRadius = 2;
 
     @SerializedName("debug_chunk_tickets")
     public boolean debugChunkTickets = false;
