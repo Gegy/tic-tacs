@@ -1,23 +1,81 @@
 package net.gegy1000.tictacs.client;
 
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.util.Rect2i;
 import net.minecraft.server.world.ChunkTicket;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.util.Util;
 import net.minecraft.util.collection.SortedArraySet;
 import net.minecraft.util.math.ChunkPos;
 
 import java.util.Collection;
 
 public final class LevelMapRenderer {
+    private static final Object2IntMap<ChunkStep> STATUS_TO_COLOR = Util.make(new Object2IntOpenHashMap<>(), map -> {
+        map.defaultReturnValue(0);
+        map.put(ChunkStep.EMPTY, 0xFF545454);
+        map.put(ChunkStep.STRUCTURE_STARTS, 0xFF999999);
+        map.put(ChunkStep.SURFACE, 0xFF723530);
+        map.put(ChunkStep.FEATURES, 0xFF00C621);
+        map.put(ChunkStep.FULL, 0xFFFFFFFF);
+    });
+
     private static final int MAX_LEVEL = ChunkLevelTracker.MAX_LEVEL + 1;
 
+    private static final RenderType TYPE = RenderType.STEP;
+
     public static NativeImage render(ChunkController controller) {
+        switch (TYPE) {
+            case STEP: return renderSteps(controller);
+            case LEVEL: return renderLeveled(controller);
+            default: throw new UnsupportedOperationException();
+        }
+    }
+
+    private static NativeImage renderSteps(ChunkController controller) {
+        ChunkAccess map = controller.getMap().primary();
+        Collection<ChunkEntry> entries = map.getEntries();
+
+        Rect2i bounds = computeBounds(entries);
+
+        int minX = bounds.getX();
+        int minY = bounds.getY();
+
+        int width = bounds.getWidth();
+        int height = bounds.getHeight();
+
+        NativeImage image = new NativeImage(width, height, false);
+
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                long pos = ChunkPos.toLong(x + minX, y + minY);
+                ChunkEntry entry = map.getEntry(pos);
+
+                int color = 0xFF000000;
+
+                if (entry != null && ChunkLevelTracker.isLoaded(entry.getLevel())) {
+                    ChunkStep currentStep = entry.getCurrentStep();
+                    if (currentStep != null) {
+                        color = STATUS_TO_COLOR.getInt(currentStep);
+                    }
+                }
+
+                image.setPixelColor(x, y, color);
+            }
+        }
+
+        return image;
+    }
+
+    private static NativeImage renderLeveled(ChunkController controller) {
         ChunkTicketManager ticketManager = controller.getTicketManager();
 
         ChunkAccess map = controller.getMap().primary();
@@ -95,5 +153,10 @@ public final class LevelMapRenderer {
         }
 
         return new Rect2i(minX, minZ, maxX - minX, maxZ - minZ);
+    }
+
+    private enum RenderType {
+        LEVEL,
+        STEP
     }
 }
