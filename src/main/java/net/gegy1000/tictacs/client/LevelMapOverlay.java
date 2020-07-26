@@ -1,12 +1,16 @@
 package net.gegy1000.tictacs.client;
 
 import net.gegy1000.tictacs.TicTacs;
+import net.gegy1000.tictacs.chunk.ChunkController;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawableHelper;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.texture.NativeImageBackedTexture;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.client.world.ClientWorld;
+import net.minecraft.server.integrated.IntegratedServer;
+import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.Identifier;
 
 public final class LevelMapOverlay extends DrawableHelper implements AutoCloseable {
@@ -20,14 +24,23 @@ public final class LevelMapOverlay extends DrawableHelper implements AutoCloseab
     private long lastTextureUpdate;
 
     public void render(MatrixStack transform) {
-        ClientWorld world = CLIENT.world;
-        if (world == null) {
+        ClientWorld clientWorld = CLIENT.world;
+        if (clientWorld == null) {
             return;
         }
 
-        long time = world.getTime();
+        IntegratedServer server = CLIENT.getServer();
+        if (server == null) {
+            return;
+        }
+
+        long time = clientWorld.getTime();
         if (time - this.lastTextureUpdate > 20) {
-            NativeImage image = LevelMapRenderer.render(TicTacsDebugLevelTracker.INSTANCE);
+            ServerWorld serverWorld = server.getWorld(clientWorld.getRegistryKey());
+            ThreadedAnvilChunkStorage tacs = serverWorld.getChunkManager().threadedAnvilChunkStorage;
+            ChunkController controller = (ChunkController) tacs;
+
+            NativeImage image = LevelMapRenderer.render(controller);
             this.updateTexture(image);
 
             this.lastTextureUpdate = time;
