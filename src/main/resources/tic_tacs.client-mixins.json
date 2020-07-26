@@ -6,7 +6,8 @@
   "mixins": [
     "MixinDebugRenderer",
     "MixinMinecraftClient",
-    "MixinWorldGenerationProgressTracker"
+    "MixinWorldGenerationProgressTracker",
+    "MixinInGameHud"
   ],
   "injectors": {
     "defaultRequire": 1

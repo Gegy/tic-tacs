@@ -102,7 +102,6 @@ public final class ChunkLevelTracker {
 
         data.writeLong(pos);
         data.writeInt(toLevel);
-        data.writeLong(System.currentTimeMillis() + 2000);
 
         ServerSidePacketRegistry.INSTANCE.sendToPlayer(player, TicTacs.DEBUG_CHUNK_TICKETS, data);
     }
