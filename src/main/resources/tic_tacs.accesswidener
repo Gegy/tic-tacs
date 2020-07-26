@@ -7,6 +7,7 @@ accessible field net/minecraft/server/world/ChunkHolder lastTickLevel I
 accessible field net/minecraft/server/world/ChunkHolder completedLevel I
 accessible field net/minecraft/server/world/ChunkHolder pos Lnet/minecraft/util/math/ChunkPos;
 accessible field net/minecraft/server/world/ChunkHolder ticking Z
+accessible method net/minecraft/server/world/ChunkHolder updateFuture (Ljava/util/concurrent/CompletableFuture;)V
 
 accessible method net/minecraft/server/world/ServerLightingProvider updateChunkStatus (Lnet/minecraft/util/math/ChunkPos;)V
 

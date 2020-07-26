@@ -1,12 +1,12 @@
 package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
+import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.async.lock.LockGuard;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
@@ -75,6 +75,7 @@ public final class ChunkEntry extends ChunkHolder {
             }
 
             if (this.spawnedStep.compareAndSet(fromStep, toStep)) {
+                this.combineSavingFuture(toStep);
                 return true;
             }
         }
@@ -159,20 +160,6 @@ public final class ChunkEntry extends ChunkHolder {
 
     @Override
     @Deprecated
-    public CompletableFuture<Chunk> getFuture() {
-        ChunkStep currentStep = this.state.getCurrentStep();
-        if (currentStep == null) {
-            return CompletableFuture.completedFuture(null);
-        }
-
-        return this.getListenerFor(currentStep).vanilla
-                .thenApply(result -> {
-                    return result.map(chunk -> chunk, err -> null);
-                });
-    }
-
-    @Override
-    @Deprecated
     protected void tick(ThreadedAnvilChunkStorage tacs) {
         this.onUpdateLevel(tacs);
     }
@@ -187,5 +174,9 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public void method_20456(ReadOnlyChunk chunk) {
+    }
+
+    private void combineSavingFuture(ChunkStep step) {
+        this.updateFuture(this.getListenerFor(step).asVanilla());
     }
 }
