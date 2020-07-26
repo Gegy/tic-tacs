@@ -134,6 +134,11 @@ final class ChunkUpgradeStepper {
 
             this.targetToSourceOffsetX = (targetOrigin.x - targetRadius) - sourceOrigin.x;
             this.targetToSourceOffsetZ = (targetOrigin.z - targetRadius) - sourceOrigin.z;
+
+            Chunk chunk = this.get(this.size() / 2);
+            if (!chunk.getPos().equals(targetOrigin)) {
+                throw new IllegalStateException("center chunk pos does not match target pos");
+            }
         }
 
         @Override

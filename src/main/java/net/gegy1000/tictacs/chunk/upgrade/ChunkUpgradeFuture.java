@@ -1,5 +1,8 @@
 package net.gegy1000.tictacs.chunk.upgrade;
 
+import net.gegy1000.justnow.Waker;
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkMap;
@@ -8,9 +11,6 @@ import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.future.Poll;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.gegy1000.justnow.Waker;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 
@@ -95,7 +95,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                 this.notifyChunkUpgradeError(chunks, currentStep, err);
                 this.releaseStep();
 
-                throw err;
+                return Unit.INSTANCE;
             }
 
             if (currentStep.lessThan(this.targetStep)) {

@@ -169,7 +169,7 @@ public final class ChunkMap {
         return this.writeState.get() == state;
     }
 
-    class Primary implements ChunkAccess {
+    final class Primary implements ChunkAccess {
         @Override
         public void putEntry(ChunkEntry entry) {
             long pos = entry.getPos().toLong();
@@ -198,7 +198,7 @@ public final class ChunkMap {
         }
     }
 
-    class Visible implements ChunkAccess {
+    final class Visible implements ChunkAccess {
         @Override
         public void putEntry(ChunkEntry entry) {
             throw new UnsupportedOperationException();

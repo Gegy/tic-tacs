@@ -7,7 +7,7 @@ import java.util.function.IntFunction;
 
 public final class ChunkUpgradeKernel {
     private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.size()];
-    private static final boolean DEBUG = true;
+    private static final boolean DEBUG = false;
 
     static {
         List<ChunkStep> steps = ChunkStep.STEPS;

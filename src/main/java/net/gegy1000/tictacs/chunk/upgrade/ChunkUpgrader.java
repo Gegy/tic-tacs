@@ -48,11 +48,6 @@ public final class ChunkUpgrader {
     }
 
     public void spawnUpgradeTo(ChunkEntry entry, ChunkStep step) {
-        // avoid spawning a future if we know the upgrade will definitely be invalid
-        if (!entry.canUpgradeTo(step)) {
-            return;
-        }
-
         if (entry.trySpawnUpgradeTo(step)) {
             this.worker.spawn(entry, this.upgradeTo(entry, step));
         }

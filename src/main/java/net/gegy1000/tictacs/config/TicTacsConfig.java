@@ -32,6 +32,10 @@ public final class TicTacsConfig {
     @SerializedName("debug_chunk_tickets")
     public boolean debugChunkTickets = false;
 
+    public boolean isSingleThreaded() {
+        return this.threadCount == 1;
+    }
+
     @Nonnull
     public static TicTacsConfig get() {
         if (config == null) {

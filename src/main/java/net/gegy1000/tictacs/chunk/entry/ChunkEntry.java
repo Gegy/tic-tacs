@@ -68,6 +68,10 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean trySpawnUpgradeTo(ChunkStep toStep) {
+        if (!this.canUpgradeTo(toStep)) {
+            return false;
+        }
+
         while (true) {
             ChunkStep fromStep = this.spawnedStep.get();
             if (fromStep != null && fromStep.greaterOrEqual(toStep)) {
@@ -82,7 +86,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean canUpgradeTo(ChunkStep toStep) {
-        if (!this.getTargetStep().greaterOrEqual(toStep)) {
+        if (this.isUnloaded() || !this.getTargetStep().greaterOrEqual(toStep)) {
             return false;
         }
 
@@ -90,8 +94,12 @@ public final class ChunkEntry extends ChunkHolder {
         return currentStep == null || !currentStep.greaterOrEqual(toStep);
     }
 
+    public boolean isUnloaded() {
+        return ChunkLevelTracker.isUnloaded(this.level);
+    }
+
     public ChunkStep getTargetStep() {
-        return getTargetStep(this.getLevel());
+        return getTargetStep(this.level);
     }
 
     public static ChunkStep getTargetStep(int level) {
