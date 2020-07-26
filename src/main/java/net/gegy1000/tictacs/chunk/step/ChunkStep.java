@@ -2,15 +2,15 @@ package net.gegy1000.tictacs.chunk.step;
 
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.LongSet;
-import net.gegy1000.tictacs.TicTacs;
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.FutureHandle;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
+import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
@@ -72,7 +72,7 @@ public final class ChunkStep {
             .requires(
                     ChunkRequirements.from(ChunkStep.SURFACE)
                             // Feature gen radius is controlled by the config, it's usually 1 but can be higher.
-                            .write(ChunkStep.SURFACE, TicTacs.CONFIG.featureGenerationRadius)
+                            .write(ChunkStep.SURFACE, TicTacsConfig.get().featureGenerationRadius)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)

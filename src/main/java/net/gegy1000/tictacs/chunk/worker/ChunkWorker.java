@@ -1,9 +1,8 @@
 package net.gegy1000.tictacs.chunk.worker;
 
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.minecraft.server.world.ChunkHolder;
-
-import net.gegy1000.tictacs.TicTacs;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -14,7 +13,7 @@ public final class ChunkWorker implements AutoCloseable {
     private final ChunkExecutor executor = new ChunkExecutor();
 
     private ChunkWorker() {
-        for (int i = 0; i < TicTacs.CONFIG.threadCount; i++) {
+        for (int i = 0; i < TicTacsConfig.get().threadCount; i++) {
             Thread thread = new Thread(this::run);
             thread.setName("worldgen-worker-" + (i + 1));
             thread.setDaemon(true);

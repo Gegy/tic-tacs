@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.network.ServerSidePacketRegistry;
 import net.fabricmc.fabric.api.server.PlayerStream;
 import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
@@ -42,7 +43,7 @@ public final class ChunkLevelTracker {
         }
 
         // Send debug data if enabled
-        if (TicTacs.CONFIG.debugChunkTickets) {
+        if (TicTacsConfig.get().debugChunkTickets) {
             List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
 
             if (players.size() > 0) {
