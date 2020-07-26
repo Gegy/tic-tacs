@@ -1,11 +1,11 @@
 package net.gegy1000.tictacs.chunk;
 
+import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Collection;
 
 public interface ChunkAccess {
     void putEntry(ChunkEntry entry);
@@ -34,5 +34,5 @@ public interface ChunkAccess {
         return entry;
     }
 
-    Collection<ChunkEntry> getEntries();
+    ObjectCollection<ChunkEntry> getEntries();
 }

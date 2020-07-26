@@ -3,6 +3,8 @@ package net.gegy1000.tictacs.chunk;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -13,8 +15,6 @@ import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
@@ -193,7 +193,7 @@ public final class ChunkMap {
         }
 
         @Override
-        public Collection<ChunkEntry> getEntries() {
+        public ObjectCollection<ChunkEntry> getEntries() {
             return ChunkMap.this.primaryEntries.values();
         }
     }
@@ -225,10 +225,10 @@ public final class ChunkMap {
         }
 
         @Override
-        public Collection<ChunkEntry> getEntries() {
+        public ObjectCollection<ChunkEntry> getEntries() {
             try {
                 ChunkMap.this.writeLock.lock();
-                return new ArrayList<>(ChunkMap.this.visibleEntries.values());
+                return new ObjectArrayList<>(ChunkMap.this.visibleEntries.values());
             } finally {
                 ChunkMap.this.writeLock.unlock();
             }

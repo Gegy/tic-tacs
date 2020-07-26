@@ -4,6 +4,7 @@ import com.google.common.collect.Iterables;
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.VoidActor;
@@ -242,6 +243,17 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     )
     private Object removeChunkForUnload(Long2ObjectLinkedOpenHashMap<ChunkHolder> map, long pos) {
         return this.map.primary().removeEntry(pos);
+    }
+
+    @Redirect(
+            method = "save(Z)V",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"
+            )
+    )
+    private ObjectCollection<?> getChunks(Long2ObjectLinkedOpenHashMap<?> map) {
+        return this.map.primary().getEntries();
     }
 
     @Inject(method = "close", at = @At("RETURN"))

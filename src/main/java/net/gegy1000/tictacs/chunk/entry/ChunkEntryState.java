@@ -75,21 +75,6 @@ public final class ChunkEntryState {
         }
     }
 
-    private WorldChunk upgradeToWorldChunk(ServerWorld world, ProtoChunk protoChunk) {
-        this.worldChunk = new WorldChunk(world, protoChunk);
-
-        ReadOnlyChunk readOnlyChunk = new ReadOnlyChunk(this.worldChunk);
-        this.chunk = readOnlyChunk;
-
-        for (ChunkStep step : ChunkStep.STEPS) {
-            if (step != ChunkStep.FULL) {
-                this.parent.getListenerFor(step).completeOk(readOnlyChunk);
-            }
-        }
-
-        return this.worldChunk;
-    }
-
     public WorldChunk finalizeChunk(ServerWorld world, LongPredicate loadToWorld) {
         ChunkEntry entry = this.parent;
         ChunkPos pos = entry.getPos();
@@ -98,6 +83,8 @@ public final class ChunkEntryState {
         if (worldChunk == null) {
             worldChunk = this.upgradeToWorldChunk(world, this.chunk);
         }
+
+        this.worldChunk = worldChunk;
 
         worldChunk.setLevelTypeProvider(() -> ChunkHolder.getLevelType(entry.getLevel()));
         worldChunk.loadToWorld();
@@ -111,6 +98,21 @@ public final class ChunkEntryState {
         }
 
         worldChunk.disableTickSchedulers();
+
+        return worldChunk;
+    }
+
+    private WorldChunk upgradeToWorldChunk(ServerWorld world, ProtoChunk protoChunk) {
+        WorldChunk worldChunk = new WorldChunk(world, protoChunk);
+
+        ReadOnlyChunk readOnlyChunk = new ReadOnlyChunk(worldChunk);
+        this.chunk = readOnlyChunk;
+
+        for (ChunkStep step : ChunkStep.STEPS) {
+            if (step != ChunkStep.FULL) {
+                this.parent.getListenerFor(step).completeOk(readOnlyChunk);
+            }
+        }
 
         return worldChunk;
     }

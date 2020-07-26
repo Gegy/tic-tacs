@@ -90,7 +90,10 @@ public final class ChunkStep {
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
             .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
             .locks(ChunkLockType.LATE_GENERATION)
-            .upgradeAsync(ChunkStep::makeFull)
+            .upgradeAsync(ctx -> {
+                ChunkStep.addEntities(ctx);
+                return ChunkStep.makeFull(ctx);
+            })
             .loadAsync(ChunkStep::makeFull);
 
     private static final ChunkStep[] STATUS_TO_STEP;
@@ -348,10 +351,14 @@ public final class ChunkStep {
         return controller.getUpgrader().lightingThrottler.acquireAsync();
     }
 
-    private static Future<Chunk> makeFull(ChunkStepContext ctx) {
+    private static Chunk addEntities(ChunkStepContext ctx) {
         ChunkRegion region = ctx.asRegion();
         ctx.generator.populateEntities(region);
 
+        return ctx.chunk;
+    }
+
+    private static Future<Chunk> makeFull(ChunkStepContext ctx) {
         FutureHandle<Chunk> handle = new FutureHandle<>();
 
         ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
