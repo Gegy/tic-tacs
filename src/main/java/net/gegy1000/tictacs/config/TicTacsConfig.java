@@ -4,6 +4,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import net.gegy1000.tictacs.TicTacs;
+import net.minecraft.util.math.MathHelper;
 
 import javax.annotation.Nonnull;
 import java.io.BufferedReader;
@@ -24,13 +25,17 @@ public final class TicTacsConfig {
     public int version = VERSION;
 
     @SerializedName("thread_count")
-    public int threadCount = Runtime.getRuntime().availableProcessors();
+    public int threadCount = computeDefaultThreadCount();
 
     @SerializedName("feature_generation_radius")
     public int featureGenerationRadius = 2;
 
     @SerializedName("debug_chunk_tickets")
     public boolean debugChunkTickets = false;
+
+    private static int computeDefaultThreadCount() {
+        return MathHelper.clamp(Runtime.getRuntime().availableProcessors() / 2, 2, 6);
+    }
 
     public boolean isSingleThreaded() {
         return this.threadCount == 1;
