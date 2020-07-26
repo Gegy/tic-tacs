@@ -80,9 +80,7 @@ public final class ChunkUpgrader {
         ChunkStatus status = step.getMaximumStatus();
 
         this.controller.notifyStatus(entry.getPos(), status);
-        if (chunk instanceof ProtoChunk) {
-            ((ProtoChunk) chunk).setStatus(status);
-        }
+        ChunkStep.trySetStatus(chunk, status);
     }
 
     void completeUpgradeErr(ChunkEntryState entry, ChunkStep step, ChunkNotLoadedException err) {

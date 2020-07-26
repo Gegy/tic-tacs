@@ -7,12 +7,10 @@ import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.FutureHandle;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ChunkTicketManager;
-import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.ChunkRegion;
@@ -333,9 +331,9 @@ public final class ChunkStep {
         ChunkTicketManager ticketManager = ctx.controller.getTicketManager();
 
         ChunkPos pos = ctx.entry.getPos();
-        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
-            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
-        });
+//        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
+//            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
+//        });
 
         CompletableFuture<Chunk> future = ctx.lighting.light(ctx.chunk, excludeBlocks);
         return VanillaChunkFuture.of(future.thenApply(chunk -> {
@@ -364,9 +362,12 @@ public final class ChunkStep {
         return handle;
     }
 
-    private static void trySetStatus(Chunk chunk, ChunkStatus status) {
+    public static void trySetStatus(Chunk chunk, ChunkStatus status) {
         if (chunk instanceof ProtoChunk) {
-            ((ProtoChunk) chunk).setStatus(status);
+            ProtoChunk protoChunk = (ProtoChunk) chunk;
+            if (!protoChunk.getStatus().isAtLeast(status)) {
+                protoChunk.setStatus(status);
+            }
         }
     }
 
