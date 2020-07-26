@@ -4,6 +4,8 @@ import com.google.common.collect.Iterables;
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.VoidActor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
@@ -16,9 +18,9 @@ import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
 import net.gegy1000.tictacs.chunk.worker.ChunkMainThreadExecutor;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
+import net.minecraft.network.Packet;
 import net.minecraft.server.WorldGenerationProgressListener;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
@@ -33,6 +35,7 @@ import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkProvider;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.level.storage.LevelStorage;
 import org.spongepowered.asm.mixin.Final;
@@ -48,8 +51,10 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
 public abstract class MixinThreadedAnvilChunkStorage implements ChunkController {
@@ -65,6 +70,9 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Shadow
     @Final
     private WorldGenerationProgressListener worldGenerationProgressListener;
+    @Shadow
+    @Final
+    private AtomicInteger totalChunksLoadedCount;
 
     @Unique
     private ChunkMap map;
@@ -263,6 +271,62 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     }
 
     /**
+     * @reason replace usage of async area-loading
+     * @author gegy1000
+     */
+    @Overwrite
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createEntityTickingChunkFuture(ChunkPos pos) {
+        CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = new CompletableFuture<>();
+
+        ChunkEntry entry = this.map.primary().getEntry(pos);
+
+        this.spawnOnMainThread(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
+            WorldChunk chunk = entry.getWorldChunk();
+            if (chunk != null) {
+                future.complete(Either.left(chunk));
+            } else {
+                future.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
+            }
+            return Unit.INSTANCE;
+        }));
+
+        return future;
+    }
+
+    /**
+     * @reason replace usage of async area-loading
+     * @author gegy1000
+     */
+    @Overwrite
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createTickingFuture(ChunkHolder holder) {
+        CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = new CompletableFuture<>();
+
+        this.spawnOnMainThread((ChunkEntry) holder, this.getRadiusAs(holder.getPos(), 1, ChunkStep.FULL)
+                .map(u -> {
+                    WorldChunk chunk = holder.getWorldChunk();
+                    if (chunk == null) {
+                        future.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
+                        return Unit.INSTANCE;
+                    }
+
+                    chunk.runPostProcessing();
+                    this.totalChunksLoadedCount.getAndIncrement();
+
+                    Packet<?>[] packets = new Packet[2];
+                    this.getPlayersWatchingChunk(holder.getPos(), false).forEach(player -> {
+                        this.sendChunkDataPackets(player, packets, chunk);
+                    });
+
+                    future.complete(Either.left(chunk));
+
+                    return Unit.INSTANCE;
+                })
+        );
+
+        return future;
+    }
+
+    /**
      * @reason delegate to ChunkMap
      * @author gegy1000
      */
@@ -291,4 +355,10 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
 
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
+
+    @Shadow
+    protected abstract void sendChunkDataPackets(ServerPlayerEntity player, Packet<?>[] packets, WorldChunk chunk);
+
+    @Shadow
+    public abstract Stream<ServerPlayerEntity> getPlayersWatchingChunk(ChunkPos chunkPos, boolean onlyOnWatchDistanceEdge);
 }
