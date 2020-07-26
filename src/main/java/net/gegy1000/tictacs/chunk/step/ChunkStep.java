@@ -2,6 +2,7 @@ package net.gegy1000.tictacs.chunk.step;
 
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.LongSet;
+import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.FutureHandle;
@@ -70,7 +71,8 @@ public final class ChunkStep {
             .includes(ChunkStatus.FEATURES)
             .requires(
                     ChunkRequirements.from(ChunkStep.SURFACE)
-                            .write(ChunkStep.SURFACE, 1)
+                            // Feature gen radius is controlled by the config, it's usually 1 but can be higher.
+                            .write(ChunkStep.SURFACE, TicTacs.CONFIG.featureGenerationRadius)
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)
