@@ -84,12 +84,15 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             }
 
             try {
-                Chunk[] pollChunks = this.stepper.pollStep(waker, chunks, currentStep);
-                if (pollChunks == null) {
-                    return null;
+                if (!chunks.empty) {
+                    Chunk[] pollChunks = this.stepper.pollStep(waker, chunks, currentStep);
+                    if (pollChunks == null) {
+                        return null;
+                    }
+
+                    this.notifyChunkUpgrades(pollChunks, chunks, currentStep);
                 }
 
-                this.notifyChunkUpgrades(pollChunks, chunks, currentStep);
                 this.releaseStep();
             } catch (ChunkNotLoadedException err) {
                 this.notifyChunkUpgradeError(chunks, currentStep, err);

@@ -65,6 +65,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         Arrays.fill(this.upgradeLocks, null);
         Arrays.fill(this.locks, null);
         Arrays.fill(this.result.entries, null);
+
+        this.result.empty = true;
     }
 
     @Nullable
@@ -74,8 +76,14 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
             return this.result;
         }
 
-        this.addUpgradeChunks(this.currentStep);
-        this.addContextChunks(this.currentStep);
+        if (this.addUpgradeChunks(this.currentStep)) {
+            this.addContextChunks(this.currentStep);
+            this.result.empty = false;
+        } else {
+            this.result.empty = true;
+            this.acquired = true;
+            return this.result;
+        }
 
         if (this.acquireJoinLock.poll(waker) != null) {
             this.acquired = true;
@@ -86,7 +94,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         }
     }
 
-    private void addUpgradeChunks(ChunkStep step) {
+    private boolean addUpgradeChunks(ChunkStep step) {
         ChunkAccess chunks = this.chunkMap.visible();
 
         Lock[] upgradeLocks = this.upgradeLocks;
@@ -97,6 +105,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         ChunkUpgradeKernel kernel = this.kernel;
 
         int radiusForStep = kernel.getRadiusFor(step);
+
+        boolean added = false;
 
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
@@ -111,9 +121,13 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
                     upgradeLocks[idx] = entry.getLock().upgrade();
                     locks[idx] = entry.getLock().write(step.getLock());
+
+                    added = true;
                 }
             }
         }
+
+        return added;
     }
 
     private void addContextChunks(ChunkStep step) {
@@ -190,6 +204,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
     public final class Result {
         final ChunkEntryState[] entries;
+        boolean empty = true;
 
         Result(int bufferSize) {
             this.entries = new ChunkEntryState[bufferSize];
