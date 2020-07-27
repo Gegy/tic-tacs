@@ -2,8 +2,10 @@ package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.async.lock.LockGuard;
+import net.gegy1000.tictacs.async.worker.ChunkTask;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -31,6 +33,8 @@ public final class ChunkEntry extends ChunkHolder {
     private final ChunkAccessLock lock = new ChunkAccessLock();
 
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
+
+    private volatile ChunkTask<Unit> upgradeTask;
 
     public ChunkEntry(
             ChunkPos pos, int level,
@@ -184,6 +188,22 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public void method_20456(ReadOnlyChunk chunk) {
+    }
+
+    public void setUpgradeTask(ChunkTask<Unit> task) {
+        this.upgradeTask = task;
+    }
+
+    @Nullable
+    public ChunkTask<Unit> getUpgradeTask() {
+        return this.upgradeTask;
+    }
+
+    void finishUpgradeTo(ChunkStep step) {
+        ChunkStep spawnedStep = this.spawnedStep.get();
+        if (step.greaterOrEqual(spawnedStep)) {
+            this.upgradeTask = null;
+        }
     }
 
     void combineSavingFuture(ChunkStep step) {

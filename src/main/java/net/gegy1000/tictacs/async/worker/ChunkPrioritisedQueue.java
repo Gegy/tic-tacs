@@ -1,13 +1,11 @@
-package net.gegy1000.tictacs.chunk.worker;
+package net.gegy1000.tictacs.async.worker;
 
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
-import net.gegy1000.tictacs.util.UnsafeAccess;
-import sun.misc.Unsafe;
 
 import javax.annotation.Nullable;
 import java.util.LinkedList;
 
-public final class ChunkTaskQueue implements AutoCloseable {
+public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
     private static final int LEVEL_COUNT = ChunkLevelTracker.MAX_LEVEL + 2;
 
     private final Level[] levels;
@@ -16,9 +14,8 @@ public final class ChunkTaskQueue implements AutoCloseable {
     private volatile boolean open = true;
 
     private final Object lock = new Object();
-    private Runnable notify;
 
-    public ChunkTaskQueue() {
+    public ChunkPrioritisedQueue() {
         this.levels = new Level[LEVEL_COUNT];
         for (int i = 0; i < LEVEL_COUNT; i++) {
             this.levels[i] = new Level();
@@ -27,12 +24,8 @@ public final class ChunkTaskQueue implements AutoCloseable {
         this.minLevel = LEVEL_COUNT;
     }
 
-    // TODO: don't like this
-    public void onNotify(Runnable notify) {
-        this.notify = notify;
-    }
-
-    public void enqueue(ChunkTask<?> task) {
+    @Override
+    public <T> void enqueue(ChunkTask<T> task) {
         int level = task.holder.getLevel();
         if (level > ChunkLevelTracker.MAX_LEVEL) {
             return;
@@ -45,10 +38,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
                 this.minLevel = level;
                 this.lock.notifyAll();
             }
-        }
-
-        if (this.notify != null) {
-            this.notify.run();
         }
     }
 
@@ -110,10 +99,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
         }
     }
 
-    Waker waker(ChunkTask<?> task) {
-        return new Waker(this, task);
-    }
-
     static class Level {
         private final LinkedList<ChunkTask<?>> queue = new LinkedList<>();
 
@@ -127,57 +112,6 @@ public final class ChunkTaskQueue implements AutoCloseable {
 
         boolean isEmpty() {
             return this.queue.isEmpty();
-        }
-    }
-
-    public static class Waker implements net.gegy1000.justnow.Waker {
-        // use unsafe for atomic operations without allocating an AtomicReference
-        private static final Unsafe UNSAFE = UnsafeAccess.get();
-        private static final long STATE_OFFSET;
-
-        static {
-            try {
-                STATE_OFFSET = UNSAFE.objectFieldOffset(Waker.class.getDeclaredField("state"));
-            } catch (NoSuchFieldException e) {
-                throw new Error("failed to get state offset", e);
-            }
-        }
-
-        private static final int WAITING = 0;
-        private static final int POLLING = 1;
-        private static final int AWOKEN = 2;
-
-        private final ChunkTaskQueue queue;
-        private final ChunkTask<?> task;
-
-        private volatile int state = AWOKEN;
-
-        Waker(ChunkTaskQueue queue, ChunkTask<?> task) {
-            this.queue = queue;
-            this.task = task;
-        }
-
-        @Override
-        public void wake() {
-            int prevState = UNSAFE.getAndSetInt(this, STATE_OFFSET, AWOKEN);
-
-            // only enqueue the task if we're still waiting for a signal
-            if (prevState == WAITING) {
-                this.queue.enqueue(this.task);
-            }
-        }
-
-        void polling() {
-            this.state = POLLING;
-        }
-
-        void ready() {
-            // we didn't get a result: set state to waiting. we expect state to still be polling, so if that's *not*
-            // the case, we must've been awoken during polling. now that we know this task needs to continue
-            // execution, we can re-enqueue it.
-            if (!UNSAFE.compareAndSwapInt(this, STATE_OFFSET, POLLING, WAITING)) {
-                this.queue.enqueue(this.task);
-            }
         }
     }
 }

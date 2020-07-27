@@ -1,6 +1,7 @@
 accessWidener v1 named
 
 accessible class net/minecraft/server/world/ThreadedAnvilChunkStorage$TicketManager
+accessible class net/minecraft/server/world/ServerChunkManager$MainThreadExecutor
 
 accessible field net/minecraft/server/world/ChunkHolder level I
 accessible field net/minecraft/server/world/ChunkHolder lastTickLevel I
@@ -25,7 +26,6 @@ accessible field net/minecraft/server/world/ChunkTicketManager chunkPositions Li
 accessible field net/minecraft/server/world/ChunkTicketManager playerTicketThrottler Lnet/minecraft/util/thread/MessageListener;
 accessible field net/minecraft/server/world/ChunkTicketManager playerTicketThrottlerSorter Lnet/minecraft/util/thread/MessageListener;
 accessible field net/minecraft/server/world/ChunkTicketManager ticketsByPosition Lit/unimi/dsi/fastutil/longs/Long2ObjectOpenHashMap;
-
 accessible method net/minecraft/server/world/ChunkTicketManager getTicketSet (J)Lnet/minecraft/util/collection/SortedArraySet;
 
 accessible method net/minecraft/server/world/ChunkTicket isExpired (J)Z

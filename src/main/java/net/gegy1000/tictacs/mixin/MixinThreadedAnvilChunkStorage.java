@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.VoidActor;
+import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
@@ -18,7 +19,6 @@ import net.gegy1000.tictacs.chunk.future.LazyRunnableFuture;
 import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
-import net.gegy1000.tictacs.chunk.worker.ChunkMainThreadExecutor;
 import net.minecraft.network.Packet;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -188,6 +188,11 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Override
     public void spawnOnMainThread(ChunkEntry entry, Runnable runnable) {
         this.chunkMainExecutor.spawn(entry, new LazyRunnableFuture(runnable));
+    }
+
+    @Override
+    public ChunkMainThreadExecutor getMainThreadExecutor() {
+        return this.chunkMainExecutor;
     }
 
     /**

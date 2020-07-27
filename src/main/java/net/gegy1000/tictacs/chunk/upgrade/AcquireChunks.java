@@ -103,6 +103,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                 ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
 
                 if (entry.canUpgradeTo(step)) {
+                    entry.trySpawnUpgradeTo(step);
+
                     int idx = kernel.index(x, z);
 
                     entries[idx] = entry.getState();

@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.chunk;
 
+import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
@@ -33,4 +34,6 @@ public interface ChunkController {
     <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future);
 
     void spawnOnMainThread(ChunkEntry entry, Runnable runnable);
+
+    ChunkMainThreadExecutor getMainThreadExecutor();
 }

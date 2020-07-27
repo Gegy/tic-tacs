@@ -3,10 +3,8 @@ package net.gegy1000.tictacs.chunk.entry;
 import net.gegy1000.tictacs.async.lock.JoinLock;
 import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.async.lock.Mutex;
-import net.gegy1000.tictacs.async.lock.NullLock;
 import net.gegy1000.tictacs.async.lock.RwLock;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
-import net.gegy1000.tictacs.config.TicTacsConfig;
 
 import java.util.Arrays;
 
@@ -22,18 +20,11 @@ public final class ChunkAccessLock {
         this.readLocks = new Lock[RESOURCES.length];
         this.writeLocks = new Lock[RESOURCES.length];
 
-        if (TicTacsConfig.get().isSingleThreaded()) {
-            for (int i = 0; i < RESOURCES.length; i++) {
-                this.readLocks[i] = NullLock.INSTANCE;
-                this.writeLocks[i] = NullLock.INSTANCE;
-            }
-        } else {
-            for (int i = 0; i < RESOURCES.length; i++) {
-                RwLock resourceLock = new RwLock();
+        for (int i = 0; i < RESOURCES.length; i++) {
+            RwLock resourceLock = new RwLock();
 
-                this.readLocks[i] = resourceLock.read();
-                this.writeLocks[i] = resourceLock.write();
-            }
+            this.readLocks[i] = resourceLock.read();
+            this.writeLocks[i] = resourceLock.write();
         }
 
         this.upgradeLock = new Mutex();
