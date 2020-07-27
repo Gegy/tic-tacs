@@ -15,6 +15,8 @@ import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.util.Util;
 import net.minecraft.util.collection.SortedArraySet;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
 
 import java.util.Collection;
 
@@ -32,20 +34,34 @@ public final class LevelMapRenderer {
 
     private static final RenderType TYPE = RenderType.STEP;
 
-    public static NativeImage render(ChunkController controller) {
-        switch (TYPE) {
-            case STEP: return renderSteps(controller);
-            case LEVEL: return renderLeveled(controller);
-            default: throw new UnsupportedOperationException();
-        }
-    }
-
-    private static NativeImage renderSteps(ChunkController controller) {
+    public static NativeImage render(Vec3d camera, ChunkController controller) {
         ChunkAccess map = controller.getMap().primary();
         Collection<ChunkEntry> entries = map.getEntries();
 
         Rect2i bounds = computeBounds(entries);
 
+        NativeImage image;
+        switch (TYPE) {
+            case STEP:
+                image = renderSteps(map, bounds);
+                break;
+            case LEVEL:
+                image = renderLeveled(controller, map, bounds);
+                break;
+            default: throw new UnsupportedOperationException();
+        }
+
+        int cameraX = MathHelper.floor(camera.x / 16.0) - bounds.getX();
+        int cameraZ = MathHelper.floor(camera.z / 16.0) - bounds.getY();
+
+        if (cameraX >= 0 && cameraZ >= 0 && cameraX < bounds.getWidth() && cameraZ < bounds.getHeight()) {
+            image.setPixelColor(cameraX, cameraZ, 0xFF0000FF);
+        }
+
+        return image;
+    }
+
+    private static NativeImage renderSteps(ChunkAccess map, Rect2i bounds) {
         int minX = bounds.getX();
         int minY = bounds.getY();
 
@@ -75,13 +91,8 @@ public final class LevelMapRenderer {
         return image;
     }
 
-    private static NativeImage renderLeveled(ChunkController controller) {
+    private static NativeImage renderLeveled(ChunkController controller, ChunkAccess map, Rect2i bounds) {
         ChunkTicketManager ticketManager = controller.getTicketManager();
-
-        ChunkAccess map = controller.getMap().primary();
-        Collection<ChunkEntry> entries = map.getEntries();
-
-        Rect2i bounds = computeBounds(entries);
 
         int minX = bounds.getX();
         int minY = bounds.getY();

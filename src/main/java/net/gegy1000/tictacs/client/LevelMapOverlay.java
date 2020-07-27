@@ -40,7 +40,7 @@ public final class LevelMapOverlay extends DrawableHelper implements AutoCloseab
             ThreadedAnvilChunkStorage tacs = serverWorld.getChunkManager().threadedAnvilChunkStorage;
             ChunkController controller = (ChunkController) tacs;
 
-            NativeImage image = LevelMapRenderer.render(controller);
+            NativeImage image = LevelMapRenderer.render(CLIENT.player.getPos(), controller);
             this.updateTexture(image);
 
             this.lastTextureUpdate = time;
