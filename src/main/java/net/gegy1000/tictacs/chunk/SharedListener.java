@@ -1,14 +1,14 @@
 package net.gegy1000.tictacs.chunk;
 
 import net.gegy1000.tictacs.async.LinkedWaiter;
-import net.gegy1000.tictacs.async.WaiterList;
+import net.gegy1000.tictacs.async.WaiterQueue;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 
 import javax.annotation.Nullable;
 
 public abstract class SharedListener<T> implements Future<T> {
-    private final WaiterList waiters = new WaiterList();
+    private final WaiterQueue waiters = new WaiterQueue();
 
     @Nullable
     protected abstract T get();

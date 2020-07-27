@@ -1,7 +1,7 @@
 package net.gegy1000.tictacs.async.lock;
 
 import net.gegy1000.tictacs.async.LinkedWaiter;
-import net.gegy1000.tictacs.async.WaiterList;
+import net.gegy1000.tictacs.async.WaiterQueue;
 import net.gegy1000.justnow.Waker;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -10,7 +10,7 @@ public final class Semaphore implements Lock {
     private final int maximum;
     private final AtomicInteger count = new AtomicInteger(0);
 
-    private final WaiterList waiters = new WaiterList();
+    private final WaiterQueue waiters = new WaiterQueue();
 
     public Semaphore(int maximum) {
         this.maximum = maximum;
