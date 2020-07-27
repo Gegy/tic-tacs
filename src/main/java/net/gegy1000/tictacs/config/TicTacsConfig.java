@@ -16,7 +16,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 public final class TicTacsConfig {
-    public static final int VERSION = 1;
+    public static final int VERSION = 2;
 
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -30,8 +30,16 @@ public final class TicTacsConfig {
     @SerializedName("feature_generation_radius")
     public int featureGenerationRadius = 2;
 
-    @SerializedName("debug_chunk_tickets")
-    public boolean debugChunkTickets = false;
+    @SerializedName("debug")
+    public Debug debug = new Debug();
+
+    public static class Debug {
+        @SerializedName("chunk_levels")
+        public boolean chunkLevels;
+
+        @SerializedName("chunk_map")
+        public boolean chunkMap;
+    }
 
     private static int computeDefaultThreadCount() {
         return MathHelper.clamp(Runtime.getRuntime().availableProcessors() / 2, 2, 6);

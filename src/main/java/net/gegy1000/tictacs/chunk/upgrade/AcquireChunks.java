@@ -100,9 +100,9 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
+                ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
 
-                if (entry.canUpgradeTo(step)) {
+                if (entry != null && entry.canUpgradeTo(step)) {
                     entry.trySpawnUpgradeTo(step);
 
                     int idx = kernel.index(x, z);

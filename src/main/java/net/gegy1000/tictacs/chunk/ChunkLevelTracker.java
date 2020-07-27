@@ -43,7 +43,7 @@ public final class ChunkLevelTracker {
         }
 
         // Send debug data if enabled
-        if (TicTacsConfig.get().debugChunkTickets) {
+        if (TicTacsConfig.get().debug.chunkLevels) {
             List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
 
             if (players.size() > 0) {

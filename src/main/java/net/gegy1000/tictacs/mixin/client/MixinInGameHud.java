@@ -15,7 +15,7 @@ public class MixinInGameHud {
 
     @Inject(method = "render", at = @At("RETURN"))
     private void render(MatrixStack transform, float deltaTime, CallbackInfo ci) {
-        if (TicTacsConfig.get().debugChunkTickets) {
+        if (TicTacsConfig.get().debug.chunkMap) {
             this.levelMap.render(transform);
         }
     }
