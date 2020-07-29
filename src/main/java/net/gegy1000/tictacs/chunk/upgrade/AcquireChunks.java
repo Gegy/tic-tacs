@@ -75,6 +75,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
             return this.result;
         }
 
+        this.clearBuffers();
+
         if (this.addUpgradeChunks(this.currentStep)) {
             this.addContextChunks(this.currentStep);
             this.result.empty = false;
@@ -88,7 +90,6 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
             this.acquired = true;
             return this.result;
         } else {
-            this.clearBuffers();
             return null;
         }
     }
