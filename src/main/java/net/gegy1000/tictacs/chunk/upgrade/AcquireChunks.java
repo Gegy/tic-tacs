@@ -20,7 +20,6 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.Function;
 
-// TODO: don't lock context when we're just loading a chunk
 final class AcquireChunks implements Future<AcquireChunks.Result> {
     private final ChunkUpgradeKernel kernel;
     private final ChunkMap chunkMap;
@@ -36,7 +35,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     private ChunkPos pos;
     private ChunkStep currentStep;
 
-    private boolean acquired;
+    boolean acquired;
 
     public AcquireChunks(ChunkUpgradeKernel kernel, ChunkMap chunkMap) {
         this.kernel = kernel;

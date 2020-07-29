@@ -248,4 +248,30 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
         return Poll.ready(minimumStep);
     }
+
+    @Override
+    public String toString() {
+        StringBuilder display = new StringBuilder();
+        display.append("upgrading ").append(this.pos).append(" to ").append(this.targetStep).append(": ");
+
+        if (this.currentStep != null) {
+            if (this.currentStep.greaterOrEqual(this.targetStep)) {
+                display.append("ready!");
+            } else {
+                if (this.stepReady) {
+                    if (this.acquireEntries.acquired) {
+                        display.append("waiting for chunks @").append(this.currentStep);
+                    } else {
+                        display.append("waiting to acquire entry locks @").append(this.currentStep);
+                    }
+                } else {
+                    display.append("waiting to for ").append(this.currentStep).append(" to be ready");
+                }
+            }
+        } else {
+            display.append("waiting for entries");
+        }
+
+        return display.toString();
+    }
 }
