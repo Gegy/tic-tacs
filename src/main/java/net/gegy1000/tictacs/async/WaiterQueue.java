@@ -47,13 +47,14 @@ public final class WaiterQueue {
         while (true) {
             LinkedWaiter tail = this.tail;
 
+            // by linking the tail, the tail is essentially locked until the tail reference is swapped
             if (tail.tryLink(waiter)) {
-                // swap the tail reference. we can safely ignore failure
-                // it's safe for the tail to lag behind, because this is checked when trying to link the waiter
-                UNSAFE.compareAndSwapObject(this, TAIL_OFFSET, tail, waiter);
-
-                // only open the link once we've swapped the tail
-                waiter.openLink();
+                // swap the tail reference: if we fail, we must've been woken up already. we can accept
+                // ignoring the error because we know this node is enqueued to be awoken
+                if (UNSAFE.compareAndSwapObject(this, TAIL_OFFSET, tail, waiter)) {
+                    // once we've swapped the tail, open it so that it can be linked to
+                    waiter.openLink();
+                }
 
                 return;
             }
