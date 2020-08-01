@@ -3,7 +3,6 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.tictacs.async.lock.Semaphore;
 import net.gegy1000.tictacs.async.worker.ChunkTask;
 import net.gegy1000.tictacs.chunk.ChunkController;
-import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -88,8 +87,8 @@ public final class ChunkUpgrader {
         ChunkStep.trySetStatus(chunk, status);
     }
 
-    void completeUpgradeErr(ChunkEntryState entry, ChunkStep step, ChunkNotLoadedException err) {
-        entry.completeUpgradeErr(step, err);
+    void completeUpgradeErr(ChunkEntryState entry, ChunkStep step) {
+        entry.completeUpgradeErr(step);
         this.controller.notifyStatus(entry.getPos(), null);
     }
 }

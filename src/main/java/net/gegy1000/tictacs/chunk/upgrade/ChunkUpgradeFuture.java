@@ -93,7 +93,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
                 this.releaseStep();
             } catch (ChunkNotLoadedException err) {
-                this.notifyChunkUpgradeError(chunks, currentStep, err);
+                this.notifyChunkUpgradeError(chunks, currentStep);
                 this.releaseStep();
 
                 return Unit.INSTANCE;
@@ -162,7 +162,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         }
     }
 
-    private void notifyChunkUpgradeError(AcquireChunks.Result chunks, ChunkStep step, ChunkNotLoadedException err) {
+    private void notifyChunkUpgradeError(AcquireChunks.Result chunks, ChunkStep step) {
         ChunkEntryState[] entries = chunks.entries;
         ChunkUpgradeKernel kernel = chunks.getKernel();
         int radius = kernel.getRadius();
@@ -176,7 +176,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                     continue;
                 }
 
-                this.controller.getUpgrader().completeUpgradeErr(entry, step, err);
+                this.controller.getUpgrader().completeUpgradeErr(entry, step);
             }
         }
     }

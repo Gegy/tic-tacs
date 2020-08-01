@@ -11,15 +11,15 @@ import java.util.concurrent.CompletableFuture;
 
 public final class ChunkListener extends SharedListener<Chunk> {
     volatile Chunk ok;
-    volatile Throwable err;
+    volatile boolean err;
 
     CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla = new CompletableFuture<>();
 
     @Nullable
     @Override
     protected Chunk get() {
-        if (this.err != null) {
-            throw encodeException(this.err);
+        if (this.err) {
+            throw ChunkNotLoadedException.INSTANCE;
         }
 
         return this.ok;
@@ -27,28 +27,20 @@ public final class ChunkListener extends SharedListener<Chunk> {
 
     public void completeOk(Chunk chunk) {
         this.ok = chunk;
+        this.err = false;
+
         this.vanilla.complete(Either.left(chunk));
 
         this.wake();
     }
 
-    public void completeErr(ChunkNotLoadedException exception) {
-        if (exception == null) {
-            throw new IllegalArgumentException("cannot complete with null exception");
-        }
+    public void completeErr() {
+        this.ok = null;
+        this.err = true;
 
-        this.err = exception;
         this.vanilla.complete(ChunkHolder.UNLOADED_CHUNK);
 
         this.wake();
-    }
-
-    private static RuntimeException encodeException(Throwable throwable) {
-        if (throwable instanceof RuntimeException) {
-            return (RuntimeException) throwable;
-        } else {
-            return new RuntimeException(throwable);
-        }
     }
 
     public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> asVanilla() {

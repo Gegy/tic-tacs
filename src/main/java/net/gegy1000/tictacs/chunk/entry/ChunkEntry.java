@@ -7,7 +7,6 @@ import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.async.lock.LockGuard;
 import net.gegy1000.tictacs.async.worker.ChunkTask;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
-import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -140,7 +139,7 @@ public final class ChunkEntry extends ChunkHolder {
         }
 
         for (int i = startIdx; i <= endIdx; i++) {
-            this.listeners[i].completeErr(ChunkNotLoadedException.INSTANCE);
+            this.listeners[i].completeErr();
         }
     }
 

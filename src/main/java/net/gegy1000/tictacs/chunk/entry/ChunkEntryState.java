@@ -1,6 +1,5 @@
 package net.gegy1000.tictacs.chunk.entry;
 
-import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
@@ -65,12 +64,12 @@ public final class ChunkEntryState {
         }
     }
 
-    public void completeUpgradeErr(ChunkStep step, ChunkNotLoadedException err) {
+    public void completeUpgradeErr(ChunkStep step) {
         this.includeStep(step);
         this.parent.finishUpgradeTo(step);
 
         for (int i = step.getIndex(); i >= 0; i--) {
-            this.parent.listeners[step.getIndex()].completeErr(err);
+            this.parent.listeners[step.getIndex()].completeErr();
         }
     }
 
