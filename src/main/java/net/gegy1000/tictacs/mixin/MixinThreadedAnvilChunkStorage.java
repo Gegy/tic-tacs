@@ -121,7 +121,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
             )
     )
     private TaskExecutor<Runnable> createWorldgenActor(Executor executor, String name) {
-        return VoidActor.INSTANCE;
+        return new VoidActor(name);
     }
 
     @Override

@@ -6,10 +6,8 @@ import net.minecraft.util.thread.TaskQueue;
 import javax.annotation.Nullable;
 
 public final class VoidActor extends TaskExecutor<Runnable> {
-    public static final VoidActor INSTANCE = new VoidActor();
-
-    private VoidActor() {
-        super(new VoidQueue(), runnable -> {}, "void");
+    public VoidActor(String name) {
+        super(new VoidQueue(), runnable -> {}, name);
     }
 
     @Override

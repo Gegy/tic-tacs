@@ -6,11 +6,12 @@
   "mixins": [
     "MixinChunkStatus",
     "MixinChunkTicketManager",
-    "MixinServerLightingProvider",
     "MixinTaskExecutor",
     "MixinThreadedAnvilChunkStorage",
     "MixinWeightedList",
-    "TacsAccessor"
+    "TacsAccessor",
+    "lighting.MixinServerLightingProvider",
+    "lighting.MixinThreadedAnvilChunkStorage"
   ],
   "injectors": {
     "defaultRequire": 1
