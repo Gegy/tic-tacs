@@ -24,23 +24,16 @@ public final class WaiterQueue {
     private volatile LinkedWaiter tail = this.head;
 
     public WaiterQueue() {
-        this.resetTail();
-    }
-
-    private void resetTail() {
-        LinkedWaiter head = this.head;
-
-        this.tail = head;
-        head.openLink();
+        this.head.openLink();
     }
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
         // initialize the waker on the waiter object
         waiter.setWaker(waker);
 
-        // this waiter object is already registered to the queue
-        // we know this waiter hasn't been woken up yet if it is linked: the link is the first thing reset
-        if (waiter.isLinked()) {
+        // try to open the link on this waiter object
+        // if this fails, we must be already linked into the queue
+        if (!waiter.openLink()) {
             return;
         }
 
@@ -51,10 +44,7 @@ public final class WaiterQueue {
             if (tail.tryLink(waiter)) {
                 // swap the tail reference: if we fail, we must've been woken up already. we can accept
                 // ignoring the error because we know this node is enqueued to be awoken
-                if (UNSAFE.compareAndSwapObject(this, TAIL_OFFSET, tail, waiter)) {
-                    // once we've swapped the tail, open it so that it can be linked to
-                    waiter.openLink();
-                }
+                UNSAFE.compareAndSwapObject(this, TAIL_OFFSET, tail, waiter);
 
                 return;
             }
@@ -63,9 +53,9 @@ public final class WaiterQueue {
 
     public void wake() {
         // unlink the waiter chain from the head
-        LinkedWaiter waiter = this.head.unlinkNext();
+        LinkedWaiter waiter = this.head.unlinkAndOpen();
 
-        this.resetTail();
+        this.tail = this.head;
 
         if (waiter != null) {
             waiter.wake();

@@ -32,16 +32,16 @@ public class LinkedWaiter {
     }
 
     final boolean tryLink(LinkedWaiter next) {
-        return UNSAFE.compareAndSwapObject(this, NEXT_OFFSET, null, next);
+        return UNSAFE.compareAndSwapObject(this, NEXT_OFFSET, this.open(), next);
     }
 
-    final void openLink() {
-        UNSAFE.compareAndSwapObject(this, NEXT_OFFSET, this.sentinel(), null);
+    final boolean openLink() {
+        return UNSAFE.compareAndSwapObject(this, NEXT_OFFSET, this.sentinel(), this.open());
     }
 
     @Nullable
-    final LinkedWaiter unlinkNext() {
-        LinkedWaiter next = (LinkedWaiter) UNSAFE.getAndSetObject(this, NEXT_OFFSET, this.sentinel());
+    final LinkedWaiter unlinkAndOpen() {
+        LinkedWaiter next = (LinkedWaiter) UNSAFE.getAndSetObject(this, NEXT_OFFSET, this.open());
         if (next == this.sentinel()) {
             return null;
         }
@@ -49,15 +49,11 @@ public class LinkedWaiter {
         return next;
     }
 
-    final boolean isLinked() {
-        return this.next != this.sentinel();
-    }
-
     final void wake() {
         LinkedWaiter waiter = this;
 
         while (waiter != null) {
-            LinkedWaiter next = waiter.unlinkNext();
+            LinkedWaiter next = (LinkedWaiter) UNSAFE.getAndSetObject(waiter, NEXT_OFFSET, waiter.sentinel());
             Waker waker = (Waker) UNSAFE.getAndSetObject(waiter, WAKER_OFFSET, null);
 
             if (waker != null) {
@@ -70,6 +66,10 @@ public class LinkedWaiter {
 
     public final void invalidateWaker() {
         this.waker = null;
+    }
+
+    private LinkedWaiter open() {
+        return null;
     }
 
     private LinkedWaiter sentinel() {
