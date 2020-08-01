@@ -5,28 +5,28 @@ import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import javax.annotation.Nullable;
 import java.util.LinkedList;
 
-public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
-    private static final int LEVEL_COUNT = ChunkLevelTracker.MAX_LEVEL + 2;
-
-    private final Level[] levels;
+public final class LevelPrioritisedQueue<T> implements AutoCloseable {
+    private final int levelCount;
+    private final Level<T>[] levels;
     private volatile int minLevel;
 
     private volatile boolean open = true;
 
     private final Object lock = new Object();
 
-    public ChunkPrioritisedQueue() {
-        this.levels = new Level[LEVEL_COUNT];
-        for (int i = 0; i < LEVEL_COUNT; i++) {
-            this.levels[i] = new Level();
+    @SuppressWarnings("unchecked")
+    public LevelPrioritisedQueue(int levelCount) {
+        this.levelCount = levelCount;
+
+        this.levels = new Level[levelCount];
+        for (int i = 0; i < levelCount; i++) {
+            this.levels[i] = new Level<>();
         }
 
-        this.minLevel = LEVEL_COUNT;
+        this.minLevel = levelCount;
     }
 
-    @Override
-    public <T> void enqueue(ChunkTask<T> task) {
-        int level = task.holder.getLevel();
+    public void enqueue(T task, int level) {
         if (level > ChunkLevelTracker.MAX_LEVEL) {
             return;
         }
@@ -36,17 +36,17 @@ public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
 
             if (level <= this.minLevel) {
                 this.minLevel = level;
-                this.lock.notifyAll();
+                this.lock.notify();
             }
         }
     }
 
     @Nullable
-    public ChunkTask<?> take() throws InterruptedException {
+    public T take() throws InterruptedException {
         while (this.open) {
             synchronized (this.lock) {
-                if (this.minLevel < LEVEL_COUNT) {
-                    ChunkTask<?> task = this.tryTakeTask(this.minLevel);
+                if (this.minLevel < this.levelCount) {
+                    T task = this.tryTakeTask(this.minLevel);
                     if (task != null) {
                         return task;
                     }
@@ -60,11 +60,11 @@ public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
     }
 
     @Nullable
-    public ChunkTask<?> remove() {
+    public T remove() {
         synchronized (this.lock) {
             int minLevel = this.minLevel;
-            if (minLevel < LEVEL_COUNT) {
-                ChunkTask<?> task = this.tryTakeTask(minLevel);
+            if (minLevel < this.levelCount) {
+                T task = this.tryTakeTask(minLevel);
                 if (task != null) {
                     return task;
                 }
@@ -75,8 +75,8 @@ public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
     }
 
     @Nullable
-    private ChunkTask<?> tryTakeTask(int level) {
-        ChunkTask<?> task = this.levels[level].take();
+    private T tryTakeTask(int level) {
+        T task = this.levels[level].take();
         if (task != null) {
             this.minLevel = this.findMinLevel(level);
             return task;
@@ -85,7 +85,7 @@ public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
     }
 
     private int findMinLevel(int level) {
-        while (level < LEVEL_COUNT && this.levels[level].isEmpty()) {
+        while (level < this.levelCount && this.levels[level].isEmpty()) {
             level++;
         }
         return level;
@@ -99,14 +99,14 @@ public final class ChunkPrioritisedQueue implements TaskQueue, AutoCloseable {
         }
     }
 
-    static class Level {
-        private final LinkedList<ChunkTask<?>> queue = new LinkedList<>();
+    static class Level<T> {
+        private final LinkedList<T> queue = new LinkedList<>();
 
-        void enqueue(ChunkTask<?> task) {
+        void enqueue(T task) {
             this.queue.add(task);
         }
 
-        ChunkTask<?> take() {
+        T take() {
             return this.queue.remove();
         }
 

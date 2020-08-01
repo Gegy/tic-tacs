@@ -2,10 +2,8 @@ package net.gegy1000.tictacs.mixin;
 
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
-import net.minecraft.server.world.ChunkTaskPrioritySystem;
 import net.minecraft.server.world.ServerLightingProvider;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.thread.MessageListener;
+import net.minecraft.util.thread.TaskExecutor;
 import net.minecraft.world.chunk.ChunkProvider;
 import net.minecraft.world.chunk.light.LightingProvider;
 import org.spongepowered.asm.mixin.Final;
@@ -21,7 +19,7 @@ import java.util.function.IntSupplier;
 public abstract class MixinServerLightingProvider extends LightingProvider {
     @Shadow
     @Final
-    private MessageListener<ChunkTaskPrioritySystem.Task<Runnable>> executor;
+    private TaskExecutor<Runnable> processor;
 
     private final ObjectList<Runnable> preUpdateQueue = new ObjectArrayList<>();
     private final ObjectList<Runnable> postUpdateQueue = new ObjectArrayList<>();
@@ -51,9 +49,7 @@ public abstract class MixinServerLightingProvider extends LightingProvider {
             queue = this.postUpdateQueue;
         }
 
-        this.executor.send(ChunkTaskPrioritySystem.createMessage(() -> {
-            queue.add(task);
-        }, ChunkPos.toLong(x, z), levelSupplier));
+        this.processor.send(() -> queue.add(task));
     }
 
     /**

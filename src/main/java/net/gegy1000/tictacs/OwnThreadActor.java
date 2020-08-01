@@ -2,25 +2,30 @@ package net.gegy1000.tictacs;
 
 import net.minecraft.util.thread.TaskExecutor;
 import net.minecraft.util.thread.TaskQueue;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
-import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.LockSupport;
 
 public final class OwnThreadActor<T> extends TaskExecutor<T> {
-    private static final Logger LOGGER = LogManager.getLogger(OwnThreadActor.class);
     private static final Map<String, OwnThreadActor<Runnable>> ACTORS = new HashMap<>();
 
-    private final Object lock = new Object();
-
+    private final Thread thread;
     private final AtomicInteger refCount = new AtomicInteger();
+
+    private final AtomicBoolean parked = new AtomicBoolean();
     private volatile boolean active = true;
 
     private OwnThreadActor(TaskQueue<? super T, ? extends Runnable> queue, String name) {
         super(queue, task -> {}, name);
+
+        this.thread = new Thread(this);
+        this.thread.setName(name + "-actor");
+        this.thread.setDaemon(true);
+        this.thread.start();
     }
 
     public static OwnThreadActor<Runnable> create(String name) {
@@ -36,42 +41,26 @@ public final class OwnThreadActor<T> extends TaskExecutor<T> {
     }
 
     private static OwnThreadActor<Runnable> startActor(String name) {
-        TaskQueue.Simple<Runnable> queue = new TaskQueue.Simple<>(new ArrayDeque<>());
-        OwnThreadActor<Runnable> actor = new OwnThreadActor<>(queue, name);
-
-        Thread thread = new Thread(actor);
-        thread.setName(name + "-actor");
-        thread.setDaemon(true);
-        thread.start();
-
-        return actor;
+        return new OwnThreadActor<>(new TaskQueue.Simple<>(new ConcurrentLinkedQueue<>()), name);
     }
 
     @Override
     public void run() {
-        try {
-            while (this.active) {
-                Runnable task;
-                synchronized (this.lock) {
-                    while ((task = this.queue.poll()) == null) {
-                        if (!this.active) return;
-                        this.lock.wait();
-                    }
-                }
-
-                task.run();
+        while (this.active) {
+            Runnable task;
+            while ((task = this.queue.poll()) == null) {
+                if (!this.active) return;
+                this.park();
             }
-        } catch (InterruptedException e) {
-            LOGGER.error("Actor thread interrupted", e);
+
+            task.run();
         }
     }
 
     @Override
     public void send(T message) {
-        synchronized (this.lock) {
-            this.queue.add(message);
-            this.lock.notify();
-        }
+        this.queue.add(message);
+        this.unpark();
     }
 
     private void acquireRef() {
@@ -83,13 +72,22 @@ public final class OwnThreadActor<T> extends TaskExecutor<T> {
     }
 
     private void stop() {
-        synchronized (this.lock) {
-            this.active = false;
-            this.lock.notify();
-        }
+        this.active = false;
+        this.unpark();
 
         synchronized (ACTORS) {
             ACTORS.remove(this.getName());
+        }
+    }
+
+    private void park() {
+        this.parked.set(true);
+        LockSupport.park();
+    }
+
+    private void unpark() {
+        if (this.parked.compareAndSet(true, false)) {
+            LockSupport.unpark(this.thread);
         }
     }
 

@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.async.worker;
 
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import org.apache.logging.log4j.LogManager;
@@ -11,7 +12,7 @@ public final class ChunkExecutor implements TaskSpawner, TaskQueue, AutoCloseabl
 
     private static final Logger LOGGER = LogManager.getLogger("worldgen-worker");
 
-    private final ChunkPrioritisedQueue queue = new ChunkPrioritisedQueue();
+    private final LevelPrioritisedQueue<ChunkTask<?>> queue = new LevelPrioritisedQueue<>(ChunkLevelTracker.MAX_LEVEL);
 
     private ChunkExecutor() {
         for (int i = 0; i < TicTacsConfig.get().threadCount; i++) {
@@ -25,13 +26,13 @@ public final class ChunkExecutor implements TaskSpawner, TaskQueue, AutoCloseabl
     @Override
     public <T> ChunkTask<T> spawn(ChunkEntry entry, Future<T> future) {
         ChunkTask<T> task = new ChunkTask<>(entry, future, this);
-        this.queue.enqueue(task);
+        this.queue.enqueue(task, entry.getLevel());
         return task;
     }
 
     @Override
     public <T> void enqueue(ChunkTask<T> task) {
-        this.queue.enqueue(task);
+        this.queue.enqueue(task, task.holder.getLevel());
     }
 
     public void run() {

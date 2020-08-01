@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.async.worker;
 
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.util.thread.ThreadExecutor;
 
@@ -12,7 +13,7 @@ public final class ChunkMainThreadExecutor implements TaskSpawner, TaskQueue, Au
     private final ThreadExecutor<Runnable> executor;
     private final AtomicInteger enqueued = new AtomicInteger(0);
 
-    private final ChunkPrioritisedQueue queue = new ChunkPrioritisedQueue();
+    private final LevelPrioritisedQueue<ChunkTask<?>> queue = new LevelPrioritisedQueue<>(ChunkLevelTracker.MAX_LEVEL);
 
     public ChunkMainThreadExecutor(ThreadExecutor<Runnable> executor) {
         this.executor = executor;
@@ -20,7 +21,7 @@ public final class ChunkMainThreadExecutor implements TaskSpawner, TaskQueue, Au
 
     @Override
     public <T> void enqueue(ChunkTask<T> task) {
-        this.queue.enqueue(task);
+        this.queue.enqueue(task, task.holder.getLevel());
         this.tryEnqueue();
     }
 
