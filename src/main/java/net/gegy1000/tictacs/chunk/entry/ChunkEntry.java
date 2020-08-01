@@ -139,9 +139,8 @@ public final class ChunkEntry extends ChunkHolder {
             return;
         }
 
-        ChunkNotLoadedException unloaded = new ChunkNotLoadedException(this.pos);
         for (int i = startIdx; i <= endIdx; i++) {
-            this.listeners[i].completeErr(unloaded);
+            this.listeners[i].completeErr(ChunkNotLoadedException.INSTANCE);
         }
     }
 

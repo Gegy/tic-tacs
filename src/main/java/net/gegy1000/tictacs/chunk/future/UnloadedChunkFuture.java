@@ -16,6 +16,6 @@ public final class UnloadedChunkFuture implements Future<Chunk> {
     @Nullable
     @Override
     public Chunk poll(Waker waker) {
-        throw new ChunkNotLoadedException();
+        throw ChunkNotLoadedException.INSTANCE;
     }
 }

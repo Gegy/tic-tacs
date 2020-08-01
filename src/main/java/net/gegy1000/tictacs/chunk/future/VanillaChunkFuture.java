@@ -39,7 +39,7 @@ public final class VanillaChunkFuture implements Future<Chunk> {
         if (result != null) {
             Optional<ChunkHolder.Unloaded> err = result.right();
             if (err.isPresent()) {
-                throw new ChunkNotLoadedException();
+                throw ChunkNotLoadedException.INSTANCE;
             }
 
             Chunk chunk = result.left().get();
