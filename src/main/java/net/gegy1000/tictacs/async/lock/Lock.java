@@ -1,9 +1,9 @@
 package net.gegy1000.tictacs.async.lock;
 
-import net.gegy1000.tictacs.async.LinkedWaiter;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.async.LinkedWaiter;
 
 import javax.annotation.Nullable;
 

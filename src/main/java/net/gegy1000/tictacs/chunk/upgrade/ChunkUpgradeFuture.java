@@ -259,7 +259,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             } else {
                 if (this.stepReady) {
                     if (this.acquireEntries.acquired) {
-                        display.append("waiting for chunks @").append(this.currentStep);
+                        display.append("waiting for upgrade to ").append(this.currentStep);
                     } else {
                         display.append("waiting to acquire entry locks @").append(this.currentStep);
                     }

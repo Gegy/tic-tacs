@@ -70,6 +70,18 @@ public final class RwLock {
         }
     }
 
+    @Override
+    public String toString() {
+        int state = this.state.get();
+        if (state == FREE) {
+            return "RwLock(FREE)";
+        } else if (state == WRITING) {
+            return "RwLock(WRITING)";
+        } else {
+            return "RwLock(READING=" + state + ")";
+        }
+    }
+
     private final class Read implements Lock {
         @Override
         public boolean tryAcquire() {
@@ -94,6 +106,15 @@ public final class RwLock {
             }
 
             return true;
+        }
+
+        @Override
+        public String toString() {
+            if (this.canAcquire()) {
+                return "RwLock.Read(FREE)";
+            } else {
+                return "RwLock.Read(LOCKED)";
+            }
         }
     }
 
@@ -121,6 +142,15 @@ public final class RwLock {
             }
 
             return true;
+        }
+
+        @Override
+        public String toString() {
+            if (this.canAcquire()) {
+                return "RwLock.Write(FREE)";
+            } else {
+                return "RwLock.Write(LOCKED)";
+            }
         }
     }
 }

@@ -1,8 +1,8 @@
 package net.gegy1000.tictacs.async.lock;
 
+import net.gegy1000.justnow.Waker;
 import net.gegy1000.tictacs.async.LinkedWaiter;
 import net.gegy1000.tictacs.async.WaiterQueue;
-import net.gegy1000.justnow.Waker;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -39,5 +39,15 @@ public final class Mutex implements Lock {
             throw new IllegalStateException("lock not acquired");
         }
         this.waiters.wake();
+    }
+
+    @Override
+    public String toString() {
+        int state = this.state.get();
+        if (state == FREE) {
+            return "Mutex(FREE)";
+        } else {
+            return "RwLock(ACQUIRED)";
+        }
     }
 }
