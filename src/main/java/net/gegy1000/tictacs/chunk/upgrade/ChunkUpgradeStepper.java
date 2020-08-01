@@ -119,11 +119,11 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private volatile AcquireChunks.Result source;
-        private volatile int targetSize;
+        private AcquireChunks.Result source;
+        private int targetSize;
 
-        private volatile int targetToSourceOffsetX;
-        private volatile int targetToSourceOffsetZ;
+        private int targetToSourceOffsetX;
+        private int targetToSourceOffsetZ;
 
         void open(
                 ChunkPos sourceOrigin, AcquireChunks.Result chunks,
