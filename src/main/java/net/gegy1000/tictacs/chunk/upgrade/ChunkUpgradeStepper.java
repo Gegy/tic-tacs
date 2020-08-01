@@ -1,11 +1,11 @@
 package net.gegy1000.tictacs.chunk.upgrade;
 
+import net.gegy1000.justnow.Waker;
+import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.AtomicPool;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.future.JoinAllArray;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.gegy1000.justnow.Waker;
-import net.gegy1000.justnow.future.Future;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 
@@ -14,23 +14,23 @@ import java.util.AbstractList;
 import java.util.Arrays;
 
 final class ChunkUpgradeStepper {
-    // TODO: measure how many are needed
-    private static final AtomicPool<ContextView> CONTEXT_POOL = new AtomicPool<>(64, ContextView::new);
-    private static final AtomicPool<TaskWithContext> TASK_POOL = new AtomicPool<>(64, TaskWithContext::new);
+    private static final AtomicPool<ContextView> CONTEXT_POOL = new AtomicPool<>(512, ContextView::new);
+    private static final AtomicPool<TaskWithContext> TASK_POOL = new AtomicPool<>(512, TaskWithContext::new);
 
     private final ChunkUpgradeFuture parent;
 
     private final Future<Chunk>[] tasks;
     private final Chunk[] chunks;
 
-    private boolean pollingTasks;
+    private volatile boolean pollingTasks;
 
     @SuppressWarnings("unchecked")
     ChunkUpgradeStepper(ChunkUpgradeFuture parent) {
         this.parent = parent;
 
-        this.tasks = parent.kernel.create(Future[]::new);
-        this.chunks = parent.kernel.create(Chunk[]::new);
+        ChunkUpgradeKernel kernel = ChunkUpgradeKernel.forStep(parent.targetStep);
+        this.tasks = kernel.create(Future[]::new);
+        this.chunks = kernel.create(Chunk[]::new);
     }
 
     void reset() {
@@ -119,11 +119,11 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private AcquireChunks.Result source;
-        private int targetSize;
+        private volatile AcquireChunks.Result source;
+        private volatile int targetSize;
 
-        private int targetToSourceOffsetX;
-        private int targetToSourceOffsetZ;
+        private volatile int targetToSourceOffsetX;
+        private volatile int targetToSourceOffsetZ;
 
         void open(
                 ChunkPos sourceOrigin, AcquireChunks.Result chunks,

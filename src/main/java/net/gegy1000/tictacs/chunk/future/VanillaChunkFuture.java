@@ -13,10 +13,10 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 public final class VanillaChunkFuture implements Future<Chunk> {
-    private static final AtomicPool<VanillaChunkFuture> POOL = new AtomicPool<>(256, VanillaChunkFuture::new);
+    private static final AtomicPool<VanillaChunkFuture> POOL = new AtomicPool<>(512, VanillaChunkFuture::new);
 
-    private CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> inner;
-    private boolean listening;
+    private volatile CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> inner;
+    private volatile boolean listening;
 
     private VanillaChunkFuture() {
     }

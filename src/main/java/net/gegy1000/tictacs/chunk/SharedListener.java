@@ -1,9 +1,9 @@
 package net.gegy1000.tictacs.chunk;
 
-import net.gegy1000.tictacs.async.LinkedWaiter;
-import net.gegy1000.tictacs.async.WaiterQueue;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.tictacs.async.LinkedWaiter;
+import net.gegy1000.tictacs.async.WaiterQueue;
 
 import javax.annotation.Nullable;
 
@@ -25,7 +25,6 @@ public abstract class SharedListener<T> implements Future<T> {
             return value;
         }
 
-        // TODO: pool?
         LinkedWaiter waiter = new LinkedWaiter();
         this.waiters.registerWaiter(waiter, waker);
 

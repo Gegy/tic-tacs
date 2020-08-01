@@ -21,17 +21,16 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     final ChunkPos pos;
     final ChunkStep targetStep;
-    final ChunkUpgradeKernel kernel;
 
-    private final AcquireChunks acquireEntries;
     private final ChunkUpgradeStepper stepper;
 
-    private ChunkStep currentStep;
+    private volatile AcquireChunks acquireEntries;
+    private volatile ChunkStep currentStep;
 
-    private Future<Unit> prerequisiteListener;
-    private boolean stepReady;
+    private volatile Future<Unit> prerequisiteListener;
+    private volatile boolean stepReady;
 
-    private Future<Unit> flushListener;
+    private volatile Future<Unit> flushListener;
 
     public ChunkUpgradeFuture(
             ChunkController controller,
@@ -42,9 +41,6 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         this.pos = pos;
         this.targetStep = targetStep;
 
-        this.kernel = ChunkUpgradeKernel.forStep(targetStep);
-
-        this.acquireEntries = new AcquireChunks(this.kernel, controller.getMap());
         this.stepper = new ChunkUpgradeStepper(this);
     }
 
@@ -74,11 +70,13 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                 return null;
             }
 
-            AcquireChunks acquireEntries = this.acquireEntries;
-            acquireEntries.setup(this.pos, currentStep);
+            if (this.acquireEntries == null) {
+                this.acquireEntries = AcquireChunks.open(this.targetStep);
+            }
 
             // poll to acquire read/write access to all the relevant entries
-            AcquireChunks.Result chunks = acquireEntries.poll(waker);
+            ChunkAccess chunkAccess = this.controller.getMap().visible();
+            AcquireChunks.Result chunks = this.acquireEntries.poll(waker, chunkAccess, this.pos, currentStep);
             if (chunks == null) {
                 return null;
             }
@@ -135,17 +133,18 @@ final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     private void releaseStep() {
-        this.prerequisiteListener = null;
-        this.stepReady = false;
-
         this.stepper.reset();
         this.acquireEntries.release();
+
+        this.acquireEntries = null;
+        this.prerequisiteListener = null;
+        this.stepReady = false;
     }
 
     private void notifyChunkUpgrades(Chunk[] chunks, AcquireChunks.Result acquiredChunks, ChunkStep step) {
         ChunkEntryState[] entries = acquiredChunks.entries;
-        ChunkUpgradeKernel kernel = this.kernel;
 
+        ChunkUpgradeKernel kernel = acquiredChunks.getKernel();
         int radius = kernel.getRadius();
 
         for (int z = -radius; z <= radius; z++) {
@@ -165,8 +164,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private void notifyChunkUpgradeError(AcquireChunks.Result chunks, ChunkStep step, ChunkNotLoadedException err) {
         ChunkEntryState[] entries = chunks.entries;
-        ChunkUpgradeKernel kernel = this.kernel;
-
+        ChunkUpgradeKernel kernel = chunks.getKernel();
         int radius = kernel.getRadius();
 
         for (int z = -radius; z <= radius; z++) {
@@ -224,7 +222,8 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
         ChunkStep minimumStep = ChunkStep.FULL;
 
-        int radius = this.kernel.getRadius();
+        int radius = ChunkUpgradeKernel.forStep(this.targetStep).getRadius();
+
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
                 ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);

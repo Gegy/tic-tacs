@@ -5,6 +5,7 @@ import java.util.Arrays;
 
 public final class ChunkRequirements {
     private ChunkRequirement[] byDistance = new ChunkRequirement[0];
+    private int radius;
 
     private ChunkRequirements() {
     }
@@ -39,6 +40,7 @@ public final class ChunkRequirements {
     private void ensureRadius(int radius) {
         if (this.byDistance.length <= radius) {
             this.byDistance = Arrays.copyOf(this.byDistance, radius + 1);
+            this.radius = Math.max(this.byDistance.length - 1, 0);
         }
     }
 
@@ -54,6 +56,6 @@ public final class ChunkRequirements {
     }
 
     public int getRadius() {
-        return this.byDistance.length - 1;
+        return this.radius;
     }
 }

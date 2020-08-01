@@ -1,28 +1,43 @@
 package net.gegy1000.tictacs.chunk.upgrade;
 
+import net.gegy1000.justnow.Waker;
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.AtomicPool;
 import net.gegy1000.tictacs.async.lock.JoinLock;
 import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
-import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.entry.ChunkAccessLock;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirement;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirements;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.gegy1000.justnow.Waker;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.Function;
 
-final class AcquireChunks implements Future<AcquireChunks.Result> {
+final class AcquireChunks {
+    private static final AtomicPool<AcquireChunks>[] STEP_TO_POOL = initPools();
+
+    @SuppressWarnings("unchecked")
+    private static AtomicPool<AcquireChunks>[] initPools() {
+        int poolCapacity = 512;
+
+        AtomicPool<AcquireChunks>[] stepToPool = new AtomicPool[ChunkStep.STEPS.size()];
+        for (int i = 0; i < stepToPool.length; i++) {
+            ChunkStep step = ChunkStep.byIndex(i);
+            stepToPool[i] = new AtomicPool<>(poolCapacity, () -> new AcquireChunks(step));
+        }
+
+        return stepToPool;
+    }
+
+    private final ChunkStep targetStep;
     private final ChunkUpgradeKernel kernel;
-    private final ChunkMap chunkMap;
 
     private final Result result;
 
@@ -32,32 +47,30 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     private final Lock joinLock;
     private final Future<Unit> acquireJoinLock;
 
-    private ChunkPos pos;
-    private ChunkStep currentStep;
+    volatile boolean acquired;
 
-    boolean acquired;
+    private AcquireChunks(ChunkStep targetStep) {
+        this.targetStep = targetStep;
 
-    public AcquireChunks(ChunkUpgradeKernel kernel, ChunkMap chunkMap) {
-        this.kernel = kernel;
-
-        this.chunkMap = chunkMap;
-
-        this.upgradeLocks = kernel.create(Lock[]::new);
-        this.locks = kernel.create(Lock[]::new);
+        this.kernel = ChunkUpgradeKernel.forStep(targetStep);
+        this.upgradeLocks = this.kernel.create(Lock[]::new);
+        this.locks = this.kernel.create(Lock[]::new);
 
         this.joinLock = new JoinLock(new Lock[] {
-                // TODO: should this join between upgrade locks be at the chunkentry level or at the acquire level?
                 new JoinLock(this.upgradeLocks),
                 new JoinLock(this.locks)
         });
         this.acquireJoinLock = new Lock.AcquireFuture(this.joinLock);
 
-        this.result = kernel.create(Result::new);
+        this.result = this.kernel.create(Result::new);
     }
 
-    public void setup(ChunkPos pos, ChunkStep currentStep) {
-        this.pos = pos;
-        this.currentStep = currentStep;
+    private static AtomicPool<AcquireChunks> poolFor(ChunkStep step) {
+        return STEP_TO_POOL[step.getIndex()];
+    }
+
+    public static AcquireChunks open(ChunkStep step) {
+        return poolFor(step).acquire();
     }
 
     private void clearBuffers() {
@@ -69,16 +82,14 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     }
 
     @Nullable
-    @Override
-    public Result poll(Waker waker) {
+    public Result poll(Waker waker, ChunkAccess chunks, ChunkPos pos, ChunkStep step) {
         if (this.acquired) {
             return this.result;
         }
 
         this.clearBuffers();
 
-        if (this.addUpgradeChunks(this.currentStep)) {
-            this.addContextChunks(this.currentStep);
+        if (this.collectChunks(chunks, pos, step)) {
             this.result.empty = false;
         } else {
             this.result.empty = true;
@@ -94,17 +105,15 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         }
     }
 
-    private boolean addUpgradeChunks(ChunkStep step) {
-        ChunkAccess chunks = this.chunkMap.visible();
-
+    private boolean collectChunks(ChunkAccess chunks, ChunkPos pos, ChunkStep step) {
         Lock[] upgradeLocks = this.upgradeLocks;
         Lock[] locks = this.locks;
         ChunkEntryState[] entries = this.result.entries;
 
-        ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
-
         int radiusForStep = kernel.getRadiusFor(step);
+
+        ChunkRequirements requirements = step.getRequirements();
 
         boolean added = false;
 
@@ -122,6 +131,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
                     upgradeLocks[idx] = entry.getLock().upgrade();
                     locks[idx] = entry.getLock().write(step.getLock());
 
+                    this.collectContextMargin(chunks, pos, x, z, requirements);
+
                     added = true;
                 }
             }
@@ -130,36 +141,18 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         return added;
     }
 
-    private void addContextChunks(ChunkStep step) {
-        ChunkRequirements requirements = step.getRequirements();
-        if (requirements.getRadius() <= 0) {
+    private void collectContextMargin(ChunkAccess chunks, ChunkPos pos, int centerX, int centerZ, ChunkRequirements requirements) {
+        int contextRadius = requirements.getRadius();
+        if (contextRadius <= 0) {
             return;
         }
-
-        ChunkUpgradeKernel kernel = this.kernel;
-        Lock[] upgradeLocks = this.upgradeLocks;
-
-        int radiusForStep = kernel.getRadiusFor(step);
-        for (int z = -radiusForStep; z <= radiusForStep; z++) {
-            for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                if (upgradeLocks[kernel.index(x, z)] != null) {
-                    this.addContextMargin(x, z, requirements);
-                }
-            }
-        }
-    }
-
-    private void addContextMargin(int centerX, int centerZ, ChunkRequirements requirements) {
-        ChunkAccess chunks = this.chunkMap.visible();
 
         ChunkEntryState[] entries = this.result.entries;
         Lock[] locks = this.locks;
 
-        ChunkPos pos = this.pos;
         ChunkUpgradeKernel kernel = this.kernel;
 
         int kernelRadius = kernel.getRadius();
-        int contextRadius = requirements.getRadius();
 
         int minX = Math.max(centerX - contextRadius, -kernelRadius);
         int maxX = Math.min(centerX + contextRadius, kernelRadius);
@@ -170,7 +163,7 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
             for (int x = minX; x <= maxX; x++) {
                 int idx = kernel.index(x, z);
 
-                if (locks[idx] == null) {
+                if (entries[idx] == null) {
                     int distance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
                     ChunkRequirement requirement = requirements.byDistance(distance);
 
@@ -190,9 +183,6 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
     }
 
     public void release() {
-        this.pos = null;
-        this.currentStep = null;
-
         if (this.acquired) {
             this.acquired = false;
 
@@ -200,6 +190,8 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
 
             this.clearBuffers();
         }
+
+        poolFor(this.targetStep).release(this);
     }
 
     public final class Result {
@@ -225,6 +217,10 @@ final class AcquireChunks implements Future<AcquireChunks.Result> {
         public ChunkEntryState getEntry(int x, int z) {
             int idx = AcquireChunks.this.kernel.index(x, z);
             return this.entries[idx];
+        }
+
+        public ChunkUpgradeKernel getKernel() {
+            return AcquireChunks.this.kernel;
         }
     }
 }

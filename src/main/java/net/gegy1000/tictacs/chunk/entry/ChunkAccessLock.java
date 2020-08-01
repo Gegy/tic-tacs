@@ -18,6 +18,8 @@ public final class ChunkAccessLock {
 
     private final Lock upgradeLock;
 
+    private volatile Lock allLock;
+
     public ChunkAccessLock() {
         this.readLocks = new Lock[RESOURCES.length];
         this.writeLocks = new Lock[RESOURCES.length];
@@ -52,9 +54,13 @@ public final class ChunkAccessLock {
     }
 
     public Lock lockAll() {
-        Lock[] locks = Arrays.copyOf(this.writeLocks, this.writeLocks.length + 1);
-        locks[locks.length - 1] = this.upgradeLock;
+        if (this.allLock == null) {
+            Lock[] locks = Arrays.copyOf(this.writeLocks, this.writeLocks.length + 1);
+            locks[locks.length - 1] = this.upgradeLock;
 
-        return new JoinLock(locks);
+            this.allLock = new JoinLock(locks);
+        }
+
+        return this.allLock;
     }
 }

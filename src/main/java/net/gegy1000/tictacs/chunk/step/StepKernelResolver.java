@@ -13,9 +13,6 @@ final class StepKernelResolver {
         ChunkRequirements requirements = step.getRequirements();
 
         int radius = requirements.getRadius();
-        if (radius < 0) {
-            return -1;
-        }
 
         int effectiveRadius = radius;
 
