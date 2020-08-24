@@ -8,12 +8,10 @@ public final class WaiterQueue {
     // use unsafe for atomic operations without allocating an AtomicReference
     private static final Unsafe UNSAFE = UnsafeAccess.get();
 
-    private static final long HEAD_OFFSET;
     private static final long TAIL_OFFSET;
 
     static {
         try {
-            HEAD_OFFSET = UNSAFE.objectFieldOffset(WaiterQueue.class.getDeclaredField("head"));
             TAIL_OFFSET = UNSAFE.objectFieldOffset(WaiterQueue.class.getDeclaredField("tail"));
         } catch (NoSuchFieldException e) {
             throw new Error("Failed to get waiter field offsets", e);
@@ -24,7 +22,7 @@ public final class WaiterQueue {
     private volatile LinkedWaiter tail = this.head;
 
     public WaiterQueue() {
-        this.head.openLink();
+        this.head.tryOpenLink();
     }
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
@@ -33,7 +31,7 @@ public final class WaiterQueue {
 
         // try to open the link on this waiter object
         // if this fails, we must be already linked into the queue
-        if (!waiter.openLink()) {
+        if (!waiter.tryOpenLink()) {
             return;
         }
 
@@ -53,9 +51,16 @@ public final class WaiterQueue {
 
     public void wake() {
         // unlink the waiter chain from the head
-        LinkedWaiter waiter = this.head.unlinkAndOpen();
+        LinkedWaiter waiter = this.head.unlinkAndClose();
 
+        // if the head is closed, we must be in the progress of being woken up. let's not interfere
+        if (this.head.isClosed(waiter)) {
+            return;
+        }
+
+        // update the tail reference before opening the link again
         this.tail = this.head;
+        this.head.tryOpenLink();
 
         if (waiter != null) {
             waiter.wake();

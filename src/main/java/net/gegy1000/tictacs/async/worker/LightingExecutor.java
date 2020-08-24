@@ -1,10 +1,10 @@
 package net.gegy1000.tictacs.async.worker;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.world.chunk.light.LightingProvider;
 
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.LockSupport;
 
@@ -66,11 +66,11 @@ public final class LightingExecutor implements Runnable, AutoCloseable {
         this.processQueue(queues.postUpdate);
     }
 
-    private void processQueue(ObjectList<Runnable> queue) {
-        for (Runnable task : queue) {
+    private void processQueue(Queue<Runnable> queue) {
+        Runnable task;
+        while ((task = queue.poll()) != null) {
             task.run();
         }
-        queue.clear();
     }
 
     @Override
@@ -80,8 +80,8 @@ public final class LightingExecutor implements Runnable, AutoCloseable {
     }
 
     private static class Queues {
-        final ObjectList<Runnable> preUpdate = new ObjectArrayList<>();
-        final ObjectList<Runnable> postUpdate = new ObjectArrayList<>();
+        final Queue<Runnable> preUpdate = new ConcurrentLinkedQueue<>();
+        final Queue<Runnable> postUpdate = new ConcurrentLinkedQueue<>();
 
         void enqueue(Runnable task, ServerLightingProvider.Stage stage) {
             if (stage == ServerLightingProvider.Stage.PRE_UPDATE) {

@@ -27,7 +27,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
     private volatile AcquireChunks acquireEntries;
     private volatile ChunkStep currentStep;
 
-    private volatile Future<Unit> prerequisiteListener;
+    private volatile Future<Unit> acquireListener;
     private volatile boolean stepReady;
 
     private volatile Future<Unit> flushListener;
@@ -113,19 +113,19 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             return true;
         }
 
-        if (this.prerequisiteListener == null) {
-            ChunkStep.Prerequisite prerequisite = currentStep.getPrerequisite();
-            if (prerequisite == null) {
+        if (this.acquireListener == null) {
+            ChunkStep.Acquire acquire = currentStep.getAcquireTask();
+            if (acquire == null) {
                 this.stepReady = true;
                 return true;
             }
 
-            this.prerequisiteListener = prerequisite.await(this.controller);
+            this.acquireListener = acquire.acquire(this.controller);
         }
 
-        if (this.prerequisiteListener.poll(waker) != null) {
+        if (this.acquireListener.poll(waker) != null) {
             this.stepReady = true;
-            this.prerequisiteListener = null;
+            this.acquireListener = null;
             return true;
         }
 
@@ -136,8 +136,13 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         this.stepper.reset();
         this.acquireEntries.release();
 
+        ChunkStep.Release releaseTask = this.currentStep.getReleaseTask();
+        if (releaseTask != null) {
+            releaseTask.release(this.controller);
+        }
+
         this.acquireEntries = null;
-        this.prerequisiteListener = null;
+        this.acquireListener = null;
         this.stepReady = false;
     }
 

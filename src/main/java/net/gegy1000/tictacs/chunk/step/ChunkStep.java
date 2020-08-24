@@ -82,7 +82,8 @@ public final class ChunkStep {
                             .read(ChunkStep.FEATURES, 1)
             )
             .locks(ChunkLockType.LATE_GENERATION)
-            .prerequisite(ChunkStep::waitForLight)
+            .acquire(ChunkStep::acquireLight)
+            .release(ChunkStep::releaseLight)
             .upgradeAsync(ctx -> ChunkStep.lightChunk(ctx, false))
             .loadAsync(ctx -> ChunkStep.lightChunk(ctx, true));
 
@@ -112,7 +113,8 @@ public final class ChunkStep {
 
     private AsyncTask upgradeTask = AsyncTask.noop();
     private AsyncTask loadTask = AsyncTask.noop();
-    private Prerequisite prerequisite;
+    private Acquire acquireTask;
+    private Release releaseTask;
 
     ChunkStep(String name) {
         int index = STEPS.size();
@@ -152,8 +154,13 @@ public final class ChunkStep {
         return this;
     }
 
-    ChunkStep prerequisite(Prerequisite when) {
-        this.prerequisite = when;
+    ChunkStep acquire(Acquire acquire) {
+        this.acquireTask = acquire;
+        return this;
+    }
+
+    ChunkStep release(Release task) {
+        this.releaseTask = task;
         return this;
     }
 
@@ -173,8 +180,14 @@ public final class ChunkStep {
         return this.lock;
     }
 
-    public Prerequisite getPrerequisite() {
-        return this.prerequisite;
+    @Nullable
+    public Acquire getAcquireTask() {
+        return this.acquireTask;
+    }
+
+    @Nullable
+    public Release getReleaseTask() {
+        return this.releaseTask;
     }
 
     public ChunkStatus getMaximumStatus() {
@@ -338,17 +351,18 @@ public final class ChunkStep {
         ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
             ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
 
-            ctx.lighting.light(ctx.chunk, excludeBlocks).thenAccept(chunk -> {
-                ctx.controller.getUpgrader().lightingThrottler.release();
-                handle.complete(chunk);
-            });
+            ctx.lighting.light(ctx.chunk, excludeBlocks).thenAccept(handle::complete);
         });
 
         return handle;
     }
 
-    private static Future<Unit> waitForLight(ChunkController controller) {
+    private static Future<Unit> acquireLight(ChunkController controller) {
         return controller.getUpgrader().lightingThrottler.acquireAsync();
+    }
+
+    private static void releaseLight(ChunkController controller) {
+        controller.getUpgrader().lightingThrottler.release();
     }
 
     private static Chunk addEntities(ChunkStepContext ctx) {
@@ -400,7 +414,11 @@ public final class ChunkStep {
         Chunk run(ChunkStepContext ctx);
     }
 
-    public interface Prerequisite {
-        Future<Unit> await(ChunkController controller);
+    public interface Acquire {
+        Future<Unit> acquire(ChunkController controller);
+    }
+
+    public interface Release {
+        void release(ChunkController controller);
     }
 }

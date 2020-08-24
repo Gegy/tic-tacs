@@ -3,19 +3,31 @@ package net.gegy1000.tictacs.async.lock;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.tictacs.async.LinkedWaiter;
 import net.gegy1000.tictacs.async.WaiterQueue;
-
-import java.util.concurrent.atomic.AtomicInteger;
+import net.gegy1000.tictacs.util.UnsafeAccess;
+import sun.misc.Unsafe;
 
 public final class Mutex implements Lock {
+    // use unsafe for atomic operations without allocating an AtomicReference
+    private static final Unsafe UNSAFE = UnsafeAccess.get();
+    private static final long STATE_OFFSET;
+
     private static final int FREE = 0;
     private static final int ACQUIRED = 1;
 
-    private final AtomicInteger state = new AtomicInteger(FREE);
+    static {
+        try {
+            STATE_OFFSET = UNSAFE.objectFieldOffset(Mutex.class.getDeclaredField("state"));
+        } catch (NoSuchFieldException e) {
+            throw new Error("Failed to get state field offsets", e);
+        }
+    }
+
+    private volatile int state = FREE;
     private final WaiterQueue waiters = new WaiterQueue();
 
     @Override
     public boolean tryAcquire() {
-        return this.state.compareAndSet(FREE, ACQUIRED);
+        return UNSAFE.compareAndSwapInt(this, STATE_OFFSET, FREE, ACQUIRED);
     }
 
     @Override
@@ -30,12 +42,12 @@ public final class Mutex implements Lock {
 
     @Override
     public boolean canAcquire() {
-        return this.state.get() == FREE;
+        return this.state == FREE;
     }
 
     @Override
     public void release() {
-        if (!this.state.compareAndSet(ACQUIRED, FREE)) {
+        if (!UNSAFE.compareAndSwapInt(this, STATE_OFFSET, ACQUIRED, FREE)) {
             throw new IllegalStateException("lock not acquired");
         }
         this.waiters.wake();
@@ -43,11 +55,10 @@ public final class Mutex implements Lock {
 
     @Override
     public String toString() {
-        int state = this.state.get();
-        if (state == FREE) {
+        if (this.canAcquire()) {
             return "Mutex(FREE)";
         } else {
-            return "RwLock(ACQUIRED)";
+            return "Mutex(ACQUIRED)";
         }
     }
 }

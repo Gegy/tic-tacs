@@ -61,4 +61,13 @@ public final class JoinLock implements Lock {
             }
         }
     }
+
+    @Override
+    public String toString() {
+        if (this.canAcquire()) {
+            return "JoinLock(FREE)";
+        } else {
+            return "JoinLock(ACQUIRED)";
+        }
+    }
 }
