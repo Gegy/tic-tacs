@@ -20,6 +20,7 @@ import net.minecraft.world.chunk.light.LightingProvider;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 public final class ChunkEntry extends ChunkHolder {
     public static final int FULL_LEVEL = 33;
@@ -46,7 +47,9 @@ public final class ChunkEntry extends ChunkHolder {
         for (int i = 0; i < this.listeners.length; i++) {
             ChunkListener listener = new ChunkListener();
             this.listeners[i] = listener;
-            this.futuresByStatus.set(i, listener.asVanilla());
+
+            // horrible hack: don't allow ChunkHolder#tick to mess with the underlying future
+            this.futuresByStatus.set(i, listener.asVanilla().thenApply(Function.identity()));
         }
     }
 

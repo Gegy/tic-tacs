@@ -1,7 +1,5 @@
 package net.gegy1000.tictacs.async.worker;
 
-import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
-
 import javax.annotation.Nullable;
 import java.util.LinkedList;
 
@@ -27,8 +25,8 @@ public final class LevelPrioritisedQueue<T> implements AutoCloseable {
     }
 
     public void enqueue(T task, int level) {
-        if (level > ChunkLevelTracker.MAX_LEVEL) {
-            return;
+        if (level >= this.levelCount) {
+            level = this.levelCount - 1;
         }
 
         synchronized (this.lock) {

@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs;
 
 import net.fabricmc.api.ModInitializer;
+import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.minecraft.util.Identifier;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -13,5 +14,6 @@ public final class TicTacs implements ModInitializer {
 
     @Override
     public void onInitialize() {
+        TicTacsConfig.get();
     }
 }
