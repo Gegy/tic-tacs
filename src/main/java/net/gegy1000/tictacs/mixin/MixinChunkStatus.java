@@ -12,7 +12,7 @@ public class MixinChunkStatus {
      * @author gegy1000
      */
     @Overwrite
-    public static int getMaxTargetGenerationRadius() {
+    public static int getMaxDistanceFromFull() {
         return ChunkStep.getMaxDistance() + 1;
     }
 
@@ -21,7 +21,7 @@ public class MixinChunkStatus {
      * @author gegy1000
      */
     @Overwrite
-    public static ChunkStatus getTargetGenerationStatus(int distance) {
+    public static ChunkStatus byDistanceFromFull(int distance) {
         return ChunkStep.byDistanceFromFull(distance).getMaximumStatus();
     }
 
@@ -30,7 +30,7 @@ public class MixinChunkStatus {
      * @author gegy1000
      */
     @Overwrite
-    public static int getTargetGenerationRadius(ChunkStatus status) {
+    public static int getDistanceFromFull(ChunkStatus status) {
         return ChunkStep.getDistanceFromFull(ChunkStep.byStatus(status));
     }
 }

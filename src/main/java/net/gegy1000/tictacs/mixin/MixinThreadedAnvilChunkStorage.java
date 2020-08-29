@@ -220,7 +220,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
      * @author gegy1000
      */
     @Overwrite
-    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunkFuture(ChunkHolder holder, ChunkStatus status) {
+    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> getChunk(ChunkHolder holder, ChunkStatus status) {
         ChunkStep step = ChunkStep.byStatus(status);
 
         ChunkEntry entry = (ChunkEntry) holder;
@@ -238,7 +238,8 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
             method = "unloadChunks",
             at = @At(
                     value = "INVOKE",
-                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;remove(J)Ljava/lang/Object;"
+                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;remove(J)Ljava/lang/Object;",
+                    remap = false
             )
     )
     private Object removeChunkForUnload(Long2ObjectLinkedOpenHashMap<ChunkHolder> map, long pos) {
@@ -249,7 +250,8 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
             method = "save(Z)V",
             at = @At(
                     value = "INVOKE",
-                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;"
+                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;",
+                    remap = false
             )
     )
     private ObjectCollection<?> getChunks(Long2ObjectLinkedOpenHashMap<?> map) {
@@ -287,7 +289,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
      * @author gegy1000
      */
     @Overwrite
-    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createEntityTickingChunkFuture(ChunkPos pos) {
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> makeChunkEntitiesTickable(ChunkPos pos) {
         CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = new CompletableFuture<>();
 
         ChunkEntry entry = this.map.primary().getEntry(pos);
@@ -310,7 +312,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
      * @author gegy1000
      */
     @Overwrite
-    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> createTickingFuture(ChunkHolder holder) {
+    public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> makeChunkTickable(ChunkHolder holder) {
         CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = new CompletableFuture<>();
 
         this.spawnOnMainThread((ChunkEntry) holder, this.getRadiusAs(holder.getPos(), 1, ChunkStep.FULL)

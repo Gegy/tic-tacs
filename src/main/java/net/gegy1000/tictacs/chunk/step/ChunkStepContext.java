@@ -46,7 +46,7 @@ public final class ChunkStepContext {
     public StructureAccessor asStructureAccessor() {
         if (this.structureAccessor == null) {
             ChunkRegion region = this.asRegion();
-            this.structureAccessor = this.world.getStructureAccessor().method_29951(region);
+            this.structureAccessor = this.world.getStructureAccessor().forRegion(region);
         }
         return this.structureAccessor;
     }

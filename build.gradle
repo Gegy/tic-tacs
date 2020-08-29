@@ -16,7 +16,7 @@ minecraft {
 
 repositories {
   maven { url = "https://jitpack.io" }
-  maven { url = 'https://maven.gegy1000.net/' }
+  maven { url = 'https://maven.gegy.dev/' }
 }
 
 dependencies {
@@ -31,7 +31,7 @@ dependencies {
   implementation 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
   include 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
 
-  modRuntime ("com.github.SuperCoder7979:databreaker:0.2.4") {
+  modRuntime ("com.github.SuperCoder7979:databreaker:0.2.6") {
     transitive = false
   }
 }

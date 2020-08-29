@@ -14,7 +14,7 @@ import java.util.concurrent.Executor;
 public class MixinTaskExecutor<T> {
     @Inject(method = "create", at = @At("HEAD"), cancellable = true)
     private static void create(Executor executor, String name, CallbackInfoReturnable<TaskExecutor<Runnable>> ci) {
-        if (executor == Util.getServerWorkerExecutor()) {
+        if (executor == Util.getMainWorkerExecutor()) {
             ci.setReturnValue(OwnThreadActor.create(name));
         }
     }

@@ -24,7 +24,7 @@ public class MixinWorldGenerationProgressTracker {
     private int size;
 
     @Shadow
-    private boolean isRunning;
+    private boolean running;
 
     @Shadow
     @Final
@@ -58,7 +58,7 @@ public class MixinWorldGenerationProgressTracker {
      */
     @Overwrite
     public void setChunkStatus(ChunkPos pos, @Nullable ChunkStatus status) {
-        if (this.isRunning) {
+        if (this.running) {
             this.progressLogger.setChunkStatus(pos, status);
 
             int idx = this.index(pos.x + this.offsetX, pos.z + this.offsetZ);

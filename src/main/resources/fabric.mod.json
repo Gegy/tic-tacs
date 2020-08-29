@@ -2,13 +2,10 @@
   "schemaVersion": 1,
   "id": "tic_tacs",
   "version": "${version}",
-
   "name": "Tic-TACS",
   "description": "Rewrite of Minecraft's asynchronous chunk generation to improve performance and allow multithreading",
   "authors": ["gegy1000"],
-
   "license": "LGPLv3",
-
   "environment": "*",
   "entrypoints": {
     "main": ["net.gegy1000.tictacs.TicTacs"],
@@ -21,11 +18,9 @@
       "environment": "client"
     }
   ],
-
   "accessWidener": "tic_tacs.accesswidener",
-
   "depends": {
-    "fabricloader": ">=0.8.8",
+    "fabricloader": ">=0.9.2",
     "fabric": "*",
     "minecraft": "1.16.*"
   }

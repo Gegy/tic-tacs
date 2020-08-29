@@ -13,6 +13,7 @@ import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.registry.Registry;
 import net.minecraft.world.ChunkRegion;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.chunk.Chunk;
@@ -296,7 +297,7 @@ public final class ChunkStep {
         ServerWorld world = ctx.world;
         GeneratorOptions options = world.getServer().getSaveProperties().getGeneratorOptions();
         if (options.shouldGenerateStructures()) {
-            ctx.generator.setStructureStarts(world.getStructureAccessor(), ctx.chunk, ctx.structures, world.getSeed());
+            ctx.generator.setStructureStarts(world.getRegistryManager(), world.getStructureAccessor(), ctx.chunk, ctx.structures, world.getSeed());
         }
         return ctx.chunk;
     }
@@ -312,7 +313,7 @@ public final class ChunkStep {
         generator.addStructureReferences(region, structureAccessor, chunk);
         trySetStatus(chunk, ChunkStatus.STRUCTURE_REFERENCES);
 
-        generator.populateBiomes(chunk);
+        generator.populateBiomes(world.getRegistryManager().get(Registry.BIOME_KEY), chunk);
         trySetStatus(chunk, ChunkStatus.BIOMES);
 
         generator.populateNoise(region, structureAccessor, chunk);
@@ -337,7 +338,7 @@ public final class ChunkStep {
         Heightmap.populateHeightmaps(ctx.chunk, REQUIRED_FEATURE_HEIGHTMAPS);
 
         ChunkRegion region = ctx.asRegion();
-        ctx.generator.generateFeatures(region, ctx.world.getStructureAccessor().method_29951(region));
+        ctx.generator.generateFeatures(region, ctx.world.getStructureAccessor().forRegion(region));
 
         return ctx.chunk;
     }

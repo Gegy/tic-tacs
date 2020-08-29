@@ -16,7 +16,7 @@ public interface TacsAccessor {
     @Accessor("unloadedChunks")
     LongSet getQueuedUnloads();
 
-    @Accessor("field_18807")
+    @Accessor("chunksToUnload")
     Long2ObjectLinkedOpenHashMap<ChunkHolder> getUnloadingChunks();
 
     @Accessor

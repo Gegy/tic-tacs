@@ -152,22 +152,22 @@ public final class ChunkEntry extends ChunkHolder {
 
     @Override
     @Deprecated
-    public CompletableFuture<Either<Chunk, Unloaded>> createFuture(ChunkStatus status, ThreadedAnvilChunkStorage tacs) {
-        return tacs.createChunkFuture(this, status);
+    public CompletableFuture<Either<Chunk, Unloaded>> getChunkAt(ChunkStatus status, ThreadedAnvilChunkStorage tacs) {
+        return tacs.getChunk(this, status);
     }
 
     @Override
     @Deprecated
-    public CompletableFuture<Either<Chunk, Unloaded>> getFuture(ChunkStatus status) {
+    public CompletableFuture<Either<Chunk, Unloaded>> getFutureFor(ChunkStatus status) {
         ChunkStep step = ChunkStep.byStatus(status);
         return this.getListenerFor(step).vanilla;
     }
 
     @Override
     @Deprecated
-    public CompletableFuture<Either<Chunk, Unloaded>> getNowFuture(ChunkStatus status) {
+    public CompletableFuture<Either<Chunk, Unloaded>> getValidFutureFor(ChunkStatus status) {
         ChunkStep step = ChunkStep.byStatus(status);
-        return this.getTargetStep().greaterOrEqual(step) ? this.getFuture(status) : ChunkHolder.UNLOADED_CHUNK_FUTURE;
+        return this.getTargetStep().greaterOrEqual(step) ? this.getFutureFor(status) : ChunkHolder.UNLOADED_CHUNK_FUTURE;
     }
 
     @Override
@@ -179,13 +179,13 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Nullable
     @Deprecated
-    public Chunk getCompletedChunk() {
+    public Chunk getCurrentChunk() {
         return this.state.getChunk();
     }
 
     @Override
     @Deprecated
-    public void method_20456(ReadOnlyChunk chunk) {
+    public void setCompletedChunk(ReadOnlyChunk chunk) {
     }
 
     public void setUpgradeTask(ChunkTask<Unit> task) {
@@ -205,10 +205,10 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     void combineSavingFuture(ChunkStep step) {
-        this.updateFuture(this.getListenerFor(step).asVanilla());
+        this.combineSavingFuture(this.getListenerFor(step).asVanilla());
     }
 
     void combineSavingFuture(Chunk chunk) {
-        this.updateFuture(CompletableFuture.completedFuture(Either.left(chunk)));
+        this.combineSavingFuture(CompletableFuture.completedFuture(Either.left(chunk)));
     }
 }
