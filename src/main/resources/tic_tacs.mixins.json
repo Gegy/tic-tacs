@@ -13,6 +13,7 @@
     "TacsAccessor",
     "lighting.MixinServerLightingProvider",
     "lighting.MixinThreadedAnvilChunkStorage",
+    "serialization.MixinChunkSerializer",
     "unblocking.MixinEntity",
     "unblocking.MixinLivingEntity",
     "unblocking.MixinServerChunkManager",
