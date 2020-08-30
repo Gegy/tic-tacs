@@ -1,7 +1,7 @@
 package net.gegy1000.tictacs.async.lock;
 
-import net.gegy1000.tictacs.async.LinkedWaiter;
 import net.gegy1000.justnow.Waker;
+import net.gegy1000.tictacs.async.LinkedWaiter;
 
 public final class JoinLock implements Lock {
     private final Lock[] locks;
@@ -23,15 +23,21 @@ public final class JoinLock implements Lock {
     }
 
     @Override
-    public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
+    public PollLock tryPollLock(LinkedWaiter waiter, Waker waker) {
         for (int i = 0; i < this.locks.length; i++) {
             Lock lock = this.locks[i];
-            if (lock != null && !lock.tryAcquireAsync(waiter, waker)) {
+            if (lock == null) {
+                continue;
+            }
+
+            PollLock poll = lock.tryPollLock(waiter, waker);
+            if (poll != PollLock.ACQUIRED) {
                 this.releaseUpTo(i);
-                return false;
+                return poll;
             }
         }
-        return true;
+
+        return PollLock.ACQUIRED;
     }
 
     @Override

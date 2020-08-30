@@ -16,7 +16,7 @@ public interface Lock {
 
     void release();
 
-    boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker);
+    PollLock tryPollLock(LinkedWaiter waiter, Waker waker);
 
     default Future<Unit> acquireAsync() {
         // try acquire now to avoid the allocation: this is technically bad future behaviour, but we'll allow it
@@ -41,13 +41,10 @@ public interface Lock {
                 // invalidate our waker if it is queued
                 this.invalidateWaker();
 
-                // try to acquire the lock and return if successful
-                if (this.lock.tryAcquireAsync(this, waker)) {
+                PollLock poll = this.lock.tryPollLock(this, waker);
+                if (poll == PollLock.ACQUIRED) {
                     return Unit.INSTANCE;
-                }
-
-                // if the lock is still acquired, there's nothing more to be done for now
-                if (!this.lock.canAcquire()) {
+                } else if (poll == PollLock.PENDING) {
                     return null;
                 }
             }

@@ -24,7 +24,7 @@ public final class NullLock implements Lock {
     }
 
     @Override
-    public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
-        return true;
+    public PollLock tryPollLock(LinkedWaiter waiter, Waker waker) {
+        return PollLock.ACQUIRED;
     }
 }

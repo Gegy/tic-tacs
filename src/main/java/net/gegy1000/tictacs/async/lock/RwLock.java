@@ -110,13 +110,13 @@ public final class RwLock {
         }
 
         @Override
-        public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
+        public PollLock tryPollLock(LinkedWaiter waiter, Waker waker) {
             if (!this.tryAcquire()) {
                 RwLock.this.waiters.registerWaiter(waiter, waker);
-                return false;
+                return this.canAcquire() ? PollLock.RETRY : PollLock.PENDING;
             }
 
-            return true;
+            return PollLock.ACQUIRED;
         }
 
         @Override
@@ -146,13 +146,13 @@ public final class RwLock {
         }
 
         @Override
-        public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
+        public PollLock tryPollLock(LinkedWaiter waiter, Waker waker) {
             if (!this.tryAcquire()) {
                 RwLock.this.waiters.registerWaiter(waiter, waker);
-                return false;
+                return this.canAcquire() ? PollLock.RETRY : PollLock.PENDING;
             }
 
-            return true;
+            return PollLock.ACQUIRED;
         }
 
         @Override

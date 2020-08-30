@@ -31,13 +31,13 @@ public final class Mutex implements Lock {
     }
 
     @Override
-    public boolean tryAcquireAsync(LinkedWaiter waiter, Waker waker) {
+    public PollLock tryPollLock(LinkedWaiter waiter, Waker waker) {
         if (!this.tryAcquire()) {
             this.waiters.registerWaiter(waiter, waker);
-            return false;
+            return this.canAcquire() ? PollLock.RETRY : PollLock.PENDING;
         }
 
-        return true;
+        return PollLock.ACQUIRED;
     }
 
     @Override
