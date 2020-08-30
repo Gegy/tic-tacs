@@ -6,14 +6,18 @@
   "mixins": [
     "MixinChunkStatus",
     "MixinChunkTicketManager",
-    "MixinServerChunkManager",
     "MixinTaskExecutor",
     "MixinThreadedAnvilChunkStorage",
     "MixinWeightedList",
     "MixinWorld",
     "TacsAccessor",
     "lighting.MixinServerLightingProvider",
-    "lighting.MixinThreadedAnvilChunkStorage"
+    "lighting.MixinThreadedAnvilChunkStorage",
+    "unblocking.MixinEntity",
+    "unblocking.MixinLivingEntity",
+    "unblocking.MixinServerChunkManager",
+    "unblocking.MixinServerPlayerEntity",
+    "unblocking.MixinServerWorld"
   ],
   "injectors": {
     "defaultRequire": 1
