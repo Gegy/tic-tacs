@@ -1,5 +1,5 @@
 plugins {
-  id 'fabric-loom' version '0.4-SNAPSHOT'
+  id 'fabric-loom' version '0.5-SNAPSHOT'
   id 'maven-publish'
 }
 
@@ -31,7 +31,7 @@ dependencies {
   implementation 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
   include 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
 
-  modRuntime ("com.github.SuperCoder7979:databreaker:0.2.6") {
+  modRuntime ('com.github.SuperCoder7979:databreaker:0.2.6') {
     transitive = false
   }
 }
