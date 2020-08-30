@@ -47,9 +47,13 @@ public final class ChunkEntry extends ChunkHolder {
         for (int i = 0; i < this.listeners.length; i++) {
             ChunkListener listener = new ChunkListener();
             this.listeners[i] = listener;
+        }
+
+        for (ChunkStatus status : ChunkStatus.createOrderedList()) {
+            ChunkListener listener = this.listeners[ChunkStep.byStatus(status).getIndex()];
 
             // horrible hack: don't allow ChunkHolder#tick to mess with the underlying future
-            this.futuresByStatus.set(i, listener.asVanilla().thenApply(Function.identity()));
+            this.futuresByStatus.set(status.getIndex(), listener.asVanilla().thenApply(Function.identity()));
         }
     }
 

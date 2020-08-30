@@ -6,9 +6,11 @@
   "mixins": [
     "MixinChunkStatus",
     "MixinChunkTicketManager",
+    "MixinServerChunkManager",
     "MixinTaskExecutor",
     "MixinThreadedAnvilChunkStorage",
     "MixinWeightedList",
+    "MixinWorld",
     "TacsAccessor",
     "lighting.MixinServerLightingProvider",
     "lighting.MixinThreadedAnvilChunkStorage"
