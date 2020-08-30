@@ -2,6 +2,8 @@ package net.gegy1000.tictacs.mixin;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.fluid.Fluids;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
@@ -35,5 +37,20 @@ public abstract class MixinWorld {
 
         Chunk chunk = this.getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES, true);
         return chunk.getBlockState(pos);
+    }
+
+    /**
+     * @reason we don't need to require a FULL chunk, because after the FEATURES step, no more blocks should be changed.
+     * this allows us to not block on lighting to retrieve a block
+     * @author gegy1000
+     */
+    @Overwrite
+    public FluidState getFluidState(BlockPos pos) {
+        if (isHeightInvalid(pos)) {
+            return Fluids.EMPTY.getDefaultState();
+        }
+
+        Chunk chunk = this.getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES, true);
+        return chunk.getFluidState(pos);
     }
 }
