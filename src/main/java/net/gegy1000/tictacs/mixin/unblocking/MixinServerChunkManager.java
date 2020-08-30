@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.mixin.unblocking;
 
 import com.mojang.datafixers.util.Either;
+import net.gegy1000.tictacs.AsyncChunkAccess;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.util.profiler.Profiler;
@@ -18,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 @Mixin(ServerChunkManager.class)
-public abstract class MixinServerChunkManager {
+public abstract class MixinServerChunkManager implements AsyncChunkAccess {
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> getChunkFuture(int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create);
 
@@ -41,16 +42,8 @@ public abstract class MixinServerChunkManager {
     )
     private void getChunkOffThread(int x, int z, ChunkStatus leastStatus, boolean create, CallbackInfoReturnable<Chunk> ci) {
         if (create) {
-            CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future = CompletableFuture.supplyAsync(() -> this.getChunkFuture(x, z, leastStatus, true), this.mainThreadExecutor)
-                    .thenCompose(Function.identity());
-
-            Either<Chunk, ChunkHolder.Unloaded> result = future.join();
-            ci.setReturnValue(result.map(
-                    chunk -> chunk,
-                    unloaded -> {
-                        throw new IllegalStateException("Chunk not there when requested: " + unloaded);
-                    })
-            );
+            CompletableFuture<Chunk> future = this.getChunkAsync(x, z, leastStatus);
+            ci.setReturnValue(future.join());
         } else {
             CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future = this.getChunkFuture(x, z, leastStatus, false);
 
@@ -83,5 +76,17 @@ public abstract class MixinServerChunkManager {
         if (!create && !future.isDone()) {
             ci.setReturnValue(null);
         }
+    }
+
+    @Override
+    public CompletableFuture<Chunk> getChunkAsync(int x, int z, ChunkStatus status) {
+        return CompletableFuture.supplyAsync(() -> this.getChunkFuture(x, z, status, true), this.mainThreadExecutor)
+                .thenCompose(Function.identity())
+                .thenApply(result -> result.map(
+                        chunk -> chunk,
+                        unloaded -> {
+                            throw new IllegalStateException("Chunk not there when requested: " + unloaded);
+                        })
+                );
     }
 }
