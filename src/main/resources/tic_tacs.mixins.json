@@ -4,6 +4,7 @@
   "package": "net.gegy1000.tictacs.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
+    "MixinChunkHolder",
     "MixinChunkStatus",
     "MixinChunkTicketManager",
     "MixinTaskExecutor",

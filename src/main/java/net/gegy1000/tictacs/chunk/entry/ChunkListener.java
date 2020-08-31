@@ -13,7 +13,7 @@ public final class ChunkListener extends SharedListener<Chunk> {
     volatile Chunk ok;
     volatile boolean err;
 
-    CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla = new CompletableFuture<>();
+    final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla = new CompletableFuture<>();
 
     @Nullable
     @Override

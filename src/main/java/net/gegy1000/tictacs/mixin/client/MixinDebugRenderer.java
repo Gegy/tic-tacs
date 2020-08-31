@@ -23,11 +23,11 @@ public class MixinDebugRenderer implements DebugRendererExt {
 
 	@Inject(method = "render", at = @At("HEAD"))
 	private void handleRender(MatrixStack matrices, VertexConsumerProvider.Immediate vertexConsumers, double cameraX, double cameraY, double cameraZ, CallbackInfo ci) {
-		ticTacsDebugRenderer.render(matrices, vertexConsumers, cameraX, cameraY, cameraZ);
+        this.ticTacsDebugRenderer.render(matrices, vertexConsumers, cameraX, cameraY, cameraZ);
 	}
 
 	@Override
 	public TicTacsDebugRenderer get() {
-		return ticTacsDebugRenderer;
+		return this.ticTacsDebugRenderer;
 	}
 }

@@ -33,7 +33,7 @@ public final class AtomicPool<T> {
                     // this value hasn't been set yet: try again
                     continue;
                 }
-                return (T) value;
+                return value;
             }
         }
     }

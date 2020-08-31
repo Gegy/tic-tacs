@@ -18,9 +18,6 @@ public abstract class MixinPalettedContainer<T> {
     @Shadow
     private Palette<T> palette;
 
-    @Shadow
-    protected abstract T get(int index);
-
     @Inject(method = "count", at = @At("HEAD"), cancellable = true)
     private void count(PalettedContainer.CountConsumer<T> consumer, CallbackInfo ci) {
         // test for uniformity on small palettes

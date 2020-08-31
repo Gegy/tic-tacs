@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.VoidActor;
+import net.gegy1000.tictacs.async.worker.ChunkExecutor;
 import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
@@ -135,11 +136,6 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     }
 
     @Override
-    public ChunkLevelTracker getLevelTracker() {
-        return this.levelTracker;
-    }
-
-    @Override
     public ChunkTicketManager getTicketManager() {
         return this.ticketManager;
     }
@@ -188,11 +184,6 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Override
     public void spawnOnMainThread(ChunkEntry entry, Runnable runnable) {
         this.chunkMainExecutor.spawn(entry, new LazyRunnableFuture(runnable));
-    }
-
-    @Override
-    public ChunkMainThreadExecutor getMainThreadExecutor() {
-        return this.chunkMainExecutor;
     }
 
     /**
@@ -294,7 +285,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
 
         ChunkEntry entry = this.map.primary().getEntry(pos);
 
-        this.spawnOnMainThread(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
+        ChunkExecutor.INSTANCE.spawn(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
             WorldChunk chunk = entry.getWorldChunk();
             if (chunk != null) {
                 future.complete(Either.left(chunk));

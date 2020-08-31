@@ -50,7 +50,6 @@ public final class ChunkEntryState {
 
     public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
         this.includeStep(step);
-        this.parent.finishUpgradeTo(step);
 
         if (chunk instanceof ProtoChunk) {
             this.chunk = (ProtoChunk) chunk;
@@ -66,7 +65,6 @@ public final class ChunkEntryState {
 
     public void completeUpgradeErr(ChunkStep step) {
         this.includeStep(step);
-        this.parent.finishUpgradeTo(step);
 
         for (int i = step.getIndex(); i >= 0; i--) {
             this.parent.listeners[step.getIndex()].completeErr();

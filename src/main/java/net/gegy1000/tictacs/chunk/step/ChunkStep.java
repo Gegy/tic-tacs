@@ -366,11 +366,9 @@ public final class ChunkStep {
         controller.getUpgrader().lightingThrottler.release();
     }
 
-    private static Chunk addEntities(ChunkStepContext ctx) {
+    private static void addEntities(ChunkStepContext ctx) {
         ChunkRegion region = ctx.asRegion();
         ctx.generator.populateEntities(region);
-
-        return ctx.chunk;
     }
 
     private static Future<Chunk> makeFull(ChunkStepContext ctx) {

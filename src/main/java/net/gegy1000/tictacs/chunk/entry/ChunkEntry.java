@@ -1,11 +1,6 @@
 package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
-import net.gegy1000.tictacs.async.lock.Lock;
-import net.gegy1000.tictacs.async.lock.LockGuard;
-import net.gegy1000.tictacs.async.worker.ChunkTask;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.server.world.ChunkHolder;
@@ -20,7 +15,6 @@ import net.minecraft.world.chunk.light.LightingProvider;
 import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 
 public final class ChunkEntry extends ChunkHolder {
     public static final int FULL_LEVEL = 33;
@@ -33,8 +27,6 @@ public final class ChunkEntry extends ChunkHolder {
     private final ChunkAccessLock lock = new ChunkAccessLock();
 
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
-
-    private volatile ChunkTask<Unit> upgradeTask;
 
     public ChunkEntry(
             ChunkPos pos, int level,
@@ -51,15 +43,8 @@ public final class ChunkEntry extends ChunkHolder {
 
         for (ChunkStatus status : ChunkStatus.createOrderedList()) {
             ChunkListener listener = this.listeners[ChunkStep.byStatus(status).getIndex()];
-
-            // horrible hack: don't allow ChunkHolder#tick to mess with the underlying future
-            this.futuresByStatus.set(status.getIndex(), listener.asVanilla().thenApply(Function.identity()));
+            this.futuresByStatus.set(status.getIndex(), listener.asVanilla());
         }
-    }
-
-    public Future<LockGuard<ChunkEntryState>> lock() {
-        Lock lock = this.lock.lockAll();
-        return lock.acquireAsync().map(u -> new LockGuard<>(lock, this.state));
     }
 
     public ChunkAccessLock getLock() {
@@ -193,22 +178,6 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public void setCompletedChunk(ReadOnlyChunk chunk) {
-    }
-
-    public void setUpgradeTask(ChunkTask<Unit> task) {
-        this.upgradeTask = task;
-    }
-
-    @Nullable
-    public ChunkTask<Unit> getUpgradeTask() {
-        return this.upgradeTask;
-    }
-
-    void finishUpgradeTo(ChunkStep step) {
-        ChunkStep spawnedStep = this.spawnedStep.get();
-        if (step.greaterOrEqual(spawnedStep)) {
-            this.upgradeTask = null;
-        }
     }
 
     void combineSavingFuture(ChunkStep step) {

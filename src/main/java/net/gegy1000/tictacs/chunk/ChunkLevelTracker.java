@@ -47,14 +47,14 @@ public final class ChunkLevelTracker {
             List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
 
             if (players.size() > 0) {
-                players.forEach((player) -> sendChunkTicketData(player, pos, toLevel));
+                players.forEach(player -> this.sendChunkTicketData(player, pos, toLevel));
 
-                while (ticketCache.size() > 0) {
-                    Pair<Long, Integer> val = ticketCache.poll();
-                    players.forEach((player) -> sendChunkTicketData(player, val.getLeft(), val.getRight()));
+                while (this.ticketCache.size() > 0) {
+                    Pair<Long, Integer> val = this.ticketCache.poll();
+                    players.forEach(player -> this.sendChunkTicketData(player, val.getLeft(), val.getRight()));
                 }
             } else {
-                ticketCache.add(new Pair<>(pos, toLevel));
+                this.ticketCache.add(new Pair<>(pos, toLevel));
             }
         }
 

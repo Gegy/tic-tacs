@@ -1,15 +1,14 @@
 package net.gegy1000.tictacs.chunk.upgrade;
 
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.async.lock.Semaphore;
-import net.gegy1000.tictacs.async.worker.ChunkTask;
+import net.gegy1000.tictacs.async.worker.ChunkExecutor;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.step.ChunkStepContext;
-import net.gegy1000.tictacs.async.worker.ChunkExecutor;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.structure.StructureManager;
@@ -18,7 +17,6 @@ import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 
-import javax.annotation.Nullable;
 import java.util.List;
 
 public final class ChunkUpgrader {
@@ -48,13 +46,10 @@ public final class ChunkUpgrader {
         this.controller = controller;
     }
 
-    @Nullable
-    public ChunkTask<Unit> spawnUpgradeTo(ChunkEntry entry, ChunkStep step) {
+    public void spawnUpgradeTo(ChunkEntry entry, ChunkStep step) {
         if (entry.trySpawnUpgradeTo(step)) {
-            ChunkTask<Unit> task = this.worker.spawn(entry, this.upgradeTo(entry, step));
-            entry.setUpgradeTask(task);
+            this.worker.spawn(entry, this.upgradeTo(entry, step));
         }
-        return entry.getUpgradeTask();
     }
 
     private Future<Unit> upgradeTo(ChunkEntry entry, ChunkStep step) {

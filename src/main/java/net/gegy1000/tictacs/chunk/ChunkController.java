@@ -1,11 +1,10 @@
 package net.gegy1000.tictacs.chunk;
 
-import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
+import net.gegy1000.justnow.future.Future;
+import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
@@ -21,8 +20,6 @@ public interface ChunkController {
 
     ChunkUpgrader getUpgrader();
 
-    ChunkLevelTracker getLevelTracker();
-
     ChunkTicketManager getTicketManager();
 
     Future<Unit> getRadiusAs(ChunkPos pos, int radius, ChunkStep step);
@@ -34,6 +31,4 @@ public interface ChunkController {
     <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future);
 
     void spawnOnMainThread(ChunkEntry entry, Runnable runnable);
-
-    ChunkMainThreadExecutor getMainThreadExecutor();
 }
