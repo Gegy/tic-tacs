@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(LivingEntity.class)
-public class MixinLivingEntity {
+public class LivingEntityMixin {
     @Redirect(
             method = "travel",
             at = @At(

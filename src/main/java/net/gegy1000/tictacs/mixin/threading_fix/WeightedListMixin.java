@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin;
+package net.gegy1000.tictacs.mixin.threading_fix;
 
 import net.minecraft.util.collection.WeightedList;
 import org.spongepowered.asm.mixin.Final;
@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Random;
 
 @Mixin(WeightedList.class)
-public class MixinWeightedList<U> {
+public class WeightedListMixin<U> {
     @Shadow
     @Final
     protected List<WeightedList.Entry<U>> entries;

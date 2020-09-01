@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 
 @Mixin(MinecraftClient.class)
-public class MixinMinecraftClient {
+public class MinecraftClientMixin {
     @Inject(
             method = "method_17533",
             at = @At(

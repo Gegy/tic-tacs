@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(Entity.class)
-public class MixinEntity {
+public class EntityMixin {
     @Redirect(
             method = "getLandingPos",
             at = @At(

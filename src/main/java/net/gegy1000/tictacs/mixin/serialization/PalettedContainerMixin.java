@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PalettedContainer.class)
-public abstract class MixinPalettedContainer<T> {
+public abstract class PalettedContainerMixin<T> {
     private static final int SIZE = 16 * 16 * 16;
 
     @Shadow

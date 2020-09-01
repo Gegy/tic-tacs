@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.annotation.Nullable;
 
 @Mixin(WorldGenerationProgressTracker.class)
-public class MixinWorldGenerationProgressTracker {
+public class WorldGenerationProgressTrackerMixin {
     @Shadow
     private ChunkPos spawnPos;
 

@@ -14,11 +14,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.function.IntSupplier;
 
 @Mixin(ServerLightingProvider.class)
-public abstract class MixinServerLightingProvider extends LightingProvider {
+public abstract class ServerLightingProviderMixin extends LightingProvider {
     @Unique
     private final LightingExecutor lightingExecutor = new LightingExecutor(this);
 
-    private MixinServerLightingProvider(ChunkProvider chunks, boolean blockLight, boolean skyLight) {
+    private ServerLightingProviderMixin(ChunkProvider chunks, boolean blockLight, boolean skyLight) {
         super(chunks, blockLight, skyLight);
     }
 

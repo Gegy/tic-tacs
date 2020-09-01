@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.ModifyConstant;
 
 @Mixin(ChunkTicketManager.class)
-public class MixinChunkTicketManager {
+public class ChunkTicketManagerMixin {
     @ModifyConstant(method = "<init>", constant = @Constant(intValue = 4))
     private int getMaxTasks(int maxTasks) {
         return 128;

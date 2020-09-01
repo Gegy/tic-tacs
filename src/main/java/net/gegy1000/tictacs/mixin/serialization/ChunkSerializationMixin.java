@@ -19,7 +19,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import javax.annotation.Nullable;
 
 @Mixin(ChunkSerializer.class)
-public class MixinChunkSerializer {
+public class ChunkSerializationMixin {
     private static final BiomeArray DUMMY_BIOMES = new BiomeArray(null, (Biome[]) null);
 
     @Redirect(

@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 @Mixin(ServerChunkManager.class)
-public abstract class MixinServerChunkManager implements AsyncChunkAccess {
+public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> getChunkFuture(int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create);
 

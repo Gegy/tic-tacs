@@ -6,7 +6,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 
 @Mixin(ChunkStatus.class)
-public class MixinChunkStatus {
+public class ChunkStatusMixin {
     /**
      * @reason replace with ChunkStep values
      * @author gegy1000

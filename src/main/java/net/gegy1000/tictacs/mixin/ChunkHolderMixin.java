@@ -8,7 +8,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.concurrent.CompletableFuture;
 
 @Mixin(ChunkHolder.class)
-public class MixinChunkHolder {
+public class ChunkHolderMixin {
     /**
      * @reason we replace the future handling in {@link net.gegy1000.tictacs.chunk.entry.ChunkEntry}, and we don't want
      * vanilla's logic to mess with ours.

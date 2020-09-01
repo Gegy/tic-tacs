@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ServerChunkManager.class)
-public abstract class MixinServerChunkManager {
+public abstract class ServerChunkManagerMixin {
     /**
      * @reason avoid using {@link ThreadedAnvilChunkStorage#entryIterator()} which will create a copy of the list
      * to ensure thread-safety. We're calling from the main thread, so we can safely access the primary chunk map

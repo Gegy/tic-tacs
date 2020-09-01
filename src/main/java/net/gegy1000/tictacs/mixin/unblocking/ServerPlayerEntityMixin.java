@@ -9,7 +9,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(ServerPlayerEntity.class)
-public class MixinServerPlayerEntity {
+public class ServerPlayerEntityMixin {
     @Redirect(
             method = "handleFall",
             at = @At(

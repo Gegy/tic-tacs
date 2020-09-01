@@ -63,7 +63,7 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
-public abstract class MixinThreadedAnvilChunkStorage implements ChunkController {
+public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController {
     @Shadow
     @Final
     private ThreadExecutor<Runnable> mainThreadExecutor;

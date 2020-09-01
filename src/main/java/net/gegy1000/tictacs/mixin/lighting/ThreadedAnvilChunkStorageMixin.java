@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import java.util.concurrent.Executor;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
-public abstract class MixinThreadedAnvilChunkStorage implements ChunkController {
+public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController {
     @Redirect(
             method = "<init>",
             at = @At(

@@ -4,11 +4,11 @@
   "package": "net.gegy1000.tictacs.mixin.client",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "MixinDebugRenderer",
-    "MixinMinecraftClient",
-    "MixinWorldGenerationProgressTracker",
-    "MixinInGameHud",
-    "MixinClientWorld"
+    "debug.DebugRendererMixin",
+    "debug.InGameHudMixin",
+    "ClientWorldMixin",
+    "MinecraftClientMixin",
+    "WorldGenerationProgressTrackerMixin"
   ],
   "injectors": {
     "defaultRequire": 1

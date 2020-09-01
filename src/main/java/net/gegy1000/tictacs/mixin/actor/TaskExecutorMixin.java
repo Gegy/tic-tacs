@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin;
+package net.gegy1000.tictacs.mixin.actor;
 
 import net.gegy1000.tictacs.OwnThreadActor;
 import net.minecraft.util.Util;
@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.concurrent.Executor;
 
 @Mixin(TaskExecutor.class)
-public class MixinTaskExecutor<T> {
+public class TaskExecutorMixin<T> {
     @Inject(method = "create", at = @At("HEAD"), cancellable = true)
     private static void create(Executor executor, String name, CallbackInfoReturnable<TaskExecutor<Runnable>> ci) {
         if (executor == Util.getMainWorkerExecutor()) {

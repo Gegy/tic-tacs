@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin.client;
+package net.gegy1000.tictacs.mixin.client.debug;
 
 import net.gegy1000.tictacs.client.TicTacsDebugRenderer;
 import net.gegy1000.tictacs.client.DebugRendererExt;
@@ -13,7 +13,7 @@ import net.minecraft.client.render.debug.DebugRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 
 @Mixin(DebugRenderer.class)
-public class MixinDebugRenderer implements DebugRendererExt {
+public class DebugRendererMixin implements DebugRendererExt {
 	private TicTacsDebugRenderer ticTacsDebugRenderer;
 
 	@Inject(method = "<init>", at = @At("RETURN"))

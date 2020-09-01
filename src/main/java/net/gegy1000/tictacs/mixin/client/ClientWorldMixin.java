@@ -12,8 +12,8 @@ import org.spongepowered.asm.mixin.Mixin;
 import java.util.function.Supplier;
 
 @Mixin(ClientWorld.class)
-public abstract class MixinClientWorld extends World implements NonBlockingWorldAccess {
-    private MixinClientWorld(MutableWorldProperties properties, RegistryKey<World> registryKey, DimensionType dimensionType, Supplier<Profiler> supplier, boolean client, boolean debugWorld, long biomeSeed) {
+public abstract class ClientWorldMixin extends World implements NonBlockingWorldAccess {
+    private ClientWorldMixin(MutableWorldProperties properties, RegistryKey<World> registryKey, DimensionType dimensionType, Supplier<Profiler> supplier, boolean client, boolean debugWorld, long biomeSeed) {
         super(properties, registryKey, dimensionType, supplier, client, debugWorld, biomeSeed);
     }
 

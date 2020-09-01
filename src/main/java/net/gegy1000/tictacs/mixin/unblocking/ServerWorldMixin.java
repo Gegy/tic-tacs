@@ -31,12 +31,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 @Mixin(ServerWorld.class)
-public abstract class MixinServerWorld extends World implements NonBlockingWorldAccess, AsyncChunkAccess {
+public abstract class ServerWorldMixin extends World implements NonBlockingWorldAccess, AsyncChunkAccess {
     @Shadow
     @Final
     private ServerChunkManager serverChunkManager;
 
-    private MixinServerWorld(MutableWorldProperties properties, RegistryKey<World> registryKey, DimensionType dimensionType, Supplier<Profiler> supplier, boolean client, boolean debugWorld, long biomeSeed) {
+    private ServerWorldMixin(MutableWorldProperties properties, RegistryKey<World> registryKey, DimensionType dimensionType, Supplier<Profiler> supplier, boolean client, boolean debugWorld, long biomeSeed) {
         super(properties, registryKey, dimensionType, supplier, client, debugWorld, biomeSeed);
     }
 

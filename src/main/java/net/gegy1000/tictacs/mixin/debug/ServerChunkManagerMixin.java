@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.LocalCapture;
 import java.util.concurrent.CompletableFuture;
 
 @Mixin(value = ServerChunkManager.class, priority = 2000)
-public class MixinServerChunkManager {
+public class ServerChunkManagerMixin {
     private long startBlockTime;
     private Exception blockTrace;
 

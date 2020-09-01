@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin.client;
+package net.gegy1000.tictacs.mixin.client.debug;
 
 import net.gegy1000.tictacs.client.LevelMapOverlay;
 import net.gegy1000.tictacs.config.TicTacsConfig;
@@ -10,7 +10,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(InGameHud.class)
-public class MixinInGameHud {
+public class InGameHudMixin {
     private final LevelMapOverlay levelMap = new LevelMapOverlay();
 
     @Inject(method = "render", at = @At("RETURN"))
