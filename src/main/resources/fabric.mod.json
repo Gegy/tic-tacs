@@ -26,7 +26,8 @@
   },
   "custom": {
     "lithium:options": {
-      "mixin.world.chunk_access": false
+      "mixin.world.chunk_access": false,
+      "mixin.world.chunk_ticking": false
     }
   }
 }

@@ -30,3 +30,6 @@ accessible field net/minecraft/server/world/ChunkTicketManager ticketsByPosition
 accessible method net/minecraft/server/world/ChunkTicketManager getTicketSet (J)Lnet/minecraft/util/collection/SortedArraySet;
 
 accessible method net/minecraft/server/world/ChunkTicket isExpired (J)Z
+
+accessible field net/minecraft/server/network/EntityTrackerEntry world Lnet/minecraft/server/world/ServerWorld;
+accessible field net/minecraft/server/network/EntityTrackerEntry entity Lnet/minecraft/entity/Entity;

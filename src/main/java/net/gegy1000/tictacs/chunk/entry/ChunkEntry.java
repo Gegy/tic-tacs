@@ -1,8 +1,11 @@
 package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
+import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
@@ -13,6 +16,8 @@ import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.chunk.light.LightingProvider;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +32,9 @@ public final class ChunkEntry extends ChunkHolder {
     private final ChunkAccessLock lock = new ChunkAccessLock();
 
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
+
+    private Set<ServerPlayerEntity> trackingPlayers;
+    private Set<ChunkEntityTracker> entities;
 
     public ChunkEntry(
             ChunkPos pos, int level,
@@ -45,6 +53,52 @@ public final class ChunkEntry extends ChunkHolder {
             ChunkListener listener = this.listeners[ChunkStep.byStatus(status).getIndex()];
             this.futuresByStatus.set(status.getIndex(), listener.asVanilla());
         }
+    }
+
+    public void addEntity(ChunkEntityTracker tracker) {
+        if (this.entities == null) {
+            this.entities = new ObjectOpenHashSet<>();
+        }
+        this.entities.add(tracker);
+    }
+
+    public boolean removeEntity(ChunkEntityTracker tracker) {
+        if (this.entities.remove(tracker)) {
+            if (this.entities.isEmpty()) {
+                this.entities = null;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public boolean addTrackingPlayer(ServerPlayerEntity player) {
+        if (this.trackingPlayers == null) {
+            this.trackingPlayers = new ObjectOpenHashSet<>();
+        }
+        return this.trackingPlayers.add(player);
+    }
+
+    public boolean removeTrackingPlayer(ServerPlayerEntity player) {
+        if (this.trackingPlayers != null && this.trackingPlayers.remove(player)) {
+            if (this.trackingPlayers.isEmpty()) {
+                this.trackingPlayers = null;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public Set<ServerPlayerEntity> getTrackingPlayers() {
+        return this.trackingPlayers != null ? this.trackingPlayers : Collections.emptySet();
+    }
+
+    public boolean isTrackedBy(ServerPlayerEntity player) {
+        return this.trackingPlayers != null && this.trackingPlayers.contains(player);
+    }
+
+    public Set<ChunkEntityTracker> getEntities() {
+        return this.entities != null ? this.entities : Collections.emptySet();
     }
 
     public ChunkAccessLock getLock() {

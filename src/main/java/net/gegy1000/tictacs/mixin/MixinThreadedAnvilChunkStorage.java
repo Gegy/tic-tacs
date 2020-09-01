@@ -5,10 +5,10 @@ import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.VoidActor;
-import net.gegy1000.tictacs.async.worker.ChunkExecutor;
 import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
@@ -19,13 +19,17 @@ import net.gegy1000.tictacs.chunk.future.AwaitAll;
 import net.gegy1000.tictacs.chunk.future.LazyRunnableFuture;
 import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
+import net.gegy1000.tictacs.chunk.tracker.ChunkTracker;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.boss.dragon.EnderDragonPart;
 import net.minecraft.network.Packet;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.server.world.PlayerChunkWatchingManager;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -75,11 +79,15 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Shadow
     @Final
     private AtomicInteger totalChunksLoadedCount;
+    @Shadow
+    private int watchDistance;
 
     @Unique
     private ChunkMap map;
     @Unique
     private ChunkUpgrader upgrader;
+    @Unique
+    private ChunkTracker tracker;
 
     @Unique
     private ChunkLevelTracker levelTracker;
@@ -109,6 +117,9 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
         this.upgrader = new ChunkUpgrader(world, this, chunkGenerator, structures, lighting);
 
         this.levelTracker = new ChunkLevelTracker(world, this);
+
+        this.tracker = new ChunkTracker(world, this);
+        this.tracker.setViewDistance(this.watchDistance);
 
         this.chunkMainExecutor = new ChunkMainThreadExecutor(mainThread);
     }
@@ -285,7 +296,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
 
         ChunkEntry entry = this.map.primary().getEntry(pos);
 
-        ChunkExecutor.INSTANCE.spawn(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
+        this.spawnOnMainThread(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
             WorldChunk chunk = entry.getWorldChunk();
             if (chunk != null) {
                 future.complete(Either.left(chunk));
@@ -305,10 +316,11 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
     @Overwrite
     public CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> makeChunkTickable(ChunkHolder holder) {
         CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> future = new CompletableFuture<>();
+        ChunkEntry entry = (ChunkEntry) holder;
 
-        this.spawnOnMainThread((ChunkEntry) holder, this.getRadiusAs(holder.getPos(), 1, ChunkStep.FULL)
+        this.spawnOnMainThread(entry, this.getRadiusAs(entry.getPos(), 1, ChunkStep.FULL)
                 .map(u -> {
-                    WorldChunk chunk = holder.getWorldChunk();
+                    WorldChunk chunk = entry.getWorldChunk();
                     if (chunk == null) {
                         future.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
                         return Unit.INSTANCE;
@@ -317,10 +329,7 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
                     chunk.runPostProcessing();
                     this.totalChunksLoadedCount.getAndIncrement();
 
-                    Packet<?>[] packets = new Packet[2];
-                    this.getPlayersWatchingChunk(holder.getPos(), false).forEach(player -> {
-                        this.sendChunkDataPackets(player, packets, chunk);
-                    });
+                    this.tracker.onChunkFull(entry, chunk);
 
                     future.complete(Either.left(chunk));
 
@@ -358,12 +367,130 @@ public abstract class MixinThreadedAnvilChunkStorage implements ChunkController 
         return Iterables.unmodifiableIterable(this.map.visible().getEntries());
     }
 
+    @Redirect(
+            method = "setViewDistance",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lit/unimi/dsi/fastutil/longs/Long2ObjectLinkedOpenHashMap;values()Lit/unimi/dsi/fastutil/objects/ObjectCollection;",
+                    remap = false
+            )
+    )
+    private ObjectCollection<ChunkHolder> setViewDistance(Long2ObjectLinkedOpenHashMap<ChunkHolder> chunks) {
+        if (this.tracker != null) {
+            this.tracker.setViewDistance(this.watchDistance);
+        }
+        return ObjectLists.emptyList();
+    }
+
+    /**
+     * @reason delegate to ChunkTracker
+     * @author gegy1000
+     */
+    @Overwrite
+    public void loadEntity(Entity entity) {
+        if (entity instanceof EnderDragonPart) {
+            return;
+        }
+        this.tracker.addEntity(entity);
+    }
+
+    /**
+     * @reason delegate to ChunkTracker
+     * @author gegy1000
+     */
+    @Overwrite
+    public void unloadEntity(Entity entity) {
+        this.tracker.removeEntity(entity);
+    }
+
+    /**
+     * @reason delegate to ChunkTracker
+     * @author gegy1000
+     */
+    @Overwrite
+    public void sendToOtherNearbyPlayers(Entity entity, Packet<?> packet) {
+        this.tracker.sendToTracking(entity, packet);
+    }
+
+    /**
+     * @reason delegate to ChunkTracker
+     * @author gegy1000
+     */
+    @Overwrite
+    public void sendToNearbyPlayers(Entity entity, Packet<?> packet) {
+        this.tracker.sendToTrackingAndSelf(entity, packet);
+    }
+
+    /**
+     * @reason use cached list of tracking players on the chunk entry
+     * @author gegy1000
+     */
+    @Overwrite
+    public boolean isTooFarFromPlayersToSpawnMobs(ChunkPos chunkPos) {
+        long pos = chunkPos.toLong();
+        if (!this.ticketManager.method_20800(pos)) {
+            return true;
+        }
+
+        ChunkEntry entry = this.map.visible().getEntry(pos);
+        if (entry != null) {
+            for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
+                if (!player.isSpectator() && getSquaredDistance(chunkPos, player) < 128 * 128) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * @reason use cached list of tracking players on the chunk entry
+     * @author gegy1000
+     */
+    @Redirect(
+            method = "getPlayersWatchingChunk",
+            at = @At(
+                    value = "INVOKE",
+                    target = "Lnet/minecraft/server/world/PlayerChunkWatchingManager;getPlayersWatchingChunk(J)Ljava/util/stream/Stream;"
+            )
+    )
+    private Stream<ServerPlayerEntity> getPlayersWatchingChunk(PlayerChunkWatchingManager watchManager, long pos) {
+        return this.getPlayersWatchingChunk(pos);
+    }
+
+    private Stream<ServerPlayerEntity> getPlayersWatchingChunk(long pos) {
+        ChunkEntry entry = this.map.visible().getEntry(pos);
+        if (entry != null) {
+            return entry.getTrackingPlayers().stream();
+        }
+        return Stream.empty();
+    }
+
+    /**
+     * @reason delegate to ChunkTracker
+     * @author gegy1000
+     */
+    @Inject(method = "tickPlayerMovement", at = @At("HEAD"), cancellable = true)
+    private void tickPlayerMovement(CallbackInfo ci) {
+        this.tracker.tick();
+        ci.cancel();
+    }
+
+    /**
+     * @reason we already detect player movement across chunks through normal entity tracker handling
+     * @author gegy1000
+     */
+    @Inject(method = "updateCameraPosition", at = @At("HEAD"), cancellable = true)
+    private void updateCameraPosition(ServerPlayerEntity player, CallbackInfo ci) {
+        ci.cancel();
+    }
+
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
 
     @Shadow
-    protected abstract void sendChunkDataPackets(ServerPlayerEntity player, Packet<?>[] packets, WorldChunk chunk);
-
-    @Shadow
-    public abstract Stream<ServerPlayerEntity> getPlayersWatchingChunk(ChunkPos chunkPos, boolean onlyOnWatchDistanceEdge);
+    private static double getSquaredDistance(ChunkPos pos, Entity entity) {
+        throw new UnsupportedOperationException();
+    }
 }
