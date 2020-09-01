@@ -44,7 +44,7 @@ public class LinkedWaiter {
         return (LinkedWaiter) UNSAFE.getAndSetObject(this, NEXT_OFFSET, this.closed());
     }
 
-    final void wake() {
+    void wake() {
         LinkedWaiter waiter = this;
 
         while (waiter != null) {

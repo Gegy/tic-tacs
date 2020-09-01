@@ -4,7 +4,7 @@ import net.gegy1000.justnow.Waker;
 import net.gegy1000.tictacs.util.UnsafeAccess;
 import sun.misc.Unsafe;
 
-public final class WaiterQueue {
+public final class WaiterQueue extends LinkedWaiter {
     // use unsafe for atomic operations without allocating an AtomicReference
     private static final Unsafe UNSAFE = UnsafeAccess.get();
 
@@ -18,11 +18,10 @@ public final class WaiterQueue {
         }
     }
 
-    private final LinkedWaiter head = new LinkedWaiter();
-    private volatile LinkedWaiter tail = this.head;
+    private volatile LinkedWaiter tail = this;
 
     public WaiterQueue() {
-        this.head.tryOpenLink();
+        this.tryOpenLink();
     }
 
     public void registerWaiter(LinkedWaiter waiter, Waker waker) {
@@ -49,18 +48,19 @@ public final class WaiterQueue {
         }
     }
 
+    @Override
     public void wake() {
         // unlink the waiter chain from the head
-        LinkedWaiter waiter = this.head.unlinkAndClose();
+        LinkedWaiter waiter = this.unlinkAndClose();
 
         // if the head is closed, we must be in the progress of being woken up. let's not interfere
-        if (this.head.isClosed(waiter)) {
+        if (this.isClosed(waiter)) {
             return;
         }
 
         // update the tail reference before opening the link again
-        this.tail = this.head;
-        this.head.tryOpenLink();
+        this.tail = this;
+        this.tryOpenLink();
 
         if (waiter != null) {
             waiter.wake();
