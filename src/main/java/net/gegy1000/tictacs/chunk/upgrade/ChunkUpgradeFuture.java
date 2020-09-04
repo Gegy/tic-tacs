@@ -215,7 +215,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             }
 
             // we have everything we need: we don't need to listen for flushes anymore
-            flushListener.invalidate();
+            flushListener.invalidateWaker();
 
             return minimumStep;
         }

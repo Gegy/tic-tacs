@@ -8,6 +8,8 @@ import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.async.LinkedWaiter;
+import net.gegy1000.tictacs.async.WaiterQueue;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ServerWorld;
@@ -16,7 +18,6 @@ import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -32,10 +33,12 @@ public final class ChunkMap {
     private final AtomicInteger writeState = new AtomicInteger();
     private final Lock writeLock = new ReentrantLock();
 
+    private final AtomicInteger flushCount = new AtomicInteger();
+
     private final ChunkAccess primary = new Primary();
     private final ChunkAccess visible = new Visible();
 
-    private final AtomicReference<FlushListener> flushListener = new AtomicReference<>();
+    private final WaiterQueue flushWaiters = new WaiterQueue();
 
     public ChunkMap(ServerWorld world, ChunkController controller) {
         this.world = world;
@@ -76,16 +79,7 @@ public final class ChunkMap {
     }
 
     public FlushListener awaitFlush() {
-        FlushListener listener = new FlushListener();
-
-        while (true) {
-            FlushListener root = this.flushListener.get();
-            listener.previous = root;
-
-            if (this.flushListener.compareAndSet(root, listener)) {
-                return listener;
-            }
-        }
+        return new FlushListener(this.flushCount.get());
     }
 
     public ChunkAccess primary() {
@@ -127,10 +121,8 @@ public final class ChunkMap {
     }
 
     private void notifyFlush() {
-        FlushListener listener = this.flushListener.getAndSet(null);
-        if (listener != null) {
-            listener.notifyFlush();
-        }
+        this.flushCount.getAndIncrement();
+        this.flushWaiters.wake();
     }
 
     public int getEntryCount() {
@@ -235,38 +227,32 @@ public final class ChunkMap {
         }
     }
 
-    public static class FlushListener implements Future<Unit> {
-        volatile Waker waker;
-        volatile FlushListener previous;
+    public class FlushListener extends LinkedWaiter implements Future<Unit> {
+        private final int flushCount;
 
-        volatile boolean flushed;
+        FlushListener(int flushCount) {
+            this.flushCount = flushCount;
+        }
 
         @Nullable
         @Override
         public Unit poll(Waker waker) {
-            this.waker = waker;
-            return this.flushed ? Unit.INSTANCE : null;
-        }
-
-        public void invalidate() {
-            this.waker = null;
-        }
-
-        void notifyFlush() {
-            this.flushed = true;
-
-            FlushListener previous = this.previous;
-            if (previous != null) {
-                previous.notifyFlush();
+            if (this.isReady()) {
+                return Unit.INSTANCE;
             }
 
-            Waker waker = this.waker;
-            if (waker != null) {
-                waker.wake();
+            ChunkMap.this.flushWaiters.registerWaiter(this, waker);
+
+            if (this.isReady()) {
+                this.invalidateWaker();
+                return Unit.INSTANCE;
             }
 
-            this.previous = null;
-            this.waker = null;
+            return null;
+        }
+
+        private boolean isReady() {
+            return ChunkMap.this.flushCount.get() > this.flushCount;
         }
     }
 }

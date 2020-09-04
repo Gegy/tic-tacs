@@ -172,7 +172,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
             }
         }
 
-        flushListener.invalidate();
+        flushListener.invalidateWaker();
 
         return new AwaitAll<>(futures);
     }
@@ -301,7 +301,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
             if (chunk != null) {
                 future.complete(Either.left(chunk));
             } else {
-                future.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
+                future.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
             }
             return Unit.INSTANCE;
         }));
@@ -321,17 +321,16 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         this.spawnOnMainThread(entry, this.getRadiusAs(entry.getPos(), 1, ChunkStep.FULL)
                 .map(u -> {
                     WorldChunk chunk = entry.getWorldChunk();
-                    if (chunk == null) {
-                        future.complete(Either.right(ChunkHolder.Unloaded.INSTANCE));
-                        return Unit.INSTANCE;
+                    if (chunk != null) {
+                        chunk.runPostProcessing();
+
+                        this.totalChunksLoadedCount.getAndIncrement();
+                        this.tracker.onChunkFull(entry, chunk);
+
+                        future.complete(Either.left(chunk));
+                    } else {
+                        future.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
                     }
-
-                    chunk.runPostProcessing();
-                    this.totalChunksLoadedCount.getAndIncrement();
-
-                    this.tracker.onChunkFull(entry, chunk);
-
-                    future.complete(Either.left(chunk));
 
                     return Unit.INSTANCE;
                 })

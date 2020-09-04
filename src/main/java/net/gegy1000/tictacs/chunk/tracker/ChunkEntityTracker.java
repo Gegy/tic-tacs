@@ -112,14 +112,6 @@ public final class ChunkEntityTracker {
         }
     }
 
-    void updateTracker(ServerPlayerEntity player) {
-        if (this.canBeTrackedBy(player)) {
-            this.startTracking(player);
-        } else {
-            this.stopTracking(player);
-        }
-    }
-
     private void startTracking(ServerPlayerEntity player) {
         if (this.trackingPlayers == null) {
             this.trackingPlayers = new ObjectOpenHashSet<>();
