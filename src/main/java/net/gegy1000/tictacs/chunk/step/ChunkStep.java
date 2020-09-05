@@ -191,6 +191,10 @@ public final class ChunkStep {
         return this.releaseTask;
     }
 
+    public ChunkStatus[] getStatuses() {
+        return this.statuses;
+    }
+
     public ChunkStatus getMaximumStatus() {
         return this.statuses[this.statuses.length - 1];
     }
@@ -200,19 +204,19 @@ public final class ChunkStep {
     }
 
     public boolean greaterOrEqual(ChunkStep step) {
-        return this.index >= step.index;
+        return step == null || this.index >= step.index;
     }
 
     public boolean lessOrEqual(ChunkStep step) {
-        return this.index <= step.index;
+        return step != null && this.index <= step.index;
     }
 
     public boolean greaterThan(ChunkStep step) {
-        return this.index > step.index;
+        return step == null || this.index > step.index;
     }
 
     public boolean lessThan(ChunkStep step) {
-        return this.index < step.index;
+        return step != null && this.index < step.index;
     }
 
     @Override

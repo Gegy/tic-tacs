@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.client;
 
+import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
@@ -9,6 +10,7 @@ import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.util.Rect2i;
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicket;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
@@ -17,8 +19,10 @@ import net.minecraft.util.collection.SortedArraySet;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.chunk.WorldChunk;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 
 public final class LevelMapRenderer {
     private static final Object2IntMap<ChunkStep> STATUS_TO_COLOR = Util.make(new Object2IntOpenHashMap<>(), map -> {
@@ -30,6 +34,9 @@ public final class LevelMapRenderer {
         map.put(ChunkStep.LIGHTING, 0xFFA0A0A0);
         map.put(ChunkStep.FULL, 0xFFFFFFFF);
     });
+
+    private static final int TICKABLE = 0xFF0000FF;
+    private static final int ENTITY_TICKABLE = 0xFF00FFFF;
 
     private static final int MAX_LEVEL = ChunkLevelTracker.MAX_LEVEL + 1;
 
@@ -77,12 +84,8 @@ public final class LevelMapRenderer {
                 ChunkEntry entry = map.getEntry(pos);
 
                 int color = 0;
-
                 if (entry != null && ChunkLevelTracker.isLoaded(entry.getLevel())) {
-                    ChunkStep currentStep = entry.getCurrentStep();
-                    if (currentStep != null) {
-                        color = STATUS_TO_COLOR.getInt(currentStep);
-                    }
+                    color = getColorForChunk(entry);
                 }
 
                 image.setPixelColor(x, y, color);
@@ -90,6 +93,25 @@ public final class LevelMapRenderer {
         }
 
         return image;
+    }
+
+    private static int getColorForChunk(ChunkEntry entry) {
+        ChunkStep currentStep = entry.getCurrentStep();
+        if (currentStep != null) {
+            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> entityTicking = entry.getEntityTickingFuture();
+            if (entityTicking.isDone() && entityTicking.join().left().isPresent()) {
+                return ENTITY_TICKABLE;
+            }
+
+            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> tickingFuture = entry.getTickingFuture();
+            if (tickingFuture.isDone() && tickingFuture.join().left().isPresent()) {
+                return TICKABLE;
+            }
+
+            return STATUS_TO_COLOR.getInt(currentStep);
+        }
+
+        return 0;
     }
 
     private static NativeImage renderLeveled(ChunkController controller, ChunkAccess map, Rect2i bounds) {

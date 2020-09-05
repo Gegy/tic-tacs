@@ -16,6 +16,7 @@ import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.future.AwaitAll;
+import net.gegy1000.tictacs.chunk.future.ChunkNotLoadedFuture;
 import net.gegy1000.tictacs.chunk.future.LazyRunnableFuture;
 import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -167,9 +168,11 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
                     return flushListener.andThen(unit -> this.getRadiusAs(pos, radius, step));
                 }
 
-                this.upgrader.spawnUpgradeTo(entry, step);
-                if (entry.isUpgradingTo(step)) {
+                if (entry.isValidAs(step)) {
+                    this.upgrader.spawnUpgradeTo(entry, step);
                     futures[idx] = entry.getListenerFor(step);
+                } else {
+                    return ChunkNotLoadedFuture.get();
                 }
             }
         }

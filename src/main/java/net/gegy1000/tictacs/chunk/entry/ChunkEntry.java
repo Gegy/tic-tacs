@@ -2,9 +2,9 @@ package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
+import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -20,13 +20,14 @@ import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicReferenceArray;
 
 public final class ChunkEntry extends ChunkHolder {
     public static final int FULL_LEVEL = 33;
 
     public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
 
-    final ChunkListener[] listeners = new ChunkListener[ChunkStep.STEPS.size()];
+    final AtomicReferenceArray<ChunkListener> listeners = new AtomicReferenceArray<>(ChunkStep.STEPS.size());
 
     private final ChunkEntryState state = new ChunkEntryState(this);
     private final ChunkAccessLock lock = new ChunkAccessLock();
@@ -43,16 +44,6 @@ public final class ChunkEntry extends ChunkHolder {
             PlayersWatchingChunkProvider watchers
     ) {
         super(pos, level, lighting, levelUpdateListener, watchers);
-
-        for (int i = 0; i < this.listeners.length; i++) {
-            ChunkListener listener = new ChunkListener();
-            this.listeners[i] = listener;
-        }
-
-        for (ChunkStatus status : ChunkStatus.createOrderedList()) {
-            ChunkListener listener = this.listeners[ChunkStep.byStatus(status).getIndex()];
-            this.futuresByStatus.set(status.getIndex(), listener.asVanilla());
-        }
     }
 
     public void addEntity(ChunkEntityTracker tracker) {
@@ -110,7 +101,21 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public ChunkListener getListenerFor(ChunkStep step) {
-        return this.listeners[step.getIndex()];
+        while (true) {
+            ChunkListener listener = this.listeners.get(step.getIndex());
+            if (listener != null) {
+                return listener;
+            }
+
+            ChunkListener newListener = new ChunkListener(this, step);
+            if (this.listeners.compareAndSet(step.getIndex(), null, newListener)) {
+                for (ChunkStatus status : step.getStatuses()) {
+                    this.futuresByStatus.set(status.getIndex(), newListener.asVanilla());
+                }
+
+                return newListener;
+            }
+        }
     }
 
     @Nullable
@@ -119,7 +124,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean trySpawnUpgradeTo(ChunkStep toStep) {
-        if (!this.canUpgradeTo(toStep)) {
+        if (!this.isValidAs(toStep)) {
             return false;
         }
 
@@ -137,7 +142,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean canUpgradeTo(ChunkStep toStep) {
-        if (this.isUnloaded() || !this.getTargetStep().greaterOrEqual(toStep)) {
+        if (!this.isValidAs(toStep)) {
             return false;
         }
 
@@ -145,13 +150,8 @@ public final class ChunkEntry extends ChunkHolder {
         return currentStep == null || !currentStep.greaterOrEqual(toStep);
     }
 
-    public boolean isUpgradingTo(ChunkStep toStep) {
-        ChunkStep spawnedStep = this.spawnedStep.get();
-        return spawnedStep != null && toStep.greaterOrEqual(spawnedStep);
-    }
-
-    public boolean isUnloaded() {
-        return ChunkLevelTracker.isUnloaded(this.level);
+    public boolean isValidAs(ChunkStep toStep) {
+        return this.getTargetStep().greaterOrEqual(toStep);
     }
 
     public ChunkStep getTargetStep() {
@@ -190,7 +190,10 @@ public final class ChunkEntry extends ChunkHolder {
         }
 
         for (int i = startIdx; i <= endIdx; i++) {
-            this.listeners[i].completeErr();
+            ChunkListener listener = this.listeners.getAndSet(i, null);
+            if (listener != null) {
+                listener.completeErr();
+            }
         }
     }
 
@@ -211,14 +214,14 @@ public final class ChunkEntry extends ChunkHolder {
     @Deprecated
     public CompletableFuture<Either<Chunk, Unloaded>> getFutureFor(ChunkStatus status) {
         ChunkStep step = ChunkStep.byStatus(status);
-        return this.getListenerFor(step).vanilla;
+        return this.getListenerFor(step).asVanilla();
     }
 
     @Override
     @Deprecated
     public CompletableFuture<Either<Chunk, Unloaded>> getValidFutureFor(ChunkStatus status) {
         ChunkStep step = ChunkStep.byStatus(status);
-        return this.getTargetStep().greaterOrEqual(step) ? this.getFutureFor(status) : ChunkHolder.UNLOADED_CHUNK_FUTURE;
+        return this.isValidAs(step) ? this.getFutureFor(status) : ChunkHolder.UNLOADED_CHUNK_FUTURE;
     }
 
     @Override

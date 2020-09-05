@@ -48,6 +48,20 @@ public final class ChunkEntryState {
         return this.step;
     }
 
+    @Nullable
+    public Chunk getChunkForStep(ChunkStep step) {
+        ChunkStep currentStep = this.step;
+        if (currentStep != null && currentStep.greaterOrEqual(step)) {
+            if (step == ChunkStep.FULL) {
+                return this.worldChunk;
+            } else {
+                return this.chunk;
+            }
+        }
+
+        return null;
+    }
+
     public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
         this.includeStep(step);
 
@@ -55,24 +69,17 @@ public final class ChunkEntryState {
             this.chunk = (ProtoChunk) chunk;
         }
 
-        for (int i = step.getIndex(); i >= 0; i--) {
-            ChunkListener listener = this.parent.listeners[i];
-            if (!(listener.ok instanceof ReadOnlyChunk)) {
-                listener.completeOk(chunk);
-            }
-        }
+        this.parent.getListenerFor(step).completeOk();
     }
 
     public void completeUpgradeErr(ChunkStep step) {
         this.includeStep(step);
 
-        for (int i = step.getIndex(); i >= 0; i--) {
-            this.parent.listeners[step.getIndex()].completeErr();
-        }
+        this.parent.getListenerFor(step).completeErr();
     }
 
-    private void includeStep(ChunkStep step) {
-        if (this.step == null || step.greaterOrEqual(this.step)) {
+    void includeStep(ChunkStep step) {
+        if (step.greaterOrEqual(this.step)) {
             this.step = step;
         }
     }
@@ -107,15 +114,7 @@ public final class ChunkEntryState {
 
     private WorldChunk upgradeToWorldChunk(ServerWorld world, ProtoChunk protoChunk) {
         WorldChunk worldChunk = new WorldChunk(world, protoChunk);
-
-        ReadOnlyChunk readOnlyChunk = new ReadOnlyChunk(worldChunk);
-        this.chunk = readOnlyChunk;
-
-        for (ChunkStep step : ChunkStep.STEPS) {
-            if (step != ChunkStep.FULL) {
-                this.parent.getListenerFor(step).completeOk(readOnlyChunk);
-            }
-        }
+        this.chunk = new ReadOnlyChunk(worldChunk);
 
         return worldChunk;
     }
