@@ -27,6 +27,7 @@ public final class LevelMapRenderer {
         map.put(ChunkStep.STRUCTURE_STARTS, 0xFF999999);
         map.put(ChunkStep.SURFACE, 0xFF723530);
         map.put(ChunkStep.FEATURES, 0xFF00C621);
+        map.put(ChunkStep.LIGHTING, 0xFFA0A0A0);
         map.put(ChunkStep.FULL, 0xFFFFFFFF);
     });
 
@@ -75,7 +76,7 @@ public final class LevelMapRenderer {
                 long pos = ChunkPos.toLong(x + minX, y + minY);
                 ChunkEntry entry = map.getEntry(pos);
 
-                int color = 0xFF000000;
+                int color = 0;
 
                 if (entry != null && ChunkLevelTracker.isLoaded(entry.getLevel())) {
                     ChunkStep currentStep = entry.getCurrentStep();

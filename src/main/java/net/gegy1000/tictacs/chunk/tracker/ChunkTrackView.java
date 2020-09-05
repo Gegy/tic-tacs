@@ -39,10 +39,10 @@ final class ChunkTrackView {
             return;
         }
 
-        boolean tl = this.contains(other.minX, other.minZ);
-        boolean tr = this.contains(other.maxX, other.minZ);
-        boolean bl = this.contains(other.minX, other.maxZ);
-        boolean br = this.contains(other.maxX, other.maxZ);
+        boolean tl = !other.contains(this.minX, this.minZ);
+        boolean tr = !other.contains(this.maxX, this.minZ);
+        boolean bl = !other.contains(this.minX, this.maxZ);
+        boolean br = !other.contains(this.maxX, this.maxZ);
 
         // corners
         if (tl) forEach(this.minX, this.minZ, other.minX - 1, other.minZ - 1, consumer);
@@ -84,12 +84,12 @@ final class ChunkTrackView {
         }
     }
 
-    private boolean contains(int x, int z) {
+    public boolean contains(int x, int z) {
         return x >= this.minX && z >= this.minZ && x <= this.maxX && z <= this.maxZ;
     }
 
     public boolean intersects(ChunkTrackView view) {
-        return this.minX < view.maxX && this.maxX > view.minX && this.minZ < view.maxZ && this.maxZ > view.minZ;
+        return this.minX <= view.maxX && this.maxX >= view.minX && this.minZ <= view.maxZ && this.maxZ >= view.minZ;
     }
 
     private static void forEach(int minX, int minZ, int maxX, int maxZ, LongConsumer consumer) {
