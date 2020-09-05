@@ -16,11 +16,18 @@ public final class ChunkListener extends SharedListener<Chunk> {
 
     volatile boolean err;
 
-    final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla = new CompletableFuture<>();
+    final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla;
 
     ChunkListener(ChunkEntry entry, ChunkStep step) {
         this.entry = entry.getState();
         this.step = step;
+
+        Chunk chunk = this.getChunkForStep();
+        if (chunk != null) {
+            this.vanilla = CompletableFuture.completedFuture(Either.left(chunk));
+        } else {
+            this.vanilla = new CompletableFuture<>();
+        }
     }
 
     @Nullable
