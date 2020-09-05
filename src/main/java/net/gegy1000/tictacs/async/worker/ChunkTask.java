@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.async.worker;
 
 import net.gegy1000.justnow.future.Future;
+import net.gegy1000.tictacs.TicTacs;
 import net.minecraft.server.world.ChunkHolder;
 
 public final class ChunkTask<T> {
@@ -35,6 +36,8 @@ public final class ChunkTask<T> {
             }
         } catch (RuntimeException e) {
             this.complete = true;
+
+            TicTacs.LOGGER.error("Worker thread exited with unhandled exception", e);
             throw new Error(e);
         }
     }

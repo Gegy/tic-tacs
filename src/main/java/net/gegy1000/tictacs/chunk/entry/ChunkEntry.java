@@ -145,6 +145,11 @@ public final class ChunkEntry extends ChunkHolder {
         return currentStep == null || !currentStep.greaterOrEqual(toStep);
     }
 
+    public boolean isUpgradingTo(ChunkStep toStep) {
+        ChunkStep spawnedStep = this.spawnedStep.get();
+        return spawnedStep != null && toStep.greaterOrEqual(spawnedStep);
+    }
+
     public boolean isUnloaded() {
         return ChunkLevelTracker.isUnloaded(this.level);
     }

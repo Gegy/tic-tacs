@@ -168,7 +168,9 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
                 }
 
                 this.upgrader.spawnUpgradeTo(entry, step);
-                futures[idx] = entry.getListenerFor(step);
+                if (entry.isUpgradingTo(step)) {
+                    futures[idx] = entry.getListenerFor(step);
+                }
             }
         }
 
@@ -296,10 +298,9 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
         ChunkEntry entry = this.map.primary().getEntry(pos);
 
-        this.spawnOnMainThread(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).map(u -> {
-            WorldChunk chunk = entry.getWorldChunk();
-            if (chunk != null) {
-                future.complete(Either.left(chunk));
+        this.spawnOnMainThread(entry, this.getRadiusAs(pos, 2, ChunkStep.FULL).handle((ok, err) -> {
+            if (err == null && entry.getWorldChunk() != null) {
+                future.complete(Either.left(entry.getWorldChunk()));
             } else {
                 future.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
             }
@@ -319,7 +320,12 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         ChunkEntry entry = (ChunkEntry) holder;
 
         this.spawnOnMainThread(entry, this.getRadiusAs(entry.getPos(), 1, ChunkStep.FULL)
-                .map(u -> {
+                .handle((ok, err) -> {
+                    if (err != null) {
+                        future.complete(ChunkHolder.UNLOADED_WORLD_CHUNK);
+                        return Unit.INSTANCE;
+                    }
+
                     WorldChunk chunk = entry.getWorldChunk();
                     if (chunk != null) {
                         chunk.runPostProcessing();
