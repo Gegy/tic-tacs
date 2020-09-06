@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin.serialization;
+package net.gegy1000.tictacs.mixin.io;
 
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.world.ServerWorld;

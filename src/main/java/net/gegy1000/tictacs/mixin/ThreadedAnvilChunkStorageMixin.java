@@ -6,8 +6,10 @@ import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.Long2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
+import net.fabricmc.fabric.api.util.NbtType;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.AsyncChunkIo;
 import net.gegy1000.tictacs.VoidActor;
 import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
@@ -24,6 +26,7 @@ import net.gegy1000.tictacs.chunk.tracker.ChunkTracker;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.boss.dragon.EnderDragonPart;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.Packet;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -35,16 +38,23 @@ import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.structure.StructureManager;
+import net.minecraft.util.crash.CrashException;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.thread.TaskExecutor;
 import net.minecraft.util.thread.ThreadExecutor;
+import net.minecraft.world.ChunkSerializer;
 import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkProvider;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.ProtoChunk;
+import net.minecraft.world.chunk.UpgradeData;
 import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.level.storage.LevelStorage;
+import net.minecraft.world.poi.PointOfInterestStorage;
+import net.minecraft.world.storage.VersionedChunkStorage;
+import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -56,7 +66,10 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
+import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
@@ -64,7 +77,23 @@ import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
-public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController {
+public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStorage implements ChunkController, AsyncChunkIo {
+    @Shadow
+    @Final
+    private static Logger LOGGER;
+
+    @Shadow
+    @Final
+    private PointOfInterestStorage pointOfInterestStorage;
+    @Shadow
+    @Final
+    private StructureManager structureManager;
+    @Shadow
+    @Final
+    private Supplier<PersistentStateManager> persistentStateManagerFactory;
+    @Shadow
+    @Final
+    private ServerWorld world;
     @Shadow
     @Final
     private ThreadExecutor<Runnable> mainThreadExecutor;
@@ -95,6 +124,10 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
     @Unique
     private ChunkMainThreadExecutor chunkMainExecutor;
+
+    private ThreadedAnvilChunkStorageMixin(File file, DataFixer fixer, boolean dsync) {
+        super(file, fixer, dsync);
+    }
 
     @Inject(method = "<init>", at = @At("RETURN"))
     private void init(
@@ -436,15 +469,12 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     @Overwrite
     public boolean isTooFarFromPlayersToSpawnMobs(ChunkPos chunkPos) {
         long pos = chunkPos.toLong();
-        if (!this.ticketManager.method_20800(pos)) {
-            return true;
-        }
 
         ChunkEntry entry = this.map.visible().getEntry(pos);
         if (entry != null) {
             for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
                 if (!player.isSpectator() && getSquaredDistance(chunkPos, player) < 128 * 128) {
-                    return false;
+                    return !this.ticketManager.method_20800(pos);
                 }
             }
         }
@@ -494,8 +524,80 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         ci.cancel();
     }
 
+    /**
+     * @reason avoid blocking the main thread to load chunk nbt from disk
+     * @author gegy1000
+     */
+    @Overwrite
+    public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos) {
+        return this.getUpdatedChunkTagAsync(pos)
+                .handleAsync((tag, throwable) -> {
+                    if (throwable != null) {
+                        if (throwable instanceof CompletionException) {
+                            throwable = throwable.getCause();
+                        }
+                        LOGGER.error("Couldn't load chunk {}", pos, throwable);
+                    }
+
+                    return this.loadChunkFromTag(pos, tag);
+                }, this.mainThreadExecutor);
+    }
+
+    private Either<Chunk, ChunkHolder.Unloaded> loadChunkFromTag(ChunkPos pos, CompoundTag tag) {
+        try {
+            this.world.getProfiler().visit("chunkLoad");
+            if (tag != null) {
+                Chunk chunk = this.deserializeChunk(pos, tag);
+                if (chunk != null) {
+                    return Either.left(chunk);
+                } else {
+                    LOGGER.error("Chunk file at {} is missing level data, skipping", pos);
+                }
+            }
+        } catch (CrashException crash) {
+            Throwable cause = crash.getCause();
+            if (!(cause instanceof IOException)) {
+                this.method_27054(pos);
+                throw crash;
+            }
+
+            LOGGER.error("Couldn't load chunk {}", pos, crash);
+        } catch (Exception e) {
+            LOGGER.error("Couldn't load chunk {}", pos, e);
+        }
+
+        this.method_27054(pos);
+        return Either.left(new ProtoChunk(pos, UpgradeData.NO_UPGRADE_DATA));
+    }
+
+    @Nullable
+    private Chunk deserializeChunk(ChunkPos pos, CompoundTag tag) {
+        if (!tag.contains("Level", NbtType.COMPOUND) || !tag.getCompound("Level").contains("Status", NbtType.STRING)) {
+            return null;
+        }
+
+        Chunk chunk = ChunkSerializer.deserialize(this.world, this.structureManager, this.pointOfInterestStorage, pos, tag);
+        chunk.setLastSaveTime(this.world.getTime());
+        this.method_27053(pos, chunk.getStatus().getChunkType());
+
+        return chunk;
+    }
+
+    private CompletableFuture<CompoundTag> getUpdatedChunkTagAsync(ChunkPos pos) {
+        return this.getNbtAsync(pos).thenApplyAsync(tag -> {
+            if (tag == null) {
+                return null;
+            }
+
+            return this.updateChunkTag(this.world.getRegistryKey(), this.persistentStateManagerFactory, tag);
+        }, this.mainThreadExecutor);
+    }
+
     @Shadow
-    protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
+    protected abstract void method_27054(ChunkPos chunkPos);
+
+    @Shadow
+    protected abstract byte method_27053(ChunkPos chunkPos, ChunkStatus.ChunkType chunkType);
 
     @Shadow
     private static double getSquaredDistance(ChunkPos pos, Entity entity) {

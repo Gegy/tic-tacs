@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin.serialization;
+package net.gegy1000.tictacs.mixin.io;
 
 import net.minecraft.world.chunk.Palette;
 import net.minecraft.world.chunk.PalettedContainer;
