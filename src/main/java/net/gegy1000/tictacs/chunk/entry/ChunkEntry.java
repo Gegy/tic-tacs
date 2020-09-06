@@ -195,6 +195,21 @@ public final class ChunkEntry extends ChunkHolder {
                 listener.completeErr();
             }
         }
+
+        this.downgradeSpawnedStep(targetStep);
+    }
+
+    private void downgradeSpawnedStep(ChunkStep targetStep) {
+        while (true) {
+            ChunkStep spawnedStep = this.spawnedStep.get();
+            if (!targetStep.lessThan(spawnedStep)) {
+                break;
+            }
+
+            if (this.spawnedStep.compareAndSet(spawnedStep, targetStep)) {
+                break;
+            }
+        }
     }
 
     @Nullable
