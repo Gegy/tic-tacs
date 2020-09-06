@@ -290,4 +290,22 @@ public final class ChunkEntry extends ChunkHolder {
     void combineSavingFuture(Chunk chunk) {
         this.combineSavingFuture(CompletableFuture.completedFuture(Either.left(chunk)));
     }
+
+    public boolean isTicking() {
+        Either<WorldChunk, Unloaded> ticking = this.getTickingFuture().getNow(null);
+        if (ticking == null) {
+            return false;
+        }
+
+        return !ticking.right().isPresent();
+    }
+
+    public boolean isTickingEntities() {
+        Either<WorldChunk, Unloaded> entityTicking = this.getEntityTickingFuture().getNow(null);
+        if (entityTicking == null) {
+            return false;
+        }
+
+        return !entityTicking.right().isPresent();
+    }
 }

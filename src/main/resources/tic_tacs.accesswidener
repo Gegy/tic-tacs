@@ -3,6 +3,9 @@ accessWidener v1 named
 accessible class net/minecraft/server/world/ThreadedAnvilChunkStorage$TicketManager
 accessible class net/minecraft/server/world/ServerChunkManager$MainThreadExecutor
 
+accessible method net/minecraft/server/world/ThreadedAnvilChunkStorage tickPlayerMovement ()V
+accessible method net/minecraft/server/world/ThreadedAnvilChunkStorage isTooFarFromPlayersToSpawnMobs (Lnet/minecraft/util/math/ChunkPos;)Z
+
 accessible field net/minecraft/server/world/ChunkHolder level I
 accessible field net/minecraft/server/world/ChunkHolder lastTickLevel I
 accessible field net/minecraft/server/world/ChunkHolder completedLevel I

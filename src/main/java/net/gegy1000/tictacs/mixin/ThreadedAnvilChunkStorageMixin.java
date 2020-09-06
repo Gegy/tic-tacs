@@ -509,10 +509,9 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
      * @reason delegate to ChunkTracker
      * @author gegy1000
      */
-    @Inject(method = "tickPlayerMovement", at = @At("HEAD"), cancellable = true)
-    private void tickPlayerMovement(CallbackInfo ci) {
+    @Overwrite
+    public void tickPlayerMovement() {
         this.tracker.tick();
-        ci.cancel();
     }
 
     /**
