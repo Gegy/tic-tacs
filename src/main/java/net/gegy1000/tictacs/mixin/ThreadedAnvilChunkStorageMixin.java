@@ -10,6 +10,7 @@ import net.fabricmc.fabric.api.util.NbtType;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.AsyncChunkIo;
+import net.gegy1000.tictacs.AsyncRegionStorageIo;
 import net.gegy1000.tictacs.VoidActor;
 import net.gegy1000.tictacs.async.worker.ChunkMainThreadExecutor;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
@@ -586,13 +587,17 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
     }
 
     private CompletableFuture<CompoundTag> getUpdatedChunkTagAsync(ChunkPos pos) {
-        return this.getNbtAsync(pos).thenApplyAsync(tag -> {
+        CompletableFuture<CompoundTag> chunkTag = this.getNbtAsync(pos).thenApplyAsync(tag -> {
             if (tag == null) {
                 return null;
             }
 
             return this.updateChunkTag(this.world.getRegistryKey(), this.persistentStateManagerFactory, tag);
         }, this.mainThreadExecutor);
+
+        CompletableFuture<Void> loadPoi = ((AsyncRegionStorageIo) this.pointOfInterestStorage).loadDataAtAsync(pos, this.mainThreadExecutor);
+
+        return chunkTag.thenCombine(loadPoi, (tag, v) -> tag);
     }
 
     @Shadow
