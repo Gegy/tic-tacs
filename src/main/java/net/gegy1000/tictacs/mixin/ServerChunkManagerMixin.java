@@ -1,26 +1,41 @@
 package net.gegy1000.tictacs.mixin;
 
+import com.mojang.datafixers.DataFixer;
+import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
+import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.minecraft.server.WorldGenerationProgressListener;
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
+import net.minecraft.structure.StructureManager;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.GameRules;
+import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.SpawnHelper;
 import net.minecraft.world.chunk.WorldChunk;
+import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.level.storage.LevelStorage;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 @Mixin(ServerChunkManager.class)
 public abstract class ServerChunkManagerMixin {
@@ -43,7 +58,13 @@ public abstract class ServerChunkManagerMixin {
     @Shadow
     private boolean spawnMonsters;
 
+    private ChunkAccess primaryChunks;
     private final List<ChunkEntry> tickingChunks = new ArrayList<>();
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void init(ServerWorld world, LevelStorage.Session session, DataFixer dataFixer, StructureManager structureManager, Executor workerExecutor, ChunkGenerator chunkGenerator, int viewDistance, boolean bl, WorldGenerationProgressListener worldGenerationProgressListener, Supplier<PersistentStateManager> supplier, CallbackInfo ci) {
+        this.primaryChunks = ((ChunkController) this.threadedAnvilChunkStorage).getMap().primary();
+    }
 
     /**
      * @reason optimize chunk ticking and iteration logic
@@ -80,6 +101,7 @@ public abstract class ServerChunkManagerMixin {
 
     private void tickChunks(long timeSinceSpawn, SpawnHelper.Info spawnInfo) {
         ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
+
         List<ChunkEntry> tickingChunks = this.collectTickingChunks(controller);
         if (tickingChunks.isEmpty()) {
             return;
@@ -152,6 +174,16 @@ public abstract class ServerChunkManagerMixin {
         return tickingChunks;
     }
 
-    @Shadow
-    protected abstract void ifChunkLoaded(long pos, Consumer<WorldChunk> chunkConsumer);
+    @Unique
+    private void ifChunkLoaded(long pos, Consumer<WorldChunk> consumer) {
+        ChunkEntry entry = this.primaryChunks.getEntry(pos);
+        if (entry != null) {
+            Either<WorldChunk, ChunkHolder.Unloaded> accessible = entry.getAccessibleFuture().getNow(null);
+            if (accessible == null) {
+                return;
+            }
+
+            accessible.ifLeft(consumer);
+        }
+    }
 }

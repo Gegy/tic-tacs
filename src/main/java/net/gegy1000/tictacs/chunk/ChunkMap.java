@@ -18,20 +18,16 @@ import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public final class ChunkMap {
     private final ServerWorld world;
     private final ChunkController controller;
 
     private final Long2ObjectMap<ChunkEntry> primaryEntries = new Long2ObjectOpenHashMap<>();
-    private final Long2ObjectMap<ChunkEntry> visibleEntries = new Long2ObjectOpenHashMap<>();
+    private Long2ObjectMap<ChunkEntry> visibleEntries = new Long2ObjectOpenHashMap<>();
+    private Long2ObjectMap<ChunkEntry> swapEntries = new Long2ObjectOpenHashMap<>();
 
     private Long2ObjectMap<ChunkEntry> pendingUpdates = new Long2ObjectOpenHashMap<>();
-
-    private final AtomicInteger writeState = new AtomicInteger();
-    private final Lock writeLock = new ReentrantLock();
 
     private final AtomicInteger flushCount = new AtomicInteger();
 
@@ -92,25 +88,18 @@ public final class ChunkMap {
 
     public boolean flushToVisible() {
         if (!this.pendingUpdates.isEmpty()) {
-            Long2ObjectMap<ChunkEntry> pendingUpdates = this.pendingUpdates;
-            this.pendingUpdates = new Long2ObjectOpenHashMap<>();
+            Long2ObjectMap<ChunkEntry> pendingUpdates = this.takePendingUpdates();
 
-            try {
-                this.lockWrite();
+            // prepare the new entry map before swapping
+            Long2ObjectMap<ChunkEntry> swapEntries = this.swapEntries;
+            this.applyPendingUpdatesTo(pendingUpdates, swapEntries);
 
-                for (Long2ObjectMap.Entry<ChunkEntry> update : Long2ObjectMaps.fastIterable(pendingUpdates)) {
-                    long pos = update.getLongKey();
-                    ChunkEntry entry = update.getValue();
+            // swap the entry maps
+            this.swapEntries = this.visibleEntries;
+            this.visibleEntries = swapEntries;
 
-                    if (entry != null) {
-                        this.visibleEntries.put(pos, entry);
-                    } else {
-                        this.visibleEntries.remove(pos);
-                    }
-                }
-            } finally {
-                this.unlockWrite();
-            }
+            // now we can safely apply the pending updates to the swap map
+            this.applyPendingUpdatesTo(pendingUpdates, this.swapEntries);
 
             this.notifyFlush();
 
@@ -120,6 +109,25 @@ public final class ChunkMap {
         return false;
     }
 
+    private void applyPendingUpdatesTo(Long2ObjectMap<ChunkEntry> pending, Long2ObjectMap<ChunkEntry> entries) {
+        for (Long2ObjectMap.Entry<ChunkEntry> update : Long2ObjectMaps.fastIterable(pending)) {
+            long pos = update.getLongKey();
+            ChunkEntry entry = update.getValue();
+
+            if (entry != null) {
+                entries.put(pos, entry);
+            } else {
+                entries.remove(pos);
+            }
+        }
+    }
+
+    private Long2ObjectMap<ChunkEntry> takePendingUpdates() {
+        Long2ObjectMap<ChunkEntry> pendingUpdates = this.pendingUpdates;
+        this.pendingUpdates = new Long2ObjectOpenHashMap<>();
+        return pendingUpdates;
+    }
+
     private void notifyFlush() {
         this.flushCount.getAndIncrement();
         this.flushWaiters.wake();
@@ -127,38 +135,6 @@ public final class ChunkMap {
 
     public int getEntryCount() {
         return this.primaryEntries.size();
-    }
-
-    void lockWrite() {
-        this.writeLock.lock();
-        this.writeState.getAndIncrement();
-    }
-
-    void unlockWrite() {
-        this.writeLock.unlock();
-        this.writeState.getAndIncrement();
-    }
-
-    static boolean isWriting(int state) {
-        // between lockWrite() and unlockWrite(), the state will always be odd
-        return (state & 1) == 1;
-    }
-
-    int waitForRead() {
-        while (true) {
-            int writeState = this.writeState.get();
-            if (isWriting(writeState)) {
-                // wait for the writer to unlock
-                this.writeLock.lock();
-                this.writeLock.unlock();
-                continue;
-            }
-            return writeState;
-        }
-    }
-
-    boolean isStateValid(int state) {
-        return this.writeState.get() == state;
     }
 
     final class Primary implements ChunkAccess {
@@ -204,26 +180,12 @@ public final class ChunkMap {
         @Nullable
         @Override
         public ChunkEntry getEntry(long pos) {
-            int state;
-            ChunkEntry entry;
-
-            // wait for read to be available and get element, but ensure nothing has changed before we return
-            do {
-                state = ChunkMap.this.waitForRead();
-                entry = ChunkMap.this.visibleEntries.get(pos);
-            } while (!ChunkMap.this.isStateValid(state));
-
-            return entry;
+            return ChunkMap.this.visibleEntries.get(pos);
         }
 
         @Override
         public ObjectCollection<ChunkEntry> getEntries() {
-            try {
-                ChunkMap.this.writeLock.lock();
-                return new ObjectArrayList<>(ChunkMap.this.visibleEntries.values());
-            } finally {
-                ChunkMap.this.writeLock.unlock();
-            }
+            return new ObjectArrayList<>(ChunkMap.this.visibleEntries.values());
         }
     }
 
