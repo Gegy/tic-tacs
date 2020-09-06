@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.chunk.tracker;
 
+import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.network.packet.s2c.play.ChunkDataS2CPacket;
@@ -23,6 +24,15 @@ public final class ChunkPackets {
 
     public static Entities entities() {
         return new Entities();
+    }
+
+    public static Entities entitiesFor(ChunkEntry entry) {
+        Entities entities = new Entities();
+        for (ChunkEntityTracker tracker : entry.getEntities()) {
+            entities.addEntity(tracker.getEntity());
+        }
+
+        return entities;
     }
 
     public static void sendPlayerChunkPos(ServerPlayerEntity player) {

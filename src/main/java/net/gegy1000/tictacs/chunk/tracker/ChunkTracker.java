@@ -116,16 +116,8 @@ public final class ChunkTracker {
                 ChunkPackets.Data dataPackets = ChunkPackets.dataFor(chunk);
                 dataPackets.sendTo(player);
 
-                ChunkPackets.Entities entities = ChunkPackets.entities();
-                for (ChunkEntityTracker tracker : entry.getEntities()) {
-                    entities.addEntity(tracker.getEntity());
-                }
-
+                ChunkPackets.Entities entities = ChunkPackets.entitiesFor(entry);
                 entities.sendTo(player);
-            }
-
-            for (ChunkEntityTracker tracker : entry.getEntities()) {
-                tracker.updateTrackerWatched(player);
             }
         }
     }
@@ -136,10 +128,6 @@ public final class ChunkTracker {
         ChunkEntry entry = chunks.getEntry(pos);
         if (entry != null) {
             entry.removeTrackingPlayer(player);
-
-            for (ChunkEntityTracker tracker : entry.getEntities()) {
-                tracker.updateTrackerUnwatched(player);
-            }
         }
     }
 
@@ -233,8 +221,11 @@ public final class ChunkTracker {
         }
 
         ChunkPackets.Data data = ChunkPackets.dataFor(chunk);
+        ChunkPackets.Entities entities = ChunkPackets.entitiesFor(entry);
+
         for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
             data.sendTo(player);
+            entities.sendTo(player);
         }
     }
 }

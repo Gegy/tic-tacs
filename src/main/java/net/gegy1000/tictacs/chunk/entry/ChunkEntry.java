@@ -54,7 +54,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean removeEntity(ChunkEntityTracker tracker) {
-        if (this.entities.remove(tracker)) {
+        if (this.entities != null && this.entities.remove(tracker)) {
             if (this.entities.isEmpty()) {
                 this.entities = null;
             }
@@ -67,7 +67,13 @@ public final class ChunkEntry extends ChunkHolder {
         if (this.trackingPlayers == null) {
             this.trackingPlayers = new ObjectOpenHashSet<>();
         }
-        return this.trackingPlayers.add(player);
+
+        if (this.trackingPlayers.add(player)) {
+            this.startTrackingEntities(player);
+            return true;
+        }
+
+        return false;
     }
 
     public boolean removeTrackingPlayer(ServerPlayerEntity player) {
@@ -75,9 +81,29 @@ public final class ChunkEntry extends ChunkHolder {
             if (this.trackingPlayers.isEmpty()) {
                 this.trackingPlayers = null;
             }
+
+            this.stopTrackingEntities(player);
+
             return true;
         }
+
         return false;
+    }
+
+    private void startTrackingEntities(ServerPlayerEntity player) {
+        if (this.entities != null) {
+            for (ChunkEntityTracker tracker : this.entities) {
+                tracker.updateTrackerWatched(player);
+            }
+        }
+    }
+
+    private void stopTrackingEntities(ServerPlayerEntity player) {
+        if (this.entities != null) {
+            for (ChunkEntityTracker tracker : this.entities) {
+                tracker.updateTrackerUnwatched(player);
+            }
+        }
     }
 
     public Set<ServerPlayerEntity> getTrackingPlayers() {
