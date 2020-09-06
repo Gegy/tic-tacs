@@ -31,4 +31,6 @@ public interface ChunkController {
     <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future);
 
     void spawnOnMainThread(ChunkEntry entry, Runnable runnable);
+
+    boolean isTooFarFromPlayersToSpawnMobs(ChunkEntry entry);
 }

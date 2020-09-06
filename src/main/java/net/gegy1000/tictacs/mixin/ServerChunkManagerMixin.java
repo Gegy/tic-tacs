@@ -7,7 +7,6 @@ import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
-import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.SpawnHelper;
@@ -98,6 +97,8 @@ public abstract class ServerChunkManagerMixin {
         boolean spawnAnimals = this.world.getTime() % 400 == 0L;
         int tickSpeed = this.world.getGameRules().getInt(GameRules.RANDOM_TICK_SPEED);
 
+        ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
+
         for (ChunkEntry entry : chunks) {
             WorldChunk worldChunk = entry.getWorldChunk();
             if (worldChunk == null) {
@@ -109,14 +110,13 @@ public abstract class ServerChunkManagerMixin {
             profiler.pop();
 
             if (entry.isTickingEntities()) {
-                ChunkPos chunkPos = entry.getPos();
-                if (this.threadedAnvilChunkStorage.isTooFarFromPlayersToSpawnMobs(chunkPos)) {
+                if (controller.isTooFarFromPlayersToSpawnMobs(entry)) {
                     continue;
                 }
 
                 worldChunk.setInhabitedTime(worldChunk.getInhabitedTime() + timeSinceSpawn);
 
-                if (spawnInfo != null && this.world.getWorldBorder().contains(chunkPos)) {
+                if (spawnInfo != null && this.world.getWorldBorder().contains(entry.getPos())) {
                     SpawnHelper.spawn(this.world, worldChunk, spawnInfo, this.spawnAnimals, this.spawnMonsters, spawnAnimals);
                 }
 

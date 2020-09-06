@@ -471,11 +471,14 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
         long pos = chunkPos.toLong();
 
         ChunkEntry entry = this.map.visible().getEntry(pos);
-        if (entry != null) {
-            for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
-                if (!player.isSpectator() && getSquaredDistance(chunkPos, player) < 128 * 128) {
-                    return !this.ticketManager.method_20800(pos);
-                }
+        return entry == null || this.isTooFarFromPlayersToSpawnMobs(entry);
+    }
+
+    @Override
+    public boolean isTooFarFromPlayersToSpawnMobs(ChunkEntry entry) {
+        for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
+            if (!player.isSpectator() && getSquaredDistance(entry.getPos(), player) < 128 * 128) {
+                return !this.ticketManager.method_20800(entry.getPos().toLong());
             }
         }
 
