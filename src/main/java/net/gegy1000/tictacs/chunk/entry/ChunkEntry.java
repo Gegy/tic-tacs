@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
+import net.minecraft.network.Packet;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -289,6 +290,22 @@ public final class ChunkEntry extends ChunkHolder {
 
     void combineSavingFuture(Chunk chunk) {
         this.combineSavingFuture(CompletableFuture.completedFuture(Either.left(chunk)));
+    }
+
+    @Override
+    protected void sendPacketToPlayersWatching(Packet<?> packet, boolean onlyOnWatchDistanceEdge) {
+        if (this.trackingPlayers == null || this.trackingPlayers.isEmpty()) {
+            return;
+        }
+
+        if (!onlyOnWatchDistanceEdge) {
+            for (ServerPlayerEntity player : this.trackingPlayers) {
+                player.networkHandler.sendPacket(packet);
+            }
+        } else {
+            // pass through TACS which filters the edge
+            super.sendPacketToPlayersWatching(packet, true);
+        }
     }
 
     public boolean isTicking() {

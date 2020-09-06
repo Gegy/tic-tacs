@@ -69,6 +69,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
@@ -477,7 +478,12 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
 
     @Override
     public boolean isTooFarFromPlayersToSpawnMobs(ChunkEntry entry) {
-        for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
+        Set<ServerPlayerEntity> players = entry.getTrackingPlayers();
+        if (players.isEmpty()) {
+            return true;
+        }
+
+        for (ServerPlayerEntity player : players) {
             if (!player.isSpectator() && getSquaredDistance(entry.getPos(), player) < 128 * 128) {
                 return !this.ticketManager.method_20800(entry.getPos().toLong());
             }
