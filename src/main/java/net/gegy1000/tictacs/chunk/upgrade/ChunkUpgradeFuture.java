@@ -76,9 +76,16 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
             // poll to acquire read/write access to all the relevant entries
             ChunkAccess chunkAccess = this.controller.getMap().visible();
+
             AcquireChunks.Result chunks = this.acquireEntries.poll(waker, chunkAccess, this.pos, currentStep);
             if (chunks == null) {
                 return null;
+            }
+
+            // if some of the chunk entries have unloaded since we've started, we can't continue
+            if (chunks.unloaded) {
+                this.releaseStep();
+                return Unit.INSTANCE;
             }
 
             try {

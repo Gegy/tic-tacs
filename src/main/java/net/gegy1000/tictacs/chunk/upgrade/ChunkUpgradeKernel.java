@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.chunk.upgrade;
 
+import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 
 import java.util.List;
@@ -7,7 +8,6 @@ import java.util.function.IntFunction;
 
 public final class ChunkUpgradeKernel {
     private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.size()];
-    private static final boolean DEBUG = false;
 
     static {
         List<ChunkStep> steps = ChunkStep.STEPS;
@@ -44,7 +44,7 @@ public final class ChunkUpgradeKernel {
 
     public int index(int x, int z) {
         int radius = this.radius;
-        if (DEBUG) {
+        if (TicTacs.DEBUG) {
             if (x < -radius || z < -radius || x > radius || z > radius) {
                 throw new IllegalArgumentException("[" + x + "; " + z + "] out of radius=" + this.radius);
             }

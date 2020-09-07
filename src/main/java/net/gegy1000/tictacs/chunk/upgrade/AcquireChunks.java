@@ -79,6 +79,7 @@ final class AcquireChunks {
         Arrays.fill(this.result.entries, null);
 
         this.result.empty = true;
+        this.result.unloaded = false;
     }
 
     @Nullable
@@ -120,8 +121,12 @@ final class AcquireChunks {
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
                 ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
+                if (entry == null) {
+                    this.result.unloaded = true;
+                    return false;
+                }
 
-                if (entry != null && entry.canUpgradeTo(step)) {
+                if (entry.canUpgradeTo(step)) {
                     entry.trySpawnUpgradeTo(step);
 
                     int idx = kernel.index(x, z);
@@ -197,6 +202,7 @@ final class AcquireChunks {
     public final class Result {
         final ChunkEntryState[] entries;
         boolean empty = true;
+        boolean unloaded = false;
 
         Result(int bufferSize) {
             this.entries = new ChunkEntryState[bufferSize];

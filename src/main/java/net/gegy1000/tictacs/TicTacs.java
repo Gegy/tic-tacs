@@ -12,6 +12,8 @@ public final class TicTacs implements ModInitializer {
 
     public static final Identifier DEBUG_CHUNK_TICKETS = new Identifier(ID, "debug_chunk_tickets");
 
+    public static final boolean DEBUG = false;
+
     @Override
     public void onInitialize() {
         TicTacsConfig.get();
