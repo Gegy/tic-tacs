@@ -259,7 +259,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         display.append("upgrading ").append(this.pos).append(" to ").append(this.targetStep).append(": ");
 
         if (this.currentStep != null) {
-            if (this.currentStep.greaterOrEqual(this.targetStep)) {
+            if (this.currentStep.greaterOrEqual(this.targetStep) && this.stepReady && this.acquireEntries.acquired) {
                 display.append("ready!");
             } else {
                 if (this.stepReady) {
@@ -269,7 +269,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                         display.append("waiting to acquire entry locks @").append(this.currentStep);
                     }
                 } else {
-                    display.append("waiting to for ").append(this.currentStep).append(" to be ready");
+                    display.append("waiting for ").append(this.currentStep).append(" to be ready");
                 }
             }
         } else {
