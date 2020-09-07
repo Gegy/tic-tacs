@@ -8,7 +8,6 @@ import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
-import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
@@ -18,15 +17,11 @@ import net.minecraft.util.registry.RegistryKey;
 import net.minecraft.world.MutableWorldProperties;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.chunk.WorldChunk;
 import net.minecraft.world.dimension.DimensionType;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
-import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.Redirect;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
@@ -39,27 +34,6 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
 
     private ServerWorldMixin(MutableWorldProperties properties, RegistryKey<World> registryKey, DimensionType dimensionType, Supplier<Profiler> supplier, boolean client, boolean debugWorld, long biomeSeed) {
         super(properties, registryKey, dimensionType, supplier, client, debugWorld, biomeSeed);
-    }
-
-    /**
-     * @reason add player to the appropriate chunk asynchronously instead of blocking
-     * @author gegy1000
-     */
-    @Redirect(
-            method = "addPlayer",
-            at = @At(
-                    value = "INVOKE",
-                    target = "Lnet/minecraft/server/world/ServerWorld;getChunk(IILnet/minecraft/world/chunk/ChunkStatus;Z)Lnet/minecraft/world/chunk/Chunk;"
-            )
-    )
-    private Chunk addPlayer(ServerWorld world, int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create, ServerPlayerEntity player) {
-        this.getOrCreateChunkAsync(chunkX, chunkZ, ChunkStep.FULL).thenAccept(chunk -> {
-            if (chunk instanceof WorldChunk) {
-                chunk.addEntity(player);
-            }
-        });
-
-        return null;
     }
 
     /**
