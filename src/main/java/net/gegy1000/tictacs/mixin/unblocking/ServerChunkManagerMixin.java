@@ -36,7 +36,7 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     private Thread serverThread;
 
     @Unique
-    private final LossyChunkCache fastCache = new LossyChunkCache(16);
+    private final LossyChunkCache fastCache = new LossyChunkCache(32);
 
     @Inject(method = "initChunkCaches", at = @At("HEAD"))
     private void clearChunkCache(CallbackInfo ci) {

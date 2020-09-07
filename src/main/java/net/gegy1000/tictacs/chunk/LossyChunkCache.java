@@ -37,10 +37,6 @@ public final class LossyChunkCache {
             return;
         }
 
-        if (chunk.getPos().x != x || chunk.getPos().z != z) {
-            System.out.println("tried to insert into cache wrongly!");
-        }
-
         long key = key(x, z, step);
         int index = this.index(key);
 
