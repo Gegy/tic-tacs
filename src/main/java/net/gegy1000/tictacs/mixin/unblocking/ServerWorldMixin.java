@@ -14,9 +14,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.world.Heightmap;
 import net.minecraft.world.MutableWorldProperties;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.dimension.DimensionType;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -97,6 +99,22 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
+    public int getTopY(Heightmap.Type heightmap, int x, int z) {
+        if (x < -30000000 || z < -30000000 || x >= 30000000 || z >= 30000000) {
+            return this.getSeaLevel() + 1;
+        }
+
+        int chunkX = x >> 4;
+        int chunkZ = z >> 4;
+        if (this.shouldChunkExist(chunkX, chunkZ)) {
+            Chunk chunk = this.getChunk(chunkX, chunkZ, ChunkStatus.FEATURES);
+            return chunk.sampleHeightmap(heightmap, x & 15, z & 15) + 1;
+        } else {
+            return 0;
+        }
+    }
+
+    @Override
     public boolean isChunkLoaded(int x, int z) {
         return this.getExistingChunk(x, z, ChunkStep.FULL) != null;
     }
@@ -109,5 +127,10 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     @Override
     public CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step) {
         return ((AsyncChunkAccess) this.serverChunkManager).getOrCreateChunkAsync(x, z, step);
+    }
+
+    @Override
+    public boolean shouldChunkExist(int x, int z) {
+        return ((AsyncChunkAccess) this.serverChunkManager).shouldChunkExist(x, z);
     }
 }

@@ -9,4 +9,6 @@ public interface AsyncChunkAccess {
     Chunk getExistingChunk(int x, int z, ChunkStep step);
 
     CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step);
+
+    boolean shouldChunkExist(int x, int z);
 }

@@ -170,6 +170,15 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         }
     }
 
+    @Override
+    public boolean shouldChunkExist(int x, int z) {
+        ChunkHolder entry = this.getChunkHolder(ChunkPos.toLong(x, z));
+        return !this.isMissingForLevel(entry, ChunkEntry.FULL_LEVEL);
+    }
+
+    @Shadow
+    protected abstract boolean isMissingForLevel(@Nullable ChunkHolder holder, int maxLevel);
+
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> getChunkFuture(int x, int z, ChunkStatus status, boolean create);
 
