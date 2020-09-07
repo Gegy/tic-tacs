@@ -2,6 +2,7 @@ package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.gegy1000.tictacs.QueuingConnection;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
+import java.util.stream.Stream;
 
 public final class ChunkEntry extends ChunkHolder {
     public static final int FULL_LEVEL = 33;
@@ -300,11 +302,12 @@ public final class ChunkEntry extends ChunkHolder {
 
         if (!onlyOnWatchDistanceEdge) {
             for (ServerPlayerEntity player : this.trackingPlayers) {
-                player.networkHandler.sendPacket(packet);
+                QueuingConnection.enqueueSend(player.networkHandler, packet);
             }
         } else {
-            // pass through TACS which filters the edge
-            super.sendPacketToPlayersWatching(packet, true);
+            // pass through TACS to filter the edge
+            Stream<ServerPlayerEntity> players = this.playersWatchingChunkProvider.getPlayersWatchingChunk(this.pos, true);
+            players.forEach(player -> QueuingConnection.enqueueSend(player.networkHandler, packet));
         }
     }
 

@@ -12,6 +12,7 @@ accessible field net/minecraft/server/world/ChunkHolder completedLevel I
 accessible field net/minecraft/server/world/ChunkHolder pos Lnet/minecraft/util/math/ChunkPos;
 accessible field net/minecraft/server/world/ChunkHolder ticking Z
 accessible field net/minecraft/server/world/ChunkHolder futuresByStatus Ljava/util/concurrent/atomic/AtomicReferenceArray;
+accessible field net/minecraft/server/world/ChunkHolder playersWatchingChunkProvider Lnet/minecraft/server/world/ChunkHolder$PlayersWatchingChunkProvider;
 accessible method net/minecraft/server/world/ChunkHolder combineSavingFuture (Ljava/util/concurrent/CompletableFuture;)V
 extendable method net/minecraft/server/world/ChunkHolder sendPacketToPlayersWatching (Lnet/minecraft/network/Packet;Z)V
 
@@ -40,3 +41,7 @@ accessible field net/minecraft/server/network/EntityTrackerEntry entity Lnet/min
 
 accessible class net/minecraft/world/storage/StorageIoWorker$Result
 accessible field net/minecraft/world/storage/StorageIoWorker$Result nbt Lnet/minecraft/nbt/CompoundTag;
+
+accessible class net/minecraft/network/ClientConnection$QueuedPacket
+accessible field net/minecraft/network/ClientConnection$QueuedPacket packet Lnet/minecraft/network/Packet;
+accessible field net/minecraft/network/ClientConnection$QueuedPacket callback Lio/netty/util/concurrent/GenericFutureListener;

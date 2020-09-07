@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.chunk.tracker;
 
+import net.gegy1000.tictacs.QueuingConnection;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.mob.MobEntity;
@@ -22,10 +23,6 @@ public final class ChunkPackets {
         return new Data(chunk);
     }
 
-    public static Entities entities() {
-        return new Entities();
-    }
-
     public static Entities entitiesFor(ChunkEntry entry) {
         Entities entities = new Entities();
         for (ChunkEntityTracker tracker : entry.getEntities()) {
@@ -37,7 +34,7 @@ public final class ChunkPackets {
 
     public static void sendPlayerChunkPos(ServerPlayerEntity player) {
         ChunkSectionPos pos = player.getCameraPosition();
-        player.networkHandler.sendPacket(new ChunkRenderDistanceCenterS2CPacket(pos.getSectionX(), pos.getSectionZ()));
+        QueuingConnection.enqueueSend(player.networkHandler, new ChunkRenderDistanceCenterS2CPacket(pos.getSectionX(), pos.getSectionZ()));
     }
 
     public static class Data {
@@ -83,11 +80,11 @@ public final class ChunkPackets {
 
         public void sendTo(ServerPlayerEntity player) {
             for (MobEntity entity : this.leashedEntities) {
-                player.networkHandler.sendPacket(new EntityAttachS2CPacket(entity, entity.getHoldingEntity()));
+                QueuingConnection.enqueueSend(player.networkHandler, new EntityAttachS2CPacket(entity, entity.getHoldingEntity()));
             }
 
             for (Entity entity : this.entitiesWithPassengers) {
-                player.networkHandler.sendPacket(new EntityPassengersSetS2CPacket(entity));
+                QueuingConnection.enqueueSend(player.networkHandler, new EntityPassengersSetS2CPacket(entity));
             }
         }
     }

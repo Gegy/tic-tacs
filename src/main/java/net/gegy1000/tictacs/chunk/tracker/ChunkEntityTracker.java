@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.chunk.tracker;
 
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.gegy1000.tictacs.QueuingConnection;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
@@ -168,15 +169,22 @@ public final class ChunkEntityTracker {
             return;
         }
 
-        for (ServerPlayerEntity player : this.trackingPlayers) {
-            player.networkHandler.sendPacket(packet);
+        if (this.entry.entity instanceof ServerPlayerEntity) {
+            for (ServerPlayerEntity player : this.trackingPlayers) {
+                player.networkHandler.sendPacket(packet);
+            }
+        } else {
+            // entity tracker updates are lower priority than players so it should be fine to queue them
+            for (ServerPlayerEntity player : this.trackingPlayers) {
+                QueuingConnection.enqueueSend(player.networkHandler, packet);
+            }
         }
     }
 
     private void sendToSelf(Packet<?> packet) {
         if (this.entry.entity instanceof ServerPlayerEntity) {
             ServerPlayerEntity player = (ServerPlayerEntity) this.entry.entity;
-            player.networkHandler.sendPacket(packet);
+            QueuingConnection.enqueueSend(player.networkHandler, packet);
         }
     }
 
