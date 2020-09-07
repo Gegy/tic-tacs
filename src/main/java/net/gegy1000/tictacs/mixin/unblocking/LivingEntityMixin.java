@@ -20,7 +20,7 @@ public class LivingEntityMixin {
             )
     )
     private BlockState getBlockStateForMovement(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getBlockStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getBlockStateIfLoaded(pos);
     }
 
     @Redirect(
@@ -31,6 +31,6 @@ public class LivingEntityMixin {
             )
     )
     private FluidState getFluidStateForMovement(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getFluidStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getFluidStateIfLoaded(pos);
     }
 }

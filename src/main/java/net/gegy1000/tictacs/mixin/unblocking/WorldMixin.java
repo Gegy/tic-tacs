@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.mixin.unblocking;
 
+import net.gegy1000.tictacs.NonBlockingWorldAccess;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.fluid.FluidState;
@@ -13,7 +14,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(World.class)
-public abstract class WorldMixin {
+public abstract class WorldMixin implements NonBlockingWorldAccess {
     @Shadow
     public static boolean isHeightInvalid(BlockPos pos) {
         throw new UnsupportedOperationException();

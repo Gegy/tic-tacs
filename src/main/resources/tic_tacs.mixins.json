@@ -7,14 +7,15 @@
     "ChunkHolderMixin",
     "ChunkStatusMixin",
     "ChunkTicketManagerMixin",
-    "ServerChunkManagerMixin",
     "TacsAccessor",
     "ThreadedAnvilChunkStorageMixin",
     "actor.TaskExecutorMixin",
+    "chunk_ticking.ServerChunkManagerMixin",
     "io.ChunkSerializationMixin",
     "io.PalettedContainerMixin",
     "io.SerializingRegionBasedStorageMixin",
     "io.StorageIoWorkerMixin",
+    "io.ThreadedAnvilChunkStorageMixin",
     "io.VersionedChunkStorageMixin",
     "lighting.ServerLightingProviderMixin",
     "lighting.ThreadedAnvilChunkStorageMixin",
@@ -25,9 +26,14 @@
     "unblocking.EntityMixin",
     "unblocking.LivingEntityMixin",
     "unblocking.ServerChunkManagerMixin",
-    "unblocking.ServerPlayerEntityMixin",
     "unblocking.ServerWorldMixin",
     "unblocking.WorldMixin"
+  ],
+  "client": [
+    "client.MinecraftClientMixin",
+    "client.WorldGenerationProgressTrackerMixin",
+    "client.debug.DebugRendererMixin",
+    "client.debug.InGameHudMixin"
   ],
   "injectors": {
     "defaultRequire": 1

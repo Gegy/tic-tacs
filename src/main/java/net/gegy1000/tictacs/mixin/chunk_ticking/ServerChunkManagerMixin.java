@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin;
+package net.gegy1000.tictacs.mixin.chunk_ticking;
 
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
@@ -131,11 +131,7 @@ public abstract class ServerChunkManagerMixin {
             entry.flushUpdates(worldChunk);
             profiler.pop();
 
-            if (entry.isTickingEntities()) {
-                if (controller.isTooFarFromPlayersToSpawnMobs(entry)) {
-                    continue;
-                }
-
+            if (entry.isTickingEntities() && !controller.isTooFarFromPlayersToSpawnMobs(entry)) {
                 worldChunk.setInhabitedTime(worldChunk.getInhabitedTime() + timeSinceSpawn);
 
                 if (spawnInfo != null && this.world.getWorldBorder().contains(entry.getPos())) {

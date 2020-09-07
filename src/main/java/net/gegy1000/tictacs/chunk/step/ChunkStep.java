@@ -64,7 +64,6 @@ public final class ChunkStep {
             )
             .upgradeSync(ChunkStep::generateSurface);
 
-    // TODO: featuregen experiencing multiple-thread access
     public static final ChunkStep FEATURES = new ChunkStep("features")
             .includes(ChunkStatus.FEATURES)
             .requires(

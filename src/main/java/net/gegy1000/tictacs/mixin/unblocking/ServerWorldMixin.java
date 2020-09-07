@@ -2,6 +2,7 @@ package net.gegy1000.tictacs.mixin.unblocking;
 
 import net.gegy1000.tictacs.AsyncChunkAccess;
 import net.gegy1000.tictacs.NonBlockingWorldAccess;
+import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.Entity;
@@ -52,7 +53,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
             )
     )
     private Chunk addPlayer(ServerWorld world, int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create, ServerPlayerEntity player) {
-        this.getChunkAsync(chunkX, chunkZ, leastStatus).thenAccept(chunk -> {
+        this.getOrCreateChunkAsync(chunkX, chunkZ, ChunkStep.FULL).thenAccept(chunk -> {
             if (chunk instanceof WorldChunk) {
                 chunk.addEntity(player);
             }
@@ -83,7 +84,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
                 this.getChunk(entity.chunkX, entity.chunkZ).remove(entity, entity.chunkY);
             }
 
-            if (entity.teleportRequested() || this.isChunkReady(chunkX, chunkZ)) {
+            if (entity.teleportRequested() || this.isChunkLoaded(chunkX, chunkZ)) {
                 this.getChunk(chunkX, chunkZ).addEntity(entity);
             } else {
                 entity.updateNeeded = false;
@@ -94,12 +95,12 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
-    public BlockState getBlockStateIfReady(BlockPos pos) {
+    public BlockState getBlockStateIfLoaded(BlockPos pos) {
         if (isHeightInvalid(pos)) {
             return Blocks.VOID_AIR.getDefaultState();
         }
 
-        Chunk chunk = this.serverChunkManager.getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES, false);
+        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStep.FEATURES);
         if (chunk != null) {
             return chunk.getBlockState(pos);
         } else {
@@ -108,12 +109,12 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
-    public FluidState getFluidStateIfReady(BlockPos pos) {
+    public FluidState getFluidStateIfLoaded(BlockPos pos) {
         if (isHeightInvalid(pos)) {
             return Fluids.EMPTY.getDefaultState();
         }
 
-        Chunk chunk = this.serverChunkManager.getChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES, false);
+        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStep.FEATURES);
         if (chunk != null) {
             return chunk.getFluidState(pos);
         } else {
@@ -122,12 +123,17 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
-    public boolean isChunkReady(int x, int z) {
-        return this.serverChunkManager.getChunk(x, z, ChunkStatus.FULL, false) != null;
+    public boolean isChunkLoaded(int x, int z) {
+        return this.getExistingChunk(x, z, ChunkStep.FULL) != null;
     }
 
     @Override
-    public CompletableFuture<Chunk> getChunkAsync(int x, int z, ChunkStatus status) {
-        return ((AsyncChunkAccess) this.serverChunkManager).getChunkAsync(x, z, status);
+    public Chunk getExistingChunk(int x, int z, ChunkStep step) {
+        return ((AsyncChunkAccess) this.serverChunkManager).getExistingChunk(x, z, step);
+    }
+
+    @Override
+    public CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step) {
+        return ((AsyncChunkAccess) this.serverChunkManager).getOrCreateChunkAsync(x, z, step);
     }
 }

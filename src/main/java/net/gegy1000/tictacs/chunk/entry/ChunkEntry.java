@@ -148,6 +148,11 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     @Nullable
+    public ChunkListener getValidListenerFor(ChunkStep step) {
+        return this.isValidAs(step) ? this.getListenerFor(step) : null;
+    }
+
+    @Nullable
     public ChunkStep getCurrentStep() {
         return this.state.getCurrentStep();
     }

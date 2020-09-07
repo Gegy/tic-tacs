@@ -7,11 +7,15 @@ import net.minecraft.fluid.FluidState;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Redirect;
 
 @Mixin(Entity.class)
 public class EntityMixin {
+    @Shadow
+    public World world;
+
     @Redirect(
             method = "getLandingPos",
             at = @At(
@@ -20,7 +24,7 @@ public class EntityMixin {
             )
     )
     private BlockState getBlockStateForLandingPos(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getBlockStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getBlockStateIfLoaded(pos);
     }
 
     @Redirect(
@@ -31,7 +35,7 @@ public class EntityMixin {
             )
     )
     private BlockState getBlockStateForBubbleColumn(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getBlockStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getBlockStateIfLoaded(pos);
     }
 
     @Redirect(
@@ -42,7 +46,7 @@ public class EntityMixin {
             )
     )
     private FluidState getFluidStateForMovement(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getFluidStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getFluidStateIfLoaded(pos);
     }
 
     @Redirect(
@@ -53,6 +57,6 @@ public class EntityMixin {
             )
     )
     private FluidState getFluidStateForSubmergedState(World world, BlockPos pos) {
-        return ((NonBlockingWorldAccess) world).getFluidStateIfReady(pos);
+        return ((NonBlockingWorldAccess) world).getFluidStateIfLoaded(pos);
     }
 }

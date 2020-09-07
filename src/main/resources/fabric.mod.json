@@ -11,13 +11,7 @@
     "main": ["net.gegy1000.tictacs.TicTacs"],
     "client": ["net.gegy1000.tictacs.TicTacsClient"]
   },
-  "mixins": [
-    "tic_tacs.mixins.json",
-    {
-      "config": "tic_tacs.client-mixins.json",
-      "environment": "client"
-    }
-  ],
+  "mixins": ["tic_tacs.mixins.json"],
   "accessWidener": "tic_tacs.accesswidener",
   "depends": {
     "fabricloader": ">=0.9.1",
