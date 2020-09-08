@@ -10,7 +10,6 @@ import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.entry.ChunkAccessLock;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirement;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirements;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -109,7 +108,7 @@ final class AcquireChunks {
     private boolean collectChunks(ChunkAccess chunks, ChunkPos pos, ChunkStep step) {
         Lock[] upgradeLocks = this.upgradeLocks;
         Lock[] locks = this.locks;
-        ChunkEntryState[] entries = this.result.entries;
+        ChunkEntry[] entries = this.result.entries;
 
         ChunkUpgradeKernel kernel = this.kernel;
         int radiusForStep = kernel.getRadiusFor(step);
@@ -131,7 +130,7 @@ final class AcquireChunks {
 
                     int idx = kernel.index(x, z);
 
-                    entries[idx] = entry.getState();
+                    entries[idx] = entry;
 
                     upgradeLocks[idx] = entry.getLock().upgrade();
                     locks[idx] = entry.getLock().write(step.getLock());
@@ -152,7 +151,7 @@ final class AcquireChunks {
             return;
         }
 
-        ChunkEntryState[] entries = this.result.entries;
+        ChunkEntry[] entries = this.result.entries;
         Lock[] locks = this.locks;
 
         ChunkUpgradeKernel kernel = this.kernel;
@@ -179,7 +178,7 @@ final class AcquireChunks {
                         ChunkLockType resource = requirement.step.getLock();
                         boolean requireWrite = requirement.write;
 
-                        entries[idx] = entry.getState();
+                        entries[idx] = entry;
                         locks[idx] = requireWrite ? lock.write(resource) : lock.read(resource);
                     }
                 }
@@ -200,19 +199,19 @@ final class AcquireChunks {
     }
 
     public final class Result {
-        final ChunkEntryState[] entries;
+        final ChunkEntry[] entries;
         boolean empty = true;
         boolean unloaded = false;
 
         Result(int bufferSize) {
-            this.entries = new ChunkEntryState[bufferSize];
+            this.entries = new ChunkEntry[bufferSize];
         }
 
-        public <T> void openUpgradeTasks(Future<T>[] tasks, Function<ChunkEntryState, Future<T>> function) {
-            ChunkEntryState[] entries = this.entries;
+        public <T> void openUpgradeTasks(Future<T>[] tasks, Function<ChunkEntry, Future<T>> function) {
+            ChunkEntry[] entries = this.entries;
 
             for (int i = 0; i < entries.length; i++) {
-                ChunkEntryState entry = entries[i];
+                ChunkEntry entry = entries[i];
                 if (entry != null && AcquireChunks.this.upgradeLocks[i] != null) {
                     tasks[i] = function.apply(entry);
                 }
@@ -220,7 +219,7 @@ final class AcquireChunks {
         }
 
         @Nullable
-        public ChunkEntryState getEntry(int x, int z) {
+        public ChunkEntry getEntry(int x, int z) {
             int idx = AcquireChunks.this.kernel.index(x, z);
             return this.entries[idx];
         }

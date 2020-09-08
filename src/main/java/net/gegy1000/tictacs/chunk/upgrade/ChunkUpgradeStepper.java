@@ -3,7 +3,7 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.AtomicPool;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
+import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.future.JoinAllArray;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.util.math.ChunkPos;
@@ -63,14 +63,14 @@ final class ChunkUpgradeStepper {
         chunks.openUpgradeTasks(tasks, this::loadChunk);
     }
 
-    private Future<Chunk> upgradeChunk(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
+    private Future<Chunk> upgradeChunk(ChunkEntry entry, AcquireChunks.Result chunks, ChunkStep step) {
         ContextView context = this.openContext(entry, chunks, step);
 
         Future<Chunk> future = this.parent.controller.getUpgrader().runStepTask(entry, step, context);
         return this.createTaskWithContext(future, context);
     }
 
-    private ContextView openContext(ChunkEntryState entry, AcquireChunks.Result chunks, ChunkStep step) {
+    private ContextView openContext(ChunkEntry entry, AcquireChunks.Result chunks, ChunkStep step) {
         ContextView context = CONTEXT_POOL.acquire();
         ChunkPos targetPos = entry.getPos();
 
@@ -88,8 +88,8 @@ final class ChunkUpgradeStepper {
         return task;
     }
 
-    private Future<Chunk> loadChunk(ChunkEntryState entry) {
-        return this.parent.controller.spawnLoadChunk(entry.parent);
+    private Future<Chunk> loadChunk(ChunkEntry entry) {
+        return this.parent.controller.spawnLoadChunk(entry);
     }
 
     static class TaskWithContext implements Future<Chunk> {
@@ -152,11 +152,12 @@ final class ChunkUpgradeStepper {
             int sourceX = targetX + this.targetToSourceOffsetX;
             int sourceZ = targetZ + this.targetToSourceOffsetZ;
 
-            ChunkEntryState entry = this.source.getEntry(sourceX, sourceZ);
+            ChunkEntry entry = this.source.getEntry(sourceX, sourceZ);
             if (entry == null) {
                 return null;
             }
 
+            // TODO: could this be given a ReadOnlyChunk, causing feature generation to not work properly?
             return entry.getChunk();
         }
 

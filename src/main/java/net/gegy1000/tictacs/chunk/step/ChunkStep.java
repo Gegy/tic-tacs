@@ -352,7 +352,7 @@ public final class ChunkStep {
         FutureHandle<Chunk> handle = new FutureHandle<>();
 
         ChunkPos pos = ctx.entry.getPos();
-        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
+        ctx.controller.spawnOnMainThread(ctx.entry, () -> {
             ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
 
             ctx.lighting.light(ctx.chunk, excludeBlocks).thenAccept(handle::complete);
@@ -377,7 +377,7 @@ public final class ChunkStep {
     private static Future<Chunk> makeFull(ChunkStepContext ctx) {
         FutureHandle<Chunk> handle = new FutureHandle<>();
 
-        ctx.controller.spawnOnMainThread(ctx.entry.parent, () -> {
+        ctx.controller.spawnOnMainThread(ctx.entry, () -> {
             LongSet loadedChunks = ((TacsAccessor) ctx.controller).getLoadedChunks();
 
             WorldChunk worldChunk = ctx.entry.finalizeChunk(ctx.world, loadedChunks::add);

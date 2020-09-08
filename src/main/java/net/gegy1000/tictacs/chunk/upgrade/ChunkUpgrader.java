@@ -6,7 +6,6 @@ import net.gegy1000.tictacs.async.lock.Semaphore;
 import net.gegy1000.tictacs.async.worker.ChunkExecutor;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.step.ChunkStepContext;
 import net.minecraft.server.world.ServerLightingProvider;
@@ -57,7 +56,7 @@ public final class ChunkUpgrader {
         return new ChunkUpgradeFuture(this.controller, entry.getPos(), step);
     }
 
-    Future<Chunk> runStepTask(ChunkEntryState entry, ChunkStep step, List<Chunk> chunks) {
+    Future<Chunk> runStepTask(ChunkEntry entry, ChunkStep step, List<Chunk> chunks) {
         // TODO: reuse context objects
         ChunkStepContext context = new ChunkStepContext(this.controller, entry, this.world, this.generator, this.structures, this.lighting, entry.getChunk(), chunks);
 
@@ -68,12 +67,12 @@ public final class ChunkUpgrader {
         }
     }
 
-    private boolean hasAlreadyUpgradedTo(ChunkEntryState entry, ChunkStep step) {
+    private boolean hasAlreadyUpgradedTo(ChunkEntry entry, ChunkStep step) {
         ProtoChunk currentChunk = entry.getChunk();
         return currentChunk != null && currentChunk.getStatus().isAtLeast(step.getMaximumStatus());
     }
 
-    void completeUpgradeOk(ChunkEntryState entry, ChunkStep step, Chunk chunk) {
+    void completeUpgradeOk(ChunkEntry entry, ChunkStep step, Chunk chunk) {
         entry.completeUpgradeOk(step, chunk);
 
         ChunkStatus status = step.getMaximumStatus();
@@ -82,7 +81,7 @@ public final class ChunkUpgrader {
         ChunkStep.trySetStatus(chunk, status);
     }
 
-    void completeUpgradeErr(ChunkEntryState entry, ChunkStep step) {
+    void completeUpgradeErr(ChunkEntry entry, ChunkStep step) {
         entry.completeUpgradeErr(step);
         this.controller.notifyStatus(entry.getPos(), null);
     }

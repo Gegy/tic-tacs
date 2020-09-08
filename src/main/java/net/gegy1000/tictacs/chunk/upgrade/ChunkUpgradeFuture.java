@@ -8,7 +8,6 @@ import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntryState;
 import net.gegy1000.tictacs.chunk.future.Poll;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.util.math.ChunkPos;
@@ -154,7 +153,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     private void notifyChunkUpgrades(Chunk[] chunks, AcquireChunks.Result acquiredChunks, ChunkStep step) {
-        ChunkEntryState[] entries = acquiredChunks.entries;
+        ChunkEntry[] entries = acquiredChunks.entries;
 
         ChunkUpgradeKernel kernel = acquiredChunks.getKernel();
         int radius = kernel.getRadius();
@@ -163,7 +162,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             for (int x = -radius; x <= radius; x++) {
                 int idx = kernel.index(x, z);
 
-                ChunkEntryState entry = entries[idx];
+                ChunkEntry entry = entries[idx];
                 Chunk chunk = chunks[idx];
                 if (entry == null || chunk == null) {
                     continue;
@@ -175,7 +174,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
     }
 
     private void notifyChunkUpgradeError(AcquireChunks.Result chunks, ChunkStep step) {
-        ChunkEntryState[] entries = chunks.entries;
+        ChunkEntry[] entries = chunks.entries;
         ChunkUpgradeKernel kernel = chunks.getKernel();
         int radius = kernel.getRadius();
 
@@ -183,7 +182,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             for (int x = -radius; x <= radius; x++) {
                 int idx = kernel.index(x, z);
 
-                ChunkEntryState entry = entries[idx];
+                ChunkEntry entry = entries[idx];
                 if (entry == null) {
                     continue;
                 }

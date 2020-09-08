@@ -3,6 +3,7 @@ package net.gegy1000.tictacs.chunk;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.chunk.entry.ChunkListener;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
 import net.minecraft.server.world.ChunkTicketManager;
@@ -21,6 +22,8 @@ public interface ChunkController {
     ChunkUpgrader getUpgrader();
 
     ChunkTicketManager getTicketManager();
+
+    ChunkListener getChunkAs(ChunkEntry entry, ChunkStep step);
 
     Future<Unit> getRadiusAs(ChunkPos pos, int radius, ChunkStep step);
 

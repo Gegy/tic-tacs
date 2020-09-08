@@ -15,6 +15,7 @@ import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.chunk.entry.ChunkListener;
 import net.gegy1000.tictacs.chunk.future.AwaitAll;
 import net.gegy1000.tictacs.chunk.future.ChunkNotLoadedFuture;
 import net.gegy1000.tictacs.chunk.future.LazyRunnableFuture;
@@ -151,6 +152,12 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     @Override
     public ChunkTicketManager getTicketManager() {
         return this.ticketManager;
+    }
+
+    @Override
+    public ChunkListener getChunkAs(ChunkEntry entry, ChunkStep step) {
+        this.upgrader.spawnUpgradeTo(entry, step);
+        return entry.getListenerFor(step);
     }
 
     @Override

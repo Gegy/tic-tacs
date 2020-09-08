@@ -11,7 +11,7 @@ import javax.annotation.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 public final class ChunkListener extends SharedListener<Chunk> {
-    final ChunkEntryState entry;
+    final ChunkEntry entry;
     final ChunkStep step;
 
     volatile boolean err;
@@ -19,7 +19,7 @@ public final class ChunkListener extends SharedListener<Chunk> {
     final CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> vanilla;
 
     ChunkListener(ChunkEntry entry, ChunkStep step) {
-        this.entry = entry.getState();
+        this.entry = entry;
         this.step = step;
 
         Chunk chunk = this.getChunkForStep();
