@@ -41,37 +41,32 @@ public final class ChunkMap {
         this.controller = controller;
     }
 
-    public ChunkEntry getOrCreateEntry(ChunkPos pos, int level) {
+    public ChunkEntry getOrCreateEntry(long pos, int level) {
         ChunkEntry entry = this.primary.getEntry(pos);
-
-        if (entry == null) {
-            TacsAccessor accessor = (TacsAccessor) this.controller;
-            entry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos.toLong());
-
-            if (entry != null) {
-                entry.setLevel(level);
-            }
+        if (entry != null) {
+            return entry;
+        } else {
+            return this.loadEntry(pos, level);
         }
+    }
 
-        if (entry == null) {
-            entry = this.createEntry(pos, level);
-            this.primary.putEntry(entry);
-        }
-
+    public ChunkEntry loadEntry(long pos, int level) {
+        ChunkEntry entry = this.createEntry(pos, level);
+        this.primary.putEntry(entry);
         return entry;
     }
 
-    private ChunkEntry createEntry(ChunkPos pos, int level) {
+    private ChunkEntry createEntry(long pos, int level) {
         ThreadedAnvilChunkStorage tacs = this.controller.asTacs();
         TacsAccessor accessor = (TacsAccessor) this.controller;
 
-        ChunkEntry unloadingEntry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos.toLong());
+        ChunkEntry unloadingEntry = (ChunkEntry) accessor.getUnloadingChunks().remove(pos);
         if (unloadingEntry != null) {
             unloadingEntry.setLevel(level);
             return unloadingEntry;
         }
 
-        return new ChunkEntry(pos, level, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
+        return new ChunkEntry(new ChunkPos(pos), level, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
     }
 
     public FlushListener awaitFlush() {

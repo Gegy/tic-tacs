@@ -10,11 +10,9 @@ import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
-import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.Pair;
-import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.ArrayDeque;
@@ -37,25 +35,13 @@ public final class ChunkLevelTracker {
     }
 
     @Nullable
-    public ChunkHolder setLevel(long pos, int toLevel, @Nullable ChunkEntry entry, int fromLevel) {
+    public ChunkEntry setLevel(long pos, int toLevel, @Nullable ChunkEntry entry, int fromLevel) {
         if (isUnloaded(fromLevel) && isUnloaded(toLevel)) {
             return entry;
         }
 
-        // Send debug data if enabled
         if (TicTacsConfig.get().debug.chunkLevels) {
-            List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
-
-            if (players.size() > 0) {
-                players.forEach(player -> this.sendChunkTicketData(player, pos, toLevel));
-
-                while (this.ticketCache.size() > 0) {
-                    Pair<Long, Integer> val = this.ticketCache.poll();
-                    players.forEach(player -> this.sendChunkTicketData(player, val.getLeft(), val.getRight()));
-                }
-            } else {
-                this.ticketCache.add(new Pair<>(pos, toLevel));
-            }
+            this.sendDebugLevel(pos, toLevel);
         }
 
         if (entry != null) {
@@ -86,7 +72,7 @@ public final class ChunkLevelTracker {
             return null;
         }
 
-        return this.controller.getMap().getOrCreateEntry(new ChunkPos(pos), toLevel);
+        return this.controller.getMap().loadEntry(pos, toLevel);
     }
 
     public static boolean isLoaded(int level) {
@@ -97,7 +83,22 @@ public final class ChunkLevelTracker {
         return level > MAX_LEVEL;
     }
 
-    private void sendChunkTicketData(PlayerEntity player, long pos, int toLevel) {
+    private void sendDebugLevel(long pos, int toLevel) {
+        List<PlayerEntity> players = PlayerStream.world(this.world).collect(Collectors.toList());
+
+        if (players.size() > 0) {
+            players.forEach(player -> this.sendDebugChunkTicketData(player, pos, toLevel));
+
+            while (this.ticketCache.size() > 0) {
+                Pair<Long, Integer> val = this.ticketCache.poll();
+                players.forEach(player -> this.sendDebugChunkTicketData(player, val.getLeft(), val.getRight()));
+            }
+        } else {
+            this.ticketCache.add(new Pair<>(pos, toLevel));
+        }
+    }
+
+    private void sendDebugChunkTicketData(PlayerEntity player, long pos, int toLevel) {
         PacketByteBuf data = new PacketByteBuf(Unpooled.buffer());
 
         data.writeLong(pos);

@@ -28,6 +28,7 @@
     "unblocking.LivingEntityMixin",
     "unblocking.ServerChunkManagerMixin",
     "unblocking.ServerWorldMixin",
+    "unblocking.VoxelShapesMixin",
     "unblocking.WorldMixin"
   ],
   "client": [
