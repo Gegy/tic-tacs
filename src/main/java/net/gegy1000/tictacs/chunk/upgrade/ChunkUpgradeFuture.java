@@ -69,13 +69,13 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             }
 
             // poll to acquire read/write access to all the relevant entries
-            AcquireChunks.Result chunks = this.acquireChunks.poll(waker, currentStep);
-            if (chunks == null) {
+            AcquireChunks.Result result = this.acquireChunks.poll(waker, currentStep);
+            if (result == null) {
                 return null;
             }
 
             // if some of the chunk entries have unloaded since we've started, we can't continue
-            if (chunks.unloaded) {
+            if (result == AcquireChunks.Result.UNLOADED) {
                 this.notifyUpgradeUnloaded(currentStep);
                 this.releaseStep();
 
@@ -83,8 +83,8 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             }
 
             try {
-                if (!chunks.empty) {
-                    Chunk[] pollChunks = this.stepper.pollStep(waker, this.entries, chunks, currentStep);
+                if (result == AcquireChunks.Result.OK) {
+                    Chunk[] pollChunks = this.stepper.pollStep(waker, this.entries, this.acquireChunks, currentStep);
                     if (pollChunks == null) {
                         return null;
                     }
@@ -215,11 +215,11 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         display.append("upgrading ").append(this.pos).append(" to ").append(this.targetStep).append(": ");
 
         if (this.entries.acquired) {
-            if (this.currentStep.greaterOrEqual(this.targetStep) && this.stepReady && this.acquireChunks.acquired) {
+            if (this.currentStep.greaterOrEqual(this.targetStep) && this.stepReady && this.acquireChunks.acquired != null) {
                 display.append("ready!");
             } else {
                 if (this.stepReady) {
-                    if (this.acquireChunks.acquired) {
+                    if (this.acquireChunks.acquired != null) {
                         display.append("waiting for upgrade to ").append(this.currentStep);
                     } else {
                         display.append("waiting to acquire entry locks @").append(this.currentStep);

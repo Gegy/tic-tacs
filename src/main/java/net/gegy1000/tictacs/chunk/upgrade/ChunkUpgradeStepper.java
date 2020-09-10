@@ -40,7 +40,7 @@ final class ChunkUpgradeStepper {
     }
 
     @Nullable
-    Chunk[] pollStep(Waker waker, ChunkUpgradeEntries entries, AcquireChunks.Result chunks, ChunkStep step) {
+    Chunk[] pollStep(Waker waker, ChunkUpgradeEntries entries, AcquireChunks chunks, ChunkStep step) {
         Future<Chunk>[] tasks = this.tasks;
 
         if (!this.pollingTasks) {
@@ -55,11 +55,11 @@ final class ChunkUpgradeStepper {
         return JoinAllArray.poll(waker, tasks, this.chunks);
     }
 
-    private void openUpgradeTasks(ChunkUpgradeEntries entries, AcquireChunks.Result chunks, ChunkStep step, Future<Chunk>[] tasks) {
+    private void openUpgradeTasks(ChunkUpgradeEntries entries, AcquireChunks chunks, ChunkStep step, Future<Chunk>[] tasks) {
         chunks.openUpgradeTasks(tasks, entry -> this.upgradeChunk(entry, entries, step));
     }
 
-    private void openLoadTasks(AcquireChunks.Result chunks, Future<Chunk>[] tasks) {
+    private void openLoadTasks(AcquireChunks chunks, Future<Chunk>[] tasks) {
         chunks.openUpgradeTasks(tasks, this::loadChunk);
     }
 
