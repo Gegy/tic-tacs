@@ -6,12 +6,12 @@ import net.fabricmc.fabric.api.network.ServerSidePacketRegistry;
 import net.fabricmc.fabric.api.server.PlayerStream;
 import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.Pair;
 
 import javax.annotation.Nullable;
@@ -21,7 +21,10 @@ import java.util.Queue;
 import java.util.stream.Collectors;
 
 public final class ChunkLevelTracker {
-    public static final int MAX_LEVEL = ThreadedAnvilChunkStorage.MAX_LEVEL;
+    public static final int FULL_LEVEL = TicTacsConfig.get().maxViewDistance + 1;
+    public static final int MAX_LEVEL = FULL_LEVEL + ChunkStep.getMaxDistance() + 1;
+
+    public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
 
     private final ServerWorld world;
     private final ChunkController controller;

@@ -33,6 +33,9 @@ public final class TicTacsConfig {
     @SerializedName("debug")
     public Debug debug = new Debug();
 
+    @SerializedName("max_view_distance")
+    public int maxViewDistance = 32;
+
     public static class Debug {
         @SerializedName("chunk_levels")
         public boolean chunkLevels;

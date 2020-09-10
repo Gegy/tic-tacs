@@ -151,9 +151,9 @@ public final class LevelMapRenderer {
 
                 if (entry != null && ChunkLevelTracker.isLoaded(entry.getLevel())) {
                     int level = entry.getLevel();
-                    int levelRange = MAX_LEVEL - ChunkEntry.FULL_LEVEL;
+                    int levelRange = MAX_LEVEL - ChunkLevelTracker.FULL_LEVEL;
 
-                    int renderLevel = Math.max(level, ChunkEntry.FULL_LEVEL) - ChunkEntry.FULL_LEVEL;
+                    int renderLevel = Math.max(level, ChunkLevelTracker.FULL_LEVEL) - ChunkLevelTracker.FULL_LEVEL;
 
                     int brightness = (levelRange - renderLevel) * 255 / levelRange;
                     int color = (0xFF << 24) | (brightness << 16) | (brightness << 8) | brightness;

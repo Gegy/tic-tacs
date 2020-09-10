@@ -34,10 +34,6 @@ import java.util.function.LongPredicate;
 import java.util.stream.Stream;
 
 public final class ChunkEntry extends ChunkHolder {
-    public static final int FULL_LEVEL = 33;
-
-    public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
-
     private final AtomicReferenceArray<ChunkListener> listeners = new AtomicReferenceArray<>(ChunkStep.STEPS.size());
 
     private volatile ProtoChunk chunk;
@@ -97,7 +93,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean isValidAs(ChunkStep toStep) {
-        int requiredLevel = ChunkEntry.FULL_LEVEL + ChunkStep.getDistanceFromFull(toStep);
+        int requiredLevel = ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(toStep);
         return this.level <= requiredLevel;
     }
 
@@ -106,7 +102,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public static ChunkStep getTargetStep(int level) {
-        int distanceFromFull = level - FULL_LEVEL;
+        int distanceFromFull = level - ChunkLevelTracker.FULL_LEVEL;
         return ChunkStep.byDistanceFromFull(distanceFromFull);
     }
 

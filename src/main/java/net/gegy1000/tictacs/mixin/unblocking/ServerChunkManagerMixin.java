@@ -3,6 +3,7 @@ package net.gegy1000.tictacs.mixin.unblocking;
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.tictacs.AsyncChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
+import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.LossyChunkCache;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -209,13 +210,13 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     }
 
     private int getLevelForStep(ChunkStep step) {
-        return ChunkEntry.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
+        return ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
     }
 
     @Override
     public boolean shouldChunkExist(int x, int z) {
         ChunkEntry entry = this.getChunkEntry(x, z);
-        return entry != null && entry.getLevel() <= ChunkEntry.FULL_LEVEL;
+        return entry != null && entry.getLevel() <= ChunkLevelTracker.FULL_LEVEL;
     }
 
     private ChunkEntry getChunkEntry(int x, int z) {

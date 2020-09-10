@@ -4,9 +4,9 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.ChunkController;
+import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.FutureHandle;
-import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ChunkTicketManager;
@@ -353,7 +353,7 @@ public final class ChunkStep {
 
         ChunkPos pos = ctx.entry.getPos();
         ctx.controller.spawnOnMainThread(ctx.entry, () -> {
-            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
+            ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkLevelTracker.LIGHT_TICKET_LEVEL, pos);
 
             ctx.lighting.light(ctx.chunk, excludeBlocks).thenAccept(handle::complete);
         });

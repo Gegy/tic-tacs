@@ -52,7 +52,9 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Constant;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyConstant;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
@@ -125,6 +127,11 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         this.tracker.setViewDistance(this.watchDistance);
 
         this.chunkMainExecutor = new ChunkMainThreadExecutor(mainThread);
+    }
+
+    @ModifyConstant(method = "<clinit>", constant = @Constant(intValue = 33))
+    private static int getFullChunkLevel(int level) {
+        return ChunkLevelTracker.FULL_LEVEL;
     }
 
     @Redirect(
@@ -295,7 +302,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     @Overwrite
     public void releaseLightTicket(ChunkPos pos) {
         this.mainThreadExecutor.send(() -> {
-            this.ticketManager.removeTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkEntry.LIGHT_TICKET_LEVEL, pos);
+            this.ticketManager.removeTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkLevelTracker.LIGHT_TICKET_LEVEL, pos);
         });
     }
 
@@ -381,6 +388,11 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     @Overwrite
     public Iterable<ChunkHolder> entryIterator() {
         return Iterables.unmodifiableIterable(this.map.visible().getEntries());
+    }
+
+    @ModifyConstant(method = "setViewDistance", constant = @Constant(intValue = 33))
+    private int getMaxViewDistance(int level) {
+        return ChunkLevelTracker.FULL_LEVEL;
     }
 
     @Redirect(

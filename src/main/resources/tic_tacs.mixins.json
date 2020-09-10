@@ -32,6 +32,7 @@
     "unblocking.WorldMixin"
   ],
   "client": [
+    "client.GameOptionsMixin",
     "client.MinecraftClientMixin",
     "client.WorldGenerationProgressTrackerMixin",
     "client.debug.DebugRendererMixin",
