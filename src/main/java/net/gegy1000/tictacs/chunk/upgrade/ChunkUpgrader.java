@@ -72,7 +72,7 @@ public final class ChunkUpgrader {
         return currentChunk != null && currentChunk.getStatus().isAtLeast(step.getMaximumStatus());
     }
 
-    void completeUpgradeOk(ChunkEntry entry, ChunkStep step, Chunk chunk) {
+    void notifyUpgradeOk(ChunkEntry entry, ChunkStep step, Chunk chunk) {
         entry.completeUpgradeOk(step, chunk);
 
         ChunkStatus status = step.getMaximumStatus();
@@ -81,8 +81,8 @@ public final class ChunkUpgrader {
         ChunkStep.trySetStatus(chunk, status);
     }
 
-    void completeUpgradeErr(ChunkEntry entry, ChunkStep step) {
-        entry.completeUpgradeErr(step);
+    void notifyUpgradeUnloaded(ChunkEntry entry, ChunkStep step) {
+        entry.notifyUpgradeUnloaded(step);
         this.controller.notifyStatus(entry.getPos(), null);
     }
 }

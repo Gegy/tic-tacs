@@ -40,7 +40,7 @@ final class ChunkUpgradeStepper {
     }
 
     @Nullable
-    Chunk[] pollStep(Waker waker, AcquireChunks.Result chunks, ChunkStep step) {
+    Chunk[] pollStep(Waker waker, ChunkUpgradeEntries entries, AcquireChunks.Result chunks, ChunkStep step) {
         Future<Chunk>[] tasks = this.tasks;
 
         if (!this.pollingTasks) {
@@ -48,34 +48,34 @@ final class ChunkUpgradeStepper {
             if (step == ChunkStep.EMPTY) {
                 this.openLoadTasks(chunks, tasks);
             } else {
-                this.openUpgradeTasks(chunks, step, tasks);
+                this.openUpgradeTasks(entries, chunks, step, tasks);
             }
         }
 
         return JoinAllArray.poll(waker, tasks, this.chunks);
     }
 
-    private void openUpgradeTasks(AcquireChunks.Result chunks, ChunkStep step, Future<Chunk>[] tasks) {
-        chunks.openUpgradeTasks(tasks, entry -> this.upgradeChunk(entry, chunks, step));
+    private void openUpgradeTasks(ChunkUpgradeEntries entries, AcquireChunks.Result chunks, ChunkStep step, Future<Chunk>[] tasks) {
+        chunks.openUpgradeTasks(tasks, entry -> this.upgradeChunk(entry, entries, step));
     }
 
     private void openLoadTasks(AcquireChunks.Result chunks, Future<Chunk>[] tasks) {
         chunks.openUpgradeTasks(tasks, this::loadChunk);
     }
 
-    private Future<Chunk> upgradeChunk(ChunkEntry entry, AcquireChunks.Result chunks, ChunkStep step) {
-        ContextView context = this.openContext(entry, chunks, step);
+    private Future<Chunk> upgradeChunk(ChunkEntry entry, ChunkUpgradeEntries entries, ChunkStep step) {
+        ContextView context = this.openContext(entry, entries, step);
 
         Future<Chunk> future = this.parent.controller.getUpgrader().runStepTask(entry, step, context);
         return this.createTaskWithContext(future, context);
     }
 
-    private ContextView openContext(ChunkEntry entry, AcquireChunks.Result chunks, ChunkStep step) {
+    private ContextView openContext(ChunkEntry entry, ChunkUpgradeEntries entries, ChunkStep step) {
         ContextView context = CONTEXT_POOL.acquire();
         ChunkPos targetPos = entry.getPos();
 
         int targetRadius = step.getRequirements().getRadius();
-        context.open(this.parent.pos, chunks, targetPos, targetRadius);
+        context.open(this.parent.pos, entries, targetPos, targetRadius);
 
         return context;
     }
@@ -119,17 +119,17 @@ final class ChunkUpgradeStepper {
     }
 
     static class ContextView extends AbstractList<Chunk> {
-        private AcquireChunks.Result source;
+        private ChunkUpgradeEntries source;
         private int targetSize;
 
         private int targetToSourceOffsetX;
         private int targetToSourceOffsetZ;
 
         void open(
-                ChunkPos sourceOrigin, AcquireChunks.Result chunks,
+                ChunkPos sourceOrigin, ChunkUpgradeEntries source,
                 ChunkPos targetOrigin, int targetRadius
         ) {
-            this.source = chunks;
+            this.source = source;
             this.targetSize = targetRadius * 2 + 1;
 
             this.targetToSourceOffsetX = (targetOrigin.x - targetRadius) - sourceOrigin.x;
@@ -153,9 +153,6 @@ final class ChunkUpgradeStepper {
             int sourceZ = targetZ + this.targetToSourceOffsetZ;
 
             ChunkEntry entry = this.source.getEntry(sourceX, sourceZ);
-            if (entry == null) {
-                return null;
-            }
 
             // TODO: could this be given a ReadOnlyChunk, causing feature generation to not work properly?
             return entry.getChunk();

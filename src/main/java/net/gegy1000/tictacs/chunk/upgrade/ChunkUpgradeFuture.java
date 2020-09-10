@@ -8,7 +8,6 @@ import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.chunk.future.Poll;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
@@ -23,43 +22,39 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private final ChunkUpgradeStepper stepper;
 
-    private volatile AcquireChunks acquireEntries;
+    private final ChunkUpgradeEntries entries;
+    private volatile AcquireChunks acquireChunks;
+
     private volatile ChunkStep currentStep;
 
-    private volatile Future<Unit> acquireListener;
+    private volatile Future<Unit> acquireStep;
     private volatile boolean stepReady;
 
     private volatile Future<Unit> flushListener;
 
-    public ChunkUpgradeFuture(
-            ChunkController controller,
-            ChunkPos pos,
-            ChunkStep targetStep
-    ) {
+    public ChunkUpgradeFuture(ChunkController controller, ChunkPos pos, ChunkStep targetStep) {
         this.controller = controller;
         this.pos = pos;
         this.targetStep = targetStep;
 
         this.stepper = new ChunkUpgradeStepper(this);
+        this.entries = new ChunkUpgradeEntries(ChunkUpgradeKernel.forStep(targetStep));
     }
 
     @Nullable
     @Override
     public Unit poll(Waker waker) {
-        if (this.currentStep == null) {
-            Poll<ChunkStep> pollMinimumStep = this.pollMinimumStep(waker);
-            if (pollMinimumStep.isPending()) {
+        if (!this.entries.acquired) {
+            if (!this.pollEntries(waker)) {
                 return null;
             }
 
-            ChunkStep minimumStep = pollMinimumStep.get();
-
             // if the lowest step in this area is greater than or equal to our target, we have no work to do
-            if (minimumStep != null && minimumStep.greaterOrEqual(this.targetStep)) {
+            if (this.entries.minimumStep != null && this.entries.minimumStep.greaterOrEqual(this.targetStep)) {
                 return Unit.INSTANCE;
             }
 
-            this.currentStep = minimumStep != null ? minimumStep.getNext() : ChunkStep.EMPTY;
+            this.currentStep = this.entries.minimumStep != null ? this.entries.minimumStep.getNext() : ChunkStep.EMPTY;
         }
 
         while (true) {
@@ -69,37 +64,37 @@ final class ChunkUpgradeFuture implements Future<Unit> {
                 return null;
             }
 
-            if (this.acquireEntries == null) {
-                this.acquireEntries = AcquireChunks.open(this.targetStep);
+            if (this.acquireChunks == null) {
+                this.acquireChunks = AcquireChunks.open(this.entries, this.targetStep);
             }
 
             // poll to acquire read/write access to all the relevant entries
-            ChunkAccess chunkAccess = this.controller.getMap().visible();
-
-            AcquireChunks.Result chunks = this.acquireEntries.poll(waker, chunkAccess, this.pos, currentStep);
+            AcquireChunks.Result chunks = this.acquireChunks.poll(waker, currentStep);
             if (chunks == null) {
                 return null;
             }
 
             // if some of the chunk entries have unloaded since we've started, we can't continue
             if (chunks.unloaded) {
+                this.notifyUpgradeUnloaded(currentStep);
                 this.releaseStep();
+
                 return Unit.INSTANCE;
             }
 
             try {
                 if (!chunks.empty) {
-                    Chunk[] pollChunks = this.stepper.pollStep(waker, chunks, currentStep);
+                    Chunk[] pollChunks = this.stepper.pollStep(waker, this.entries, chunks, currentStep);
                     if (pollChunks == null) {
                         return null;
                     }
 
-                    this.notifyChunkUpgrades(pollChunks, chunks, currentStep);
+                    this.notifyUpgrades(pollChunks, currentStep);
                 }
 
                 this.releaseStep();
             } catch (ChunkNotLoadedException err) {
-                this.notifyChunkUpgradeError(chunks, currentStep);
+                this.notifyUpgradeUnloaded(currentStep);
                 this.releaseStep();
 
                 return Unit.INSTANCE;
@@ -119,19 +114,19 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             return true;
         }
 
-        if (this.acquireListener == null) {
+        if (this.acquireStep == null) {
             ChunkStep.Acquire acquire = currentStep.getAcquireTask();
             if (acquire == null) {
                 this.stepReady = true;
                 return true;
             }
 
-            this.acquireListener = acquire.acquire(this.controller);
+            this.acquireStep = acquire.acquire(this.controller);
         }
 
-        if (this.acquireListener.poll(waker) != null) {
+        if (this.acquireStep.poll(waker) != null) {
             this.stepReady = true;
-            this.acquireListener = null;
+            this.acquireStep = null;
             return true;
         }
 
@@ -140,62 +135,47 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private void releaseStep() {
         this.stepper.reset();
-        this.acquireEntries.release();
+        this.acquireChunks.release();
 
         ChunkStep.Release releaseTask = this.currentStep.getReleaseTask();
         if (releaseTask != null) {
             releaseTask.release(this.controller);
         }
 
-        this.acquireEntries = null;
-        this.acquireListener = null;
+        this.acquireChunks = null;
+        this.acquireStep = null;
         this.stepReady = false;
     }
 
-    private void notifyChunkUpgrades(Chunk[] chunks, AcquireChunks.Result acquiredChunks, ChunkStep step) {
-        ChunkEntry[] entries = acquiredChunks.entries;
+    private void notifyUpgrades(Chunk[] chunks, ChunkStep step) {
+        ChunkUpgradeEntries entries = this.entries;
+        ChunkUpgrader upgrader = this.controller.getUpgrader();
 
-        ChunkUpgradeKernel kernel = acquiredChunks.getKernel();
-        int radius = kernel.getRadius();
+        ChunkUpgradeKernel kernel = ChunkUpgradeKernel.forStep(this.targetStep);
+        int radius = kernel.getRadiusFor(step);
 
         for (int z = -radius; z <= radius; z++) {
             for (int x = -radius; x <= radius; x++) {
-                int idx = kernel.index(x, z);
-
-                ChunkEntry entry = entries[idx];
-                Chunk chunk = chunks[idx];
-                if (entry == null || chunk == null) {
-                    continue;
+                Chunk chunk = chunks[kernel.index(x, z)];
+                if (chunk != null) {
+                    ChunkEntry entry = entries.getEntry(x, z);
+                    upgrader.notifyUpgradeOk(entry, step, chunk);
                 }
-
-                this.controller.getUpgrader().completeUpgradeOk(entry, step, chunk);
             }
         }
     }
 
-    private void notifyChunkUpgradeError(AcquireChunks.Result chunks, ChunkStep step) {
-        ChunkEntry[] entries = chunks.entries;
-        ChunkUpgradeKernel kernel = chunks.getKernel();
-        int radius = kernel.getRadius();
-
-        for (int z = -radius; z <= radius; z++) {
-            for (int x = -radius; x <= radius; x++) {
-                int idx = kernel.index(x, z);
-
-                ChunkEntry entry = entries[idx];
-                if (entry == null) {
-                    continue;
-                }
-
-                this.controller.getUpgrader().completeUpgradeErr(entry, step);
-            }
+    private void notifyUpgradeUnloaded(ChunkStep step) {
+        ChunkUpgrader upgrader = this.controller.getUpgrader();
+        for (ChunkEntry entry : this.entries) {
+            upgrader.notifyUpgradeUnloaded(entry, step);
         }
     }
 
-    private Poll<ChunkStep> pollMinimumStep(Waker waker) {
+    private boolean pollEntries(Waker waker) {
         if (this.flushListener != null) {
             if (this.flushListener.poll(waker) == null) {
-                return Poll.pending();
+                return false;
             } else {
                 this.flushListener = null;
             }
@@ -207,56 +187,26 @@ final class ChunkUpgradeFuture implements Future<Unit> {
             // acquire a flush listener now so that we can be sure nothing has changed since we checked the entries
             ChunkMap.FlushListener flushListener = this.controller.getMap().awaitFlush();
 
-            Poll<ChunkStep> minimumStep = this.findMinimumStep(chunks);
+            ChunkUpgradeKernel kernel = ChunkUpgradeKernel.forStep(this.targetStep);
+
+            boolean acquired = this.entries.tryAcquire(chunks, this.pos, kernel);
 
             // not all of the required entries are loaded: wait for the entry list to update
-            if (minimumStep.isPending()) {
+            if (!acquired) {
                 // if a flush has happened since we last checked, try again now
                 if (flushListener.poll(waker) != null) {
                     continue;
                 }
 
                 this.flushListener = flushListener;
-                return Poll.pending();
+                return false;
             }
 
             // we have everything we need: we don't need to listen for flushes anymore
             flushListener.invalidateWaker();
 
-            return minimumStep;
+            return true;
         }
-    }
-
-    private Poll<ChunkStep> findMinimumStep(ChunkAccess chunks) {
-        int centerX = this.pos.x;
-        int centerZ = this.pos.z;
-
-        ChunkStep minimumStep = ChunkStep.FULL;
-
-        int radius = ChunkUpgradeKernel.forStep(this.targetStep).getRadius();
-
-        for (int z = -radius; z <= radius; z++) {
-            for (int x = -radius; x <= radius; x++) {
-                ChunkEntry entry = chunks.getEntry(x + centerX, z + centerZ);
-
-                // all chunk entries must be available before upgrading
-                if (entry == null) {
-                    return Poll.pending();
-                }
-
-                // we've reached the absolute minimum status: no point comparing
-                if (minimumStep == null) {
-                    continue;
-                }
-
-                ChunkStep step = entry.getCurrentStep();
-                if (step == null || step.lessThan(minimumStep)) {
-                    minimumStep = step;
-                }
-            }
-        }
-
-        return Poll.ready(minimumStep);
     }
 
     @Override
@@ -264,12 +214,12 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         StringBuilder display = new StringBuilder();
         display.append("upgrading ").append(this.pos).append(" to ").append(this.targetStep).append(": ");
 
-        if (this.currentStep != null) {
-            if (this.currentStep.greaterOrEqual(this.targetStep) && this.stepReady && this.acquireEntries.acquired) {
+        if (this.entries.acquired) {
+            if (this.currentStep.greaterOrEqual(this.targetStep) && this.stepReady && this.acquireChunks.acquired) {
                 display.append("ready!");
             } else {
                 if (this.stepReady) {
-                    if (this.acquireEntries.acquired) {
+                    if (this.acquireChunks.acquired) {
                         display.append("waiting for upgrade to ").append(this.currentStep);
                     } else {
                         display.append("waiting to acquire entry locks @").append(this.currentStep);

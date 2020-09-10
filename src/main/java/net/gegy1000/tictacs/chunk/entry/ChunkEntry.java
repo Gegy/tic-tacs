@@ -208,7 +208,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     @Nullable
     public Chunk getChunkForStep(ChunkStep step) {
-        if (step.lessThan(this.currentStep)) {
+        if (step.greaterThan(this.currentStep)) {
             return null;
         }
 
@@ -226,13 +226,24 @@ public final class ChunkEntry extends ChunkHolder {
             this.chunk = (ProtoChunk) chunk;
         }
 
-        this.getListenerFor(step).completeOk();
+        ChunkListener listener = this.listeners.get(step.getIndex());
+        if (listener != null) {
+            listener.completeOk();
+        }
     }
 
-    public void completeUpgradeErr(ChunkStep step) {
-        this.includeStep(step);
+    public void notifyUpgradeUnloaded(ChunkStep step) {
+        for (int i = step.getIndex(); i < this.listeners.length(); i++) {
+            ChunkListener listener = this.listeners.getAndSet(step.getIndex(), null);
+            if (listener != null) {
+                listener.completeErr();
+            }
+        }
 
-        this.getListenerFor(step).completeErr();
+        ChunkStep lastValidStep = step.getPrevious();
+        if (lastValidStep != null) {
+            this.downgradeSpawnedStep(lastValidStep);
+        }
     }
 
     void includeStep(ChunkStep step) {

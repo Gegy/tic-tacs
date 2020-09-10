@@ -6,14 +6,12 @@ import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.AtomicPool;
 import net.gegy1000.tictacs.async.lock.JoinLock;
 import net.gegy1000.tictacs.async.lock.Lock;
-import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.entry.ChunkAccessLock;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirement;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirements;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
@@ -46,6 +44,7 @@ final class AcquireChunks {
     private final Lock joinLock;
     private final Future<Unit> acquireJoinLock;
 
+    volatile ChunkUpgradeEntries entries;
     volatile boolean acquired;
 
     private AcquireChunks(ChunkStep targetStep) {
@@ -61,35 +60,37 @@ final class AcquireChunks {
         });
         this.acquireJoinLock = new Lock.AcquireFuture(this.joinLock);
 
-        this.result = this.kernel.create(Result::new);
+        this.result = new Result();
     }
 
     private static AtomicPool<AcquireChunks> poolFor(ChunkStep step) {
         return STEP_TO_POOL[step.getIndex()];
     }
 
-    public static AcquireChunks open(ChunkStep step) {
-        return poolFor(step).acquire();
+    public static AcquireChunks open(ChunkUpgradeEntries entries, ChunkStep step) {
+        AcquireChunks acquire = poolFor(step).acquire();
+        acquire.entries = entries;
+        return acquire;
     }
 
     private void clearBuffers() {
         Arrays.fill(this.upgradeLocks, null);
         Arrays.fill(this.locks, null);
-        Arrays.fill(this.result.entries, null);
 
         this.result.empty = true;
         this.result.unloaded = false;
     }
 
     @Nullable
-    public Result poll(Waker waker, ChunkAccess chunks, ChunkPos pos, ChunkStep step) {
+    public Result poll(Waker waker, ChunkStep step) {
         if (this.acquired) {
             return this.result;
         }
 
         this.clearBuffers();
+        this.acquired = false;
 
-        if (this.collectChunks(chunks, pos, step)) {
+        if (this.collectChunks(step)) {
             this.result.empty = false;
         } else {
             this.result.empty = true;
@@ -105,11 +106,11 @@ final class AcquireChunks {
         }
     }
 
-    private boolean collectChunks(ChunkAccess chunks, ChunkPos pos, ChunkStep step) {
+    private boolean collectChunks(ChunkStep step) {
         Lock[] upgradeLocks = this.upgradeLocks;
         Lock[] locks = this.locks;
-        ChunkEntry[] entries = this.result.entries;
 
+        ChunkUpgradeEntries entries = this.entries;
         ChunkUpgradeKernel kernel = this.kernel;
         int radiusForStep = kernel.getRadiusFor(step);
 
@@ -119,9 +120,14 @@ final class AcquireChunks {
 
         for (int z = -radiusForStep; z <= radiusForStep; z++) {
             for (int x = -radiusForStep; x <= radiusForStep; x++) {
-                ChunkEntry entry = chunks.getEntry(x + pos.x, z + pos.z);
-                if (entry == null) {
+                ChunkEntry entry = entries.getEntry(x, z);
+                if (!entry.isValidAs(step)) {
+                    // we need to release all the locks that we've acquired so far
+                    this.joinLock.release();
+                    this.clearBuffers();
+
                     this.result.unloaded = true;
+
                     return false;
                 }
 
@@ -129,13 +135,10 @@ final class AcquireChunks {
                     entry.trySpawnUpgradeTo(step);
 
                     int idx = kernel.index(x, z);
-
-                    entries[idx] = entry;
-
                     upgradeLocks[idx] = entry.getLock().upgrade();
                     locks[idx] = entry.getLock().write(step.getLock());
 
-                    this.collectContextMargin(chunks, pos, x, z, requirements);
+                    this.collectContextMargin(x, z, requirements);
 
                     added = true;
                 }
@@ -145,15 +148,14 @@ final class AcquireChunks {
         return added;
     }
 
-    private void collectContextMargin(ChunkAccess chunks, ChunkPos pos, int centerX, int centerZ, ChunkRequirements requirements) {
+    private void collectContextMargin(int centerX, int centerZ, ChunkRequirements requirements) {
         int contextRadius = requirements.getRadius();
         if (contextRadius <= 0) {
             return;
         }
 
-        ChunkEntry[] entries = this.result.entries;
         Lock[] locks = this.locks;
-
+        ChunkUpgradeEntries entries = this.entries;
         ChunkUpgradeKernel kernel = this.kernel;
 
         int kernelRadius = kernel.getRadius();
@@ -167,18 +169,17 @@ final class AcquireChunks {
             for (int x = minX; x <= maxX; x++) {
                 int idx = kernel.index(x, z);
 
-                if (entries[idx] == null) {
+                if (locks[idx] == null) {
                     int distance = Math.max(Math.abs(x - centerX), Math.abs(z - centerZ));
                     ChunkRequirement requirement = requirements.byDistance(distance);
 
                     if (requirement != null) {
-                        ChunkEntry entry = chunks.expectEntry(x + pos.x, z + pos.z);
+                        ChunkEntry entry = entries.getEntry(x, z);
                         ChunkAccessLock lock = entry.getLock();
 
                         ChunkLockType resource = requirement.step.getLock();
                         boolean requireWrite = requirement.write;
 
-                        entries[idx] = entry;
                         locks[idx] = requireWrite ? lock.write(resource) : lock.read(resource);
                     }
                 }
@@ -195,37 +196,29 @@ final class AcquireChunks {
             this.clearBuffers();
         }
 
+        this.entries = null;
+
         poolFor(this.targetStep).release(this);
     }
 
     public final class Result {
-        final ChunkEntry[] entries;
         boolean empty = true;
         boolean unloaded = false;
 
-        Result(int bufferSize) {
-            this.entries = new ChunkEntry[bufferSize];
-        }
-
         public <T> void openUpgradeTasks(Future<T>[] tasks, Function<ChunkEntry, Future<T>> function) {
-            ChunkEntry[] entries = this.entries;
+            Lock[] upgradeLocks = AcquireChunks.this.upgradeLocks;
+            ChunkUpgradeEntries entries = AcquireChunks.this.entries;
+            ChunkUpgradeKernel kernel = AcquireChunks.this.kernel;
+            int radius = kernel.getRadius();
 
-            for (int i = 0; i < entries.length; i++) {
-                ChunkEntry entry = entries[i];
-                if (entry != null && AcquireChunks.this.upgradeLocks[i] != null) {
-                    tasks[i] = function.apply(entry);
+            for (int z = -radius; z <= radius; z++) {
+                for (int x = -radius; x <= radius; x++) {
+                    int idx = kernel.index(x, z);
+                    if (upgradeLocks[idx] != null) {
+                        tasks[idx] = function.apply(entries.getEntry(x, z));
+                    }
                 }
             }
-        }
-
-        @Nullable
-        public ChunkEntry getEntry(int x, int z) {
-            int idx = AcquireChunks.this.kernel.index(x, z);
-            return this.entries[idx];
-        }
-
-        public ChunkUpgradeKernel getKernel() {
-            return AcquireChunks.this.kernel;
         }
     }
 }
