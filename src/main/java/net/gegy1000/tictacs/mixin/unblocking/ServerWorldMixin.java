@@ -71,7 +71,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
 
         int chunkX = x >> 4;
         int chunkZ = z >> 4;
-        if (this.shouldChunkExist(chunkX, chunkZ)) {
+        if (this.shouldChunkExist(chunkX, chunkZ, ChunkStep.FEATURES)) {
             Chunk chunk = this.getChunk(chunkX, chunkZ, ChunkStatus.FEATURES);
             return chunk.sampleHeightmap(heightmap, x & 15, z & 15) + 1;
         } else {
@@ -95,7 +95,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
-    public boolean shouldChunkExist(int x, int z) {
-        return ((AsyncChunkAccess) this.serverChunkManager).shouldChunkExist(x, z);
+    public boolean shouldChunkExist(int x, int z, ChunkStep step) {
+        return ((AsyncChunkAccess) this.serverChunkManager).shouldChunkExist(x, z, step);
     }
 }

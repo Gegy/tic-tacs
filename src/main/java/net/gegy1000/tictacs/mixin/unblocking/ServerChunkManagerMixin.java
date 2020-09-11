@@ -187,7 +187,7 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         ChunkEntry entry = this.getChunkEntry(x, z);
 
         ChunkPos pos = new ChunkPos(x, z);
-        int level = this.getLevelForStep(step);
+        int level = getLevelForStep(step);
         this.ticketManager.addTicketWithLevel(ChunkTicketType.UNKNOWN, pos, level, pos);
 
         while (entry == null || !entry.isValidAs(step)) {
@@ -209,14 +209,14 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         return controller.getChunkAs(entry, step).asVanilla();
     }
 
-    private int getLevelForStep(ChunkStep step) {
-        return ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
+    @Override
+    public boolean shouldChunkExist(int x, int z, ChunkStep step) {
+        ChunkEntry entry = this.getChunkEntry(x, z);
+        return entry != null && entry.getLevel() <= getLevelForStep(step);
     }
 
-    @Override
-    public boolean shouldChunkExist(int x, int z) {
-        ChunkEntry entry = this.getChunkEntry(x, z);
-        return entry != null && entry.getLevel() <= ChunkLevelTracker.FULL_LEVEL;
+    private static int getLevelForStep(ChunkStep step) {
+        return ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
     }
 
     private ChunkEntry getChunkEntry(int x, int z) {

@@ -10,5 +10,9 @@ public interface AsyncChunkAccess {
 
     CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step);
 
-    boolean shouldChunkExist(int x, int z);
+    boolean shouldChunkExist(int x, int z, ChunkStep step);
+
+    default boolean shouldChunkExist(int x, int z) {
+        return this.shouldChunkExist(x, z, ChunkStep.FULL);
+    }
 }
