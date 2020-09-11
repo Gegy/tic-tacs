@@ -59,7 +59,6 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -466,27 +465,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         long pos = chunkPos.toLong();
 
         ChunkEntry entry = this.map.visible().getEntry(pos);
-        return entry == null || this.isTooFarFromPlayersToSpawnMobs(entry);
-    }
-
-    @Override
-    public boolean isTooFarFromPlayersToSpawnMobs(ChunkEntry entry) {
-        Set<ServerPlayerEntity> players = entry.getTrackers().getTrackingPlayers();
-        if (players.isEmpty()) {
-            return true;
-        }
-
-        if (!this.ticketManager.method_20800(entry.getPos().toLong())) {
-            return true;
-        }
-
-        for (ServerPlayerEntity player : players) {
-            if (!player.isSpectator() && getSquaredDistance(entry.getPos(), player) < 128 * 128) {
-                return false;
-            }
-        }
-
-        return true;
+        return entry == null || !entry.isChunkTickable();
     }
 
     /**
@@ -532,9 +511,4 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
     @Shadow
     protected abstract CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos);
-
-    @Shadow
-    private static double getSquaredDistance(ChunkPos pos, Entity entity) {
-        throw new UnsupportedOperationException();
-    }
 }
