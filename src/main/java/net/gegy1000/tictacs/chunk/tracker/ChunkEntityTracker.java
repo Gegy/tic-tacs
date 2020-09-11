@@ -1,10 +1,12 @@
 package net.gegy1000.tictacs.chunk.tracker;
 
+import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.gegy1000.tictacs.QueuingConnection;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import net.gegy1000.tictacs.chunk.entry.ChunkEntryTrackers;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.network.Packet;
@@ -12,7 +14,6 @@ import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.Set;
@@ -63,7 +64,7 @@ public final class ChunkEntityTracker {
 
     void remove() {
         if (this.chunkEntry != null) {
-            this.chunkEntry.removeEntity(this);
+            this.chunkEntry.getTrackers().removeEntity(this);
             this.chunkEntry = null;
         }
 
@@ -86,19 +87,21 @@ public final class ChunkEntityTracker {
     }
 
     private void moveFromChunk(ChunkEntry from) {
-        for (ServerPlayerEntity player : from.getTrackingPlayers()) {
+        ChunkEntryTrackers trackers = from.getTrackers();
+        for (ServerPlayerEntity player : trackers.getTrackingPlayers()) {
             this.updateTrackerUnwatched(player);
         }
 
-        from.removeEntity(this);
+        trackers.removeEntity(this);
     }
 
     private void moveToChunk(ChunkEntry to) {
-        for (ServerPlayerEntity player : to.getTrackingPlayers()) {
+        ChunkEntryTrackers trackers = to.getTrackers();
+        for (ServerPlayerEntity player : trackers.getTrackingPlayers()) {
             this.updateTrackerWatched(player);
         }
 
-        to.addEntity(this);
+        trackers.addEntity(this);
     }
 
     public void updateTrackerWatched(ServerPlayerEntity player) {
@@ -115,7 +118,7 @@ public final class ChunkEntityTracker {
 
     private void startTracking(ServerPlayerEntity player) {
         if (this.trackingPlayers == null) {
-            this.trackingPlayers = new ObjectOpenHashSet<>();
+            this.trackingPlayers = new ObjectOpenHashSet<>(2, Hash.DEFAULT_LOAD_FACTOR);
         }
 
         if (this.trackingPlayers.add(player)) {
@@ -144,18 +147,14 @@ public final class ChunkEntityTracker {
             return true;
         }
 
-        if (this.chunkEntry == null || !this.chunkEntry.isTrackedBy(player)) {
+        if (this.chunkEntry == null || !this.chunkEntry.getTrackers().isTrackedBy(player)) {
             return false;
         }
 
         int chunkX = ChunkPos.getPackedX(this.chunkPos);
         int chunkZ = ChunkPos.getPackedZ(this.chunkPos);
 
-        ChunkSectionPos playerChunk = player.getCameraPosition();
-        int deltaX = playerChunk.getX() - chunkX;
-        int deltaZ = playerChunk.getZ() - chunkZ;
-
-        int distance = Math.max(Math.abs(deltaX), Math.abs(deltaZ));
+        int distance = ChunkTracker.getChunkDistance(player, chunkX, chunkZ);
         return distance < this.getEffectiveTrackDistance();
     }
 

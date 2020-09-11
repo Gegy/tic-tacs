@@ -5,6 +5,7 @@ import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.entry.ChunkListener;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
+import net.gegy1000.tictacs.chunk.tracker.ChunkTracker;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
@@ -22,6 +23,8 @@ public interface ChunkController {
     ChunkUpgrader getUpgrader();
 
     ChunkTicketManager getTicketManager();
+
+    ChunkTracker getTracker();
 
     ChunkListener getChunkAs(ChunkEntry entry, ChunkStep step);
 

@@ -7,8 +7,9 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameRules;
 
 import java.util.Collection;
+import java.util.Iterator;
 
-public final class ChunkPlayerWatchers {
+public final class ChunkPlayerWatchers implements Iterable<ServerPlayerEntity> {
     private final ServerWorld world;
 
     private final ReferenceSet<ServerPlayerEntity> players = new ReferenceOpenHashSet<>();
@@ -65,5 +66,10 @@ public final class ChunkPlayerWatchers {
 
     public Collection<ServerPlayerEntity> getLoadingPlayers() {
         return this.loadingPlayers;
+    }
+
+    @Override
+    public Iterator<ServerPlayerEntity> iterator() {
+        return this.players.iterator();
     }
 }

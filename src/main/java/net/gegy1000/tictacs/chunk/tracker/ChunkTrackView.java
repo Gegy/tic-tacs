@@ -5,20 +5,30 @@ import net.minecraft.util.math.ChunkPos;
 import java.util.function.LongConsumer;
 
 final class ChunkTrackView {
-    final int minX;
-    final int minZ;
-    final int maxX;
-    final int maxZ;
+    int minX;
+    int minZ;
+    int maxX;
+    int maxZ;
 
-    ChunkTrackView(int minX, int minZ, int maxX, int maxZ) {
+    ChunkTrackView() {
+    }
+
+    public static ChunkTrackView withRadius(int x, int z, int radius) {
+        ChunkTrackView view = new ChunkTrackView();
+        view.setWithRadius(x, z, radius);
+
+        return view;
+    }
+
+    public void set(int minX, int minZ, int maxX, int maxZ) {
         this.minX = minX;
         this.minZ = minZ;
         this.maxX = maxX;
         this.maxZ = maxZ;
     }
 
-    public static ChunkTrackView withRadius(int x, int z, int radius) {
-        return new ChunkTrackView(x - radius, z - radius, x + radius, z + radius);
+    public void setWithRadius(int x, int z, int radius) {
+        this.set(x - radius, z - radius, x + radius, z + radius);
     }
 
     public void forEach(LongConsumer consumer) {
@@ -82,6 +92,25 @@ final class ChunkTrackView {
                     consumer
             );
         }
+    }
+
+    public void forEachIntersection(ChunkTrackView other, LongConsumer consumer) {
+        int minX = Math.max(this.minX, other.minX);
+        int maxX = Math.min(this.maxX, other.maxX);
+        int minZ = Math.max(this.minZ, other.minZ);
+        int maxZ = Math.min(this.maxZ, other.maxZ);
+        if (minX > maxX || minZ > maxZ) {
+            return;
+        }
+
+        forEach(minX, minZ, maxX, maxZ, consumer);
+    }
+
+    public void forEachUnion(ChunkTrackView other, LongConsumer consumer) {
+        this.forEachDifference(other, consumer);
+        other.forEachDifference(this, consumer);
+
+        this.forEachIntersection(other, consumer);
     }
 
     public boolean contains(int x, int z) {

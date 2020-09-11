@@ -25,7 +25,7 @@ public final class ChunkPackets {
 
     public static Entities entitiesFor(ChunkEntry entry) {
         Entities entities = new Entities();
-        for (ChunkEntityTracker tracker : entry.getEntities()) {
+        for (ChunkEntityTracker tracker : entry.getTrackers().getEntities()) {
             entities.addEntity(tracker.getEntity());
         }
 

@@ -17,6 +17,7 @@ import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkMap {
@@ -34,11 +35,22 @@ public final class ChunkMap {
     private final ChunkAccess primary = new Primary();
     private final ChunkAccess visible = new Visible();
 
+    private final ChunkTickingMaps tickingMaps = new ChunkTickingMaps();
+
     private final WaiterQueue flushWaiters = new WaiterQueue();
+
+    private ChunkMapListener[] listeners = new ChunkMapListener[0];
 
     public ChunkMap(ServerWorld world, ChunkController controller) {
         this.world = world;
         this.controller = controller;
+
+        this.addListener(this.tickingMaps);
+    }
+
+    public void addListener(ChunkMapListener listener) {
+        this.listeners = Arrays.copyOf(this.listeners, this.listeners.length + 1);
+        this.listeners[this.listeners.length - 1]  = listener;
     }
 
     public ChunkEntry getOrCreateEntry(long pos, int level) {
@@ -132,18 +144,36 @@ public final class ChunkMap {
         return this.primaryEntries.size();
     }
 
+    public ChunkTickingMaps getTickingMaps() {
+        return this.tickingMaps;
+    }
+
+    private void onAddChunk(ChunkEntry entry) {
+        for (ChunkMapListener listener : this.listeners) {
+            listener.onAddChunk(entry);
+        }
+    }
+
+    private void onRemoveChunk(ChunkEntry entry) {
+        for (ChunkMapListener listener : this.listeners) {
+            listener.onRemoveChunk(entry);
+        }
+    }
+
     final class Primary implements ChunkAccess {
         @Override
         public void putEntry(ChunkEntry entry) {
             long pos = entry.getPos().toLong();
             ChunkMap.this.primaryEntries.put(pos, entry);
             ChunkMap.this.pendingUpdates.put(pos, entry);
+            ChunkMap.this.onAddChunk(entry);
         }
 
         @Override
         public ChunkEntry removeEntry(long pos) {
             ChunkEntry entry = ChunkMap.this.primaryEntries.remove(pos);
             if (entry != null) {
+                ChunkMap.this.onRemoveChunk(entry);
                 ChunkMap.this.pendingUpdates.put(pos, null);
             }
             return entry;

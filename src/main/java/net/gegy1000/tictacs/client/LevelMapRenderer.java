@@ -1,6 +1,5 @@
 package net.gegy1000.tictacs.client;
 
-import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
@@ -10,7 +9,6 @@ import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.client.texture.NativeImage;
 import net.minecraft.client.util.Rect2i;
-import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicket;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
@@ -19,10 +17,8 @@ import net.minecraft.util.collection.SortedArraySet;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.world.chunk.WorldChunk;
 
 import java.util.Collection;
-import java.util.concurrent.CompletableFuture;
 
 public final class LevelMapRenderer {
     private static final Object2IntMap<ChunkStep> STATUS_TO_COLOR = Util.make(new Object2IntOpenHashMap<>(), map -> {
@@ -98,13 +94,11 @@ public final class LevelMapRenderer {
     private static int getColorForChunk(ChunkEntry entry) {
         ChunkStep currentStep = entry.getCurrentStep();
         if (currentStep != null) {
-            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> entityTicking = entry.getEntityTickingFuture();
-            if (entityTicking.isDone() && entityTicking.join().left().isPresent()) {
+            if (entry.isTickingEntities()) {
                 return ENTITY_TICKABLE;
             }
 
-            CompletableFuture<Either<WorldChunk, ChunkHolder.Unloaded>> tickingFuture = entry.getTickingFuture();
-            if (tickingFuture.isDone() && tickingFuture.join().left().isPresent()) {
+            if (entry.isTicking()) {
                 return TICKABLE;
             }
 

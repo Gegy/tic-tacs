@@ -126,6 +126,8 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         this.tracker = new ChunkTracker(world, this);
         this.tracker.setViewDistance(this.watchDistance);
 
+        this.map.addListener(this.tracker);
+
         this.chunkMainExecutor = new ChunkMainThreadExecutor(mainThread);
     }
 
@@ -159,6 +161,11 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     @Override
     public ChunkTicketManager getTicketManager() {
         return this.ticketManager;
+    }
+
+    @Override
+    public ChunkTracker getTracker() {
+        return this.tracker;
     }
 
     @Override
@@ -350,6 +357,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
                         this.totalChunksLoadedCount.getAndIncrement();
                         this.tracker.onChunkFull(entry, chunk);
+                        this.map.getTickingMaps().addTrackableChunk(entry);
 
                         future.complete(Either.left(chunk));
                     } else {
@@ -419,7 +427,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
         if (entity instanceof EnderDragonPart) {
             return;
         }
-        this.tracker.addEntity(entity);
+        this.tracker.getEntities().add(entity);
     }
 
     /**
@@ -428,7 +436,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
      */
     @Overwrite
     public void unloadEntity(Entity entity) {
-        this.tracker.removeEntity(entity);
+        this.tracker.getEntities().remove(entity);
     }
 
     /**
@@ -437,7 +445,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
      */
     @Overwrite
     public void sendToOtherNearbyPlayers(Entity entity, Packet<?> packet) {
-        this.tracker.sendToTracking(entity, packet);
+        this.tracker.getEntities().sendToTracking(entity, packet);
     }
 
     /**
@@ -446,7 +454,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
      */
     @Overwrite
     public void sendToNearbyPlayers(Entity entity, Packet<?> packet) {
-        this.tracker.sendToTrackingAndSelf(entity, packet);
+        this.tracker.getEntities().sendToTrackingAndSelf(entity, packet);
     }
 
     /**
@@ -463,14 +471,18 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
     @Override
     public boolean isTooFarFromPlayersToSpawnMobs(ChunkEntry entry) {
-        Set<ServerPlayerEntity> players = entry.getTrackingPlayers();
+        Set<ServerPlayerEntity> players = entry.getTrackers().getTrackingPlayers();
         if (players.isEmpty()) {
+            return true;
+        }
+
+        if (!this.ticketManager.method_20800(entry.getPos().toLong())) {
             return true;
         }
 
         for (ServerPlayerEntity player : players) {
             if (!player.isSpectator() && getSquaredDistance(entry.getPos(), player) < 128 * 128) {
-                return !this.ticketManager.method_20800(entry.getPos().toLong());
+                return false;
             }
         }
 
@@ -495,7 +507,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
     private Stream<ServerPlayerEntity> getPlayersWatchingChunk(long pos) {
         ChunkEntry entry = this.map.visible().getEntry(pos);
         if (entry != null) {
-            return entry.getTrackingPlayers().stream();
+            return entry.getTrackers().getTrackingPlayers().stream();
         }
         return Stream.empty();
     }

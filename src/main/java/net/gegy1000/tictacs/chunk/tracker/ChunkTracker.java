@@ -1,12 +1,11 @@
 package net.gegy1000.tictacs.chunk.tracker;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
+import net.gegy1000.tictacs.chunk.ChunkMap;
+import net.gegy1000.tictacs.chunk.ChunkMapListener;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.minecraft.entity.Entity;
-import net.minecraft.network.Packet;
+import net.gegy1000.tictacs.chunk.entry.ChunkEntryTrackers;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ServerWorld;
@@ -14,62 +13,96 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.world.chunk.WorldChunk;
 
-public final class ChunkTracker {
+import java.util.Set;
+
+public final class ChunkTracker implements ChunkMapListener {
+    public static final int CHUNK_TICKING_DISTANCE = 8;
+
     private final ChunkController controller;
 
-    private final Int2ObjectMap<ChunkEntityTracker> entities = new Int2ObjectOpenHashMap<>();
     private final ChunkPlayerWatchers players;
+    private final ChunkEntityTrackers entities;
+
+    private final ChunkTrackWatcher playerTracker;
+    private final ChunkTrackWatcher[] trackWatchers;
 
     private int viewDistance;
 
     public ChunkTracker(ServerWorld world, ChunkController controller) {
         this.controller = controller;
         this.players = new ChunkPlayerWatchers(world);
+        this.entities = new ChunkEntityTrackers(controller);
+
+        this.playerTracker = new ChunkTrackWatcher(3);
+        this.playerTracker.setStartTracking(this::startTrackingChunk);
+        this.playerTracker.setStopTracking(this::stopTrackingChunk);
+
+        ChunkTrackWatcher tickingTracker = new ChunkTrackWatcher(CHUNK_TICKING_DISTANCE);
+        tickingTracker.setStartTracking(this::startTrackingChunkTickable);
+        tickingTracker.setStopTracking(this::stopTrackingChunkTickable);
+
+        this.trackWatchers = new ChunkTrackWatcher[] {
+                this.playerTracker,
+                tickingTracker
+        };
+    }
+
+    public static int getChunkDistance(ServerPlayerEntity player, int chunkX, int chunkZ) {
+        ChunkSectionPos playerChunk = player.getCameraPosition();
+        int deltaX = playerChunk.getX() - chunkX;
+        int deltaZ = playerChunk.getZ() - chunkZ;
+
+        return Math.max(Math.abs(deltaX), Math.abs(deltaZ));
     }
 
     public void setViewDistance(int viewDistance) {
         int lastViewDistance = this.viewDistance;
         this.viewDistance = viewDistance;
 
-        for (ServerPlayerEntity player : this.players.getPlayers()) {
-            ChunkSectionPos chunkPos = player.getCameraPosition();
+        this.playerTracker.setRadius(viewDistance);
 
-            ChunkTrackView lastView = ChunkTrackView.withRadius(chunkPos.getX(), chunkPos.getZ(), lastViewDistance);
-            ChunkTrackView view = ChunkTrackView.withRadius(chunkPos.getX(), chunkPos.getZ(), viewDistance);
-            this.updatePlayerTracker(player, lastView, view);
+        for (ServerPlayerEntity player : this.players) {
+            ChunkSectionPos chunkPos = player.getCameraPosition();
+            int chunkX = chunkPos.getX();
+            int chunkZ = chunkPos.getZ();
+
+            ChunkTrackView view = ChunkTrackView.withRadius(chunkX, chunkZ, viewDistance);
+            ChunkTrackView lastView = ChunkTrackView.withRadius(chunkX, chunkZ, lastViewDistance);
+
+            this.updatePlayerTracker(player, this.playerTracker, view, lastView);
         }
     }
 
     public void tick() {
-        for (ChunkEntityTracker tracker : this.entities.values()) {
-            if (tracker.tick(this.controller)) {
-                Entity entity = tracker.getEntity();
-                if (entity instanceof ServerPlayerEntity) {
-                    this.updatePlayerTracker((ServerPlayerEntity) entity);
-                }
-            }
+        this.entities.tick();
+
+        for (ServerPlayerEntity player : this.players) {
+            this.tickPlayer(player);
         }
     }
 
-    private void updatePlayerTracker(ServerPlayerEntity player) {
+    private void tickPlayer(ServerPlayerEntity player) {
         ChunkSectionPos lastSectionPos = player.getCameraPosition();
         ChunkSectionPos sectionPos = ChunkSectionPos.from(player);
 
-        long lastChunkPos = ChunkPos.toLong(lastSectionPos.getX(), lastSectionPos.getZ());
-        long chunkPos = ChunkPos.toLong(sectionPos.getX(), sectionPos.getZ());
+        if (!lastSectionPos.equals(sectionPos)) {
+            player.setCameraPosition(sectionPos);
 
+            if (lastSectionPos.getX() != sectionPos.getX() || lastSectionPos.getZ() != sectionPos.getZ()) {
+                ChunkPackets.sendPlayerChunkPos(player);
+            }
+        }
+
+        this.updatePlayerTickets(player, lastSectionPos, sectionPos);
+        this.updatePlayerTrackers(player, lastSectionPos, sectionPos);
+    }
+
+    private void updatePlayerTickets(ServerPlayerEntity player, ChunkSectionPos lastSectionPos, ChunkSectionPos sectionPos) {
         boolean lastLoadingEnabled = this.players.isLoadingEnabled(player);
         boolean loadingEnabled = this.players.shouldLoadChunks(player);
 
-        if (lastChunkPos == chunkPos && lastLoadingEnabled == loadingEnabled) {
-            return;
-        }
-
         ChunkTicketManager ticketManager = this.controller.getTicketManager();
-        if (lastChunkPos != chunkPos) {
-            player.setCameraPosition(sectionPos);
-            ChunkPackets.sendPlayerChunkPos(player);
-
+        if (lastSectionPos.getX() != sectionPos.getX() || lastSectionPos.getZ() != sectionPos.getZ()) {
             if (lastLoadingEnabled) {
                 ticketManager.handleChunkLeave(lastSectionPos, player);
             }
@@ -87,30 +120,46 @@ public final class ChunkTracker {
                 ticketManager.handleChunkLeave(lastSectionPos, player);
             }
         }
+    }
 
+    private void updatePlayerTrackers(ServerPlayerEntity player, ChunkSectionPos lastSectionPos, ChunkSectionPos sectionPos) {
         int chunkX = sectionPos.getX();
         int chunkZ = sectionPos.getZ();
         int lastChunkX = lastSectionPos.getX();
         int lastChunkZ = lastSectionPos.getZ();
 
-        ChunkTrackView view = ChunkTrackView.withRadius(chunkX, chunkZ, this.viewDistance);
-        ChunkTrackView lastView = ChunkTrackView.withRadius(lastChunkX, lastChunkZ, this.viewDistance);
-        this.updatePlayerTracker(player, lastView, view);
-    }
-
-    private void updatePlayerTracker(ServerPlayerEntity player, ChunkTrackView lastView, ChunkTrackView view) {
-        ChunkAccess chunks = this.controller.getMap().primary();
-        lastView.forEachDifference(view, pos -> this.stopTrackingChunk(player, chunks, pos));
-        view.forEachDifference(lastView, pos -> this.startTrackingChunk(player, chunks, pos));
-    }
-
-    private void startTrackingChunk(ServerPlayerEntity player, ChunkAccess chunks, long pos) {
-        ChunkEntry entry = chunks.getEntry(pos);
-        if (entry == null) {
+        if (chunkX == lastChunkX && chunkZ == lastChunkZ) {
             return;
         }
 
-        if (entry.addTrackingPlayer(player)) {
+        for (ChunkTrackWatcher tracker : this.trackWatchers) {
+            ChunkTrackView view = tracker.viewAt(chunkX, chunkZ);
+            ChunkTrackView lastView = tracker.viewAt(lastChunkX, lastChunkZ);
+
+            this.updatePlayerTracker(player, tracker, view, lastView);
+        }
+    }
+
+    private void updatePlayerTracker(ServerPlayerEntity player, ChunkTrackWatcher tracker, ChunkTrackView view, ChunkTrackView lastView) {
+        ChunkAccess chunks = this.controller.getMap().primary();
+
+        view.forEachDifference(lastView, pos -> {
+            ChunkEntry entry = chunks.getEntry(pos);
+            if (entry != null) {
+                tracker.startTracking(player, pos, entry);
+            }
+        });
+
+        lastView.forEachDifference(view, pos -> {
+            ChunkEntry entry = chunks.getEntry(pos);
+            if (entry != null) {
+                tracker.stopTracking(player, pos, entry);
+            }
+        });
+    }
+
+    private void startTrackingChunk(ServerPlayerEntity player, long pos, ChunkEntry entry) {
+        if (entry.getTrackers().addTrackingPlayer(player)) {
             WorldChunk chunk = entry.getWorldChunk();
             if (chunk != null) {
                 ChunkPackets.Data dataPackets = ChunkPackets.dataFor(chunk);
@@ -122,42 +171,33 @@ public final class ChunkTracker {
         }
     }
 
-    private void stopTrackingChunk(ServerPlayerEntity player, ChunkAccess chunks, long pos) {
+    private void stopTrackingChunk(ServerPlayerEntity player, long pos, ChunkEntry entry) {
         player.sendUnloadChunkPacket(new ChunkPos(pos));
+        entry.getTrackers().removeTrackingPlayer(player);
+    }
 
-        ChunkEntry entry = chunks.getEntry(pos);
-        if (entry != null) {
-            entry.removeTrackingPlayer(player);
+    private void startTrackingChunkTickable(ServerPlayerEntity player, long pos, ChunkEntry entry) {
+        ChunkEntryTrackers trackers = entry.getTrackers();
+
+        if (trackers.getTickableTrackingPlayers().isEmpty()) {
+            ChunkMap map = this.controller.getMap();
+            map.getTickingMaps().addTickableChunk(entry);
+        }
+
+        trackers.addTickableTrackingPlayer(player);
+    }
+
+    private void stopTrackingChunkTickable(ServerPlayerEntity player, long pos, ChunkEntry entry) {
+        ChunkEntryTrackers trackers = entry.getTrackers();
+        trackers.removeTickableTrackingPlayer(player);
+
+        if (trackers.getTickableTrackingPlayers().isEmpty()) {
+            ChunkMap map = this.controller.getMap();
+            map.getTickingMaps().removeTickableChunk(entry);
         }
     }
 
-    public void addEntity(Entity entity) {
-        if (this.entities.containsKey(entity.getEntityId())) {
-            return;
-        }
-
-        ChunkEntityTracker tracker = new ChunkEntityTracker(entity);
-        tracker.tick(this.controller);
-
-        this.entities.put(entity.getEntityId(), tracker);
-
-        if (entity instanceof ServerPlayerEntity) {
-            this.addPlayer((ServerPlayerEntity) entity);
-        }
-    }
-
-    public void removeEntity(Entity entity) {
-        ChunkEntityTracker tracker = this.entities.remove(entity.getEntityId());
-        if (tracker != null) {
-            tracker.remove();
-
-            if (entity instanceof ServerPlayerEntity) {
-                this.removePlayer((ServerPlayerEntity) entity);
-            }
-        }
-    }
-
-    private void addPlayer(ServerPlayerEntity player) {
+    public void addPlayer(ServerPlayerEntity player) {
         this.players.addPlayer(player);
 
         ChunkSectionPos sectionPos = ChunkSectionPos.from(player);
@@ -171,12 +211,17 @@ public final class ChunkTracker {
         }
 
         ChunkAccess chunks = this.controller.getMap().primary();
-        ChunkTrackView.withRadius(sectionPos.getX(), sectionPos.getZ(), this.viewDistance).forEach(pos -> {
-            this.startTrackingChunk(player, chunks, pos);
-        });
+        for (ChunkTrackWatcher tracker : this.trackWatchers) {
+            tracker.viewAt(sectionPos).forEach(pos -> {
+                ChunkEntry entry = chunks.getEntry(pos);
+                if (entry != null) {
+                    tracker.startTracking(player, pos, entry);
+                }
+            });
+        }
     }
 
-    private void removePlayer(ServerPlayerEntity player) {
+    public void removePlayer(ServerPlayerEntity player) {
         ChunkSectionPos sectionPos = player.getCameraPosition();
 
         boolean loadChunks = this.players.isLoadingEnabled(player);
@@ -187,45 +232,56 @@ public final class ChunkTracker {
         this.players.removePlayer(player);
 
         ChunkAccess chunks = this.controller.getMap().primary();
-        ChunkTrackView.withRadius(sectionPos.getX(), sectionPos.getZ(), this.viewDistance).forEach(pos -> {
-            this.stopTrackingChunk(player, chunks, pos);
-        });
-    }
-
-    public void sendToTracking(Entity entity, Packet<?> packet) {
-        ChunkEntityTracker tracker = this.entities.get(entity.getEntityId());
-        if (tracker != null) {
-            tracker.sendToTracking(packet);
+        for (ChunkTrackWatcher tracker : this.trackWatchers) {
+            tracker.viewAt(sectionPos).forEach(pos -> {
+                ChunkEntry entry = chunks.getEntry(pos);
+                if (entry != null) {
+                    tracker.stopTracking(player, pos, entry);
+                }
+            });
         }
     }
 
-    public void sendToTrackingAndSelf(Entity entity, Packet<?> packet) {
-        ChunkEntityTracker tracker = this.entities.get(entity.getEntityId());
-        if (tracker != null) {
-            tracker.sendToTrackingAndSelf(packet);
+    @Override
+    public void onAddChunk(ChunkEntry entry) {
+        ChunkPos chunkPos = entry.getPos();
+
+        for (ServerPlayerEntity player : this.players) {
+            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
+            for (ChunkTrackWatcher tracker : this.trackWatchers) {
+                if (distance <= tracker.getRadius()) {
+                    tracker.startTracking(player, chunkPos.toLong(), entry);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onRemoveChunk(ChunkEntry entry) {
+        ChunkPos chunkPos = entry.getPos();
+
+        for (ServerPlayerEntity player : this.players) {
+            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
+            for (ChunkTrackWatcher tracker : this.trackWatchers) {
+                if (distance <= tracker.getRadius()) {
+                    tracker.stopTracking(player, chunkPos.toLong(), entry);
+                }
+            }
         }
     }
 
     public void onChunkFull(ChunkEntry entry, WorldChunk chunk) {
-        ChunkPos chunkPos = entry.getPos();
-
-        for (ServerPlayerEntity player : this.players.getPlayers()) {
-            ChunkSectionPos sectionPos = player.getCameraPosition();
-            int playerChunkX = sectionPos.getSectionX();
-            int playerChunkZ = sectionPos.getSectionZ();
-
-            int distance = Math.max(Math.abs(playerChunkX - chunkPos.x), Math.abs(playerChunkZ - chunkPos.z));
-            if (distance <= this.viewDistance) {
-                entry.addTrackingPlayer(player);
-            }
-        }
-
         ChunkPackets.Data data = ChunkPackets.dataFor(chunk);
         ChunkPackets.Entities entities = ChunkPackets.entitiesFor(entry);
 
-        for (ServerPlayerEntity player : entry.getTrackingPlayers()) {
+        Set<ServerPlayerEntity> trackingPlayers = entry.getTrackers().getTrackingPlayers();
+        for (ServerPlayerEntity player : trackingPlayers) {
             data.sendTo(player);
             entities.sendTo(player);
         }
+    }
+
+    public ChunkEntityTrackers getEntities() {
+        return this.entities;
     }
 }

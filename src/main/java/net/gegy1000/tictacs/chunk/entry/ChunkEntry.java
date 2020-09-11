@@ -1,11 +1,11 @@
 package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.gegy1000.tictacs.QueuingConnection;
+import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
+import net.gegy1000.tictacs.chunk.ChunkMap;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
-import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.Packet;
@@ -25,7 +25,6 @@ import net.minecraft.world.chunk.light.LightingProvider;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -42,10 +41,8 @@ public final class ChunkEntry extends ChunkHolder {
     private volatile ChunkStep currentStep;
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
 
+    private final ChunkEntryTrackers trackers = new ChunkEntryTrackers();
     private final ChunkAccessLock lock = new ChunkAccessLock();
-
-    private Set<ServerPlayerEntity> trackingPlayers;
-    private Set<ChunkEntityTracker> entities;
 
     public ChunkEntry(
             ChunkPos pos, int level,
@@ -145,6 +142,15 @@ public final class ChunkEntry extends ChunkHolder {
     public void onUpdateLevel(ThreadedAnvilChunkStorage tacs) {
         if (this.level > this.lastTickLevel) {
             this.reduceLevel(this.lastTickLevel, this.level);
+
+            ChunkHolder.LevelType level = getLevelType(this.level);
+            ChunkHolder.LevelType lastLevel = getLevelType(this.lastTickLevel);
+
+            // TODO: better unify logic that adds & removes from the trackable chunk list
+            if (!level.isAfter(LevelType.TICKING) && lastLevel.isAfter(LevelType.TICKING)) {
+                ChunkMap map = ((ChunkController) tacs).getMap();
+                map.getTickingMaps().removeTrackableChunk(this);
+            }
         }
 
         super.tick(tacs);
@@ -312,86 +318,19 @@ public final class ChunkEntry extends ChunkHolder {
         return null;
     }
 
-    public void addEntity(ChunkEntityTracker tracker) {
-        if (this.entities == null) {
-            this.entities = new ObjectOpenHashSet<>();
-        }
-        this.entities.add(tracker);
-    }
-
-    public boolean removeEntity(ChunkEntityTracker tracker) {
-        if (this.entities != null && this.entities.remove(tracker)) {
-            if (this.entities.isEmpty()) {
-                this.entities = null;
-            }
-            return true;
-        }
-        return false;
-    }
-
-    public boolean addTrackingPlayer(ServerPlayerEntity player) {
-        if (this.trackingPlayers == null) {
-            this.trackingPlayers = new ObjectOpenHashSet<>();
-        }
-
-        if (this.trackingPlayers.add(player)) {
-            this.startTrackingEntities(player);
-            return true;
-        }
-
-        return false;
-    }
-
-    public boolean removeTrackingPlayer(ServerPlayerEntity player) {
-        if (this.trackingPlayers != null && this.trackingPlayers.remove(player)) {
-            if (this.trackingPlayers.isEmpty()) {
-                this.trackingPlayers = null;
-            }
-
-            this.stopTrackingEntities(player);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private void startTrackingEntities(ServerPlayerEntity player) {
-        if (this.entities != null) {
-            for (ChunkEntityTracker tracker : this.entities) {
-                tracker.updateTrackerWatched(player);
-            }
-        }
-    }
-
-    private void stopTrackingEntities(ServerPlayerEntity player) {
-        if (this.entities != null) {
-            for (ChunkEntityTracker tracker : this.entities) {
-                tracker.updateTrackerUnwatched(player);
-            }
-        }
-    }
-
-    public Set<ServerPlayerEntity> getTrackingPlayers() {
-        return this.trackingPlayers != null ? this.trackingPlayers : Collections.emptySet();
-    }
-
-    public boolean isTrackedBy(ServerPlayerEntity player) {
-        return this.trackingPlayers != null && this.trackingPlayers.contains(player);
-    }
-
-    public Set<ChunkEntityTracker> getEntities() {
-        return this.entities != null ? this.entities : Collections.emptySet();
+    public ChunkEntryTrackers getTrackers() {
+        return this.trackers;
     }
 
     @Override
     protected void sendPacketToPlayersWatching(Packet<?> packet, boolean onlyOnWatchDistanceEdge) {
-        if (this.trackingPlayers == null || this.trackingPlayers.isEmpty()) {
+        Set<ServerPlayerEntity> trackingPlayers = this.trackers.getTrackingPlayers();
+        if (trackingPlayers.isEmpty()) {
             return;
         }
 
         if (!onlyOnWatchDistanceEdge) {
-            for (ServerPlayerEntity player : this.trackingPlayers) {
+            for (ServerPlayerEntity player : trackingPlayers) {
                 QueuingConnection.enqueueSend(player.networkHandler, packet);
             }
         } else {
@@ -437,5 +376,21 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     @Deprecated
     public void setCompletedChunk(ReadOnlyChunk chunk) {
+    }
+
+    // TODO: Ideally we can avoid running this logic here, and instead have it be run when we're trying to start/stop chunk tracking
+    public boolean isChunkTickable() {
+        Set<ServerPlayerEntity> players = this.trackers.getTickableTrackingPlayers();
+        if (players.isEmpty()) {
+            return false;
+        }
+
+        for (ServerPlayerEntity player : players) {
+            if (!player.isSpectator()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

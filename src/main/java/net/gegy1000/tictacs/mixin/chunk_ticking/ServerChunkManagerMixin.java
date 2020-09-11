@@ -2,7 +2,6 @@ package net.gegy1000.tictacs.mixin.chunk_ticking;
 
 import com.mojang.datafixers.DataFixer;
 import com.mojang.datafixers.util.Either;
-import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
@@ -31,6 +30,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executor;
@@ -84,6 +84,8 @@ public abstract class ServerChunkManagerMixin {
             Profiler profiler = this.world.getProfiler();
             profiler.push("pollingChunks");
 
+            this.flushChunkUpgrades();
+
             this.spawnEntry = spawnMobs ? this.setupSpawnInfo() : null;
             this.tickChunks(timeSinceSpawn, this.spawnEntry);
 
@@ -99,39 +101,42 @@ public abstract class ServerChunkManagerMixin {
         this.threadedAnvilChunkStorage.tickPlayerMovement();
     }
 
+    private void flushChunkUpgrades() {
+        ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
+        Collection<ChunkEntry> trackableChunks = controller.getMap().getTickingMaps().getTrackableEntries();
+
+        Profiler profiler = this.world.getProfiler();
+        profiler.push("broadcast");
+
+        for (ChunkEntry entry : trackableChunks) {
+            WorldChunk worldChunk = entry.getWorldChunk();
+            if (worldChunk != null) {
+                entry.flushUpdates(worldChunk);
+            }
+        }
+
+        profiler.pop();
+    }
+
     private void tickChunks(long timeSinceSpawn, SpawnHelper.Info spawnInfo) {
         ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
 
         List<ChunkEntry> tickingChunks = this.collectTickingChunks(controller);
-        if (tickingChunks.isEmpty()) {
-            return;
+        if (!tickingChunks.isEmpty()) {
+            this.tickChunks(timeSinceSpawn, spawnInfo, tickingChunks);
         }
-
-        Collections.shuffle(tickingChunks);
-        this.tickChunks(timeSinceSpawn, spawnInfo, tickingChunks);
 
         this.tickingChunks.clear();
     }
 
     private void tickChunks(long timeSinceSpawn, SpawnHelper.Info spawnInfo, List<ChunkEntry> chunks) {
-        Profiler profiler = this.world.getProfiler();
-
         boolean spawnAnimals = this.world.getTime() % 400 == 0L;
         int tickSpeed = this.world.getGameRules().getInt(GameRules.RANDOM_TICK_SPEED);
 
-        ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
-
         for (ChunkEntry entry : chunks) {
             WorldChunk worldChunk = entry.getWorldChunk();
-            if (worldChunk == null) {
-                continue;
-            }
 
-            profiler.push("broadcast");
-            entry.flushUpdates(worldChunk);
-            profiler.pop();
-
-            if (entry.isTickingEntities() && !controller.isTooFarFromPlayersToSpawnMobs(entry)) {
+            if (worldChunk != null && entry.isChunkTickable()) {
                 worldChunk.setInhabitedTime(worldChunk.getInhabitedTime() + timeSinceSpawn);
 
                 if (spawnInfo != null && this.world.getWorldBorder().contains(entry.getPos())) {
@@ -156,16 +161,16 @@ public abstract class ServerChunkManagerMixin {
     }
 
     private List<ChunkEntry> collectTickingChunks(ChunkController controller) {
-        ObjectCollection<ChunkEntry> entries = controller.getMap().primary().getEntries();
+        Collection<ChunkEntry> entries = controller.getMap().getTickingMaps().getTickableEntries();
+        if (entries.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         List<ChunkEntry> tickingChunks = this.tickingChunks;
         tickingChunks.clear();
+        tickingChunks.addAll(entries);
 
-        for (ChunkEntry entry : entries) {
-            if (entry.isTicking()) {
-                tickingChunks.add(entry);
-            }
-        }
+        Collections.shuffle(tickingChunks);
 
         return tickingChunks;
     }
