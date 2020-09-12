@@ -5,15 +5,17 @@ import com.mojang.datafixers.util.Either;
 import net.fabricmc.fabric.api.util.NbtType;
 import net.gegy1000.tictacs.AsyncChunkIo;
 import net.gegy1000.tictacs.AsyncRegionStorageIo;
+import net.gegy1000.tictacs.chunk.io.ChunkData;
+import net.minecraft.SharedConstants;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.structure.StructureManager;
+import net.minecraft.util.Util;
 import net.minecraft.util.crash.CrashException;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.thread.ThreadExecutor;
-import net.minecraft.world.ChunkSerializer;
 import net.minecraft.world.PersistentStateManager;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
@@ -61,13 +63,14 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
     }
 
     /**
-     * @reason avoid blocking the main thread to load chunk nbt from disk
+     * @reason avoid blocking the main thread to load chunk
      * @author gegy1000
      */
     @Overwrite
     public CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> loadChunk(ChunkPos pos) {
         return this.getUpdatedChunkTagAsync(pos)
-                .handleAsync((tag, throwable) -> {
+                .thenApplyAsync(tag -> this.deserializeChunkData(pos, tag), Util.getMainWorkerExecutor())
+                .handleAsync((data, throwable) -> {
                     if (throwable != null) {
                         if (throwable instanceof CompletionException) {
                             throwable = throwable.getCause();
@@ -75,31 +78,31 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
                         LOGGER.error("Couldn't load chunk {}", pos, throwable);
                     }
 
-                    return this.loadChunkFromTag(pos, tag);
+                    return this.createChunkFromData(pos, data);
                 }, this.mainThreadExecutor);
     }
 
-    private Either<Chunk, ChunkHolder.Unloaded> loadChunkFromTag(ChunkPos pos, CompoundTag tag) {
-        try {
+    private Either<Chunk, ChunkHolder.Unloaded> createChunkFromData(ChunkPos pos, ChunkData data) {
+        if (data != null) {
             this.world.getProfiler().visit("chunkLoad");
-            if (tag != null) {
-                Chunk chunk = this.deserializeChunk(pos, tag);
-                if (chunk != null) {
-                    return Either.left(chunk);
-                } else {
-                    LOGGER.error("Chunk file at {} is missing level data, skipping", pos);
-                }
-            }
-        } catch (CrashException crash) {
-            Throwable cause = crash.getCause();
-            if (!(cause instanceof IOException)) {
-                this.method_27054(pos);
-                throw crash;
-            }
 
-            LOGGER.error("Couldn't load chunk {}", pos, crash);
-        } catch (Exception e) {
-            LOGGER.error("Couldn't load chunk {}", pos, e);
+            try {
+                Chunk chunk = data.createChunk(this.world, this.structureManager, this.pointOfInterestStorage);
+                chunk.setLastSaveTime(this.world.getTime());
+
+                this.method_27053(pos, chunk.getStatus().getChunkType());
+                return Either.left(chunk);
+            } catch (CrashException crash) {
+                Throwable cause = crash.getCause();
+                if (!(cause instanceof IOException)) {
+                    this.method_27054(pos);
+                    throw crash;
+                }
+
+                LOGGER.error("Couldn't load chunk {}", pos, crash);
+            } catch (Exception e) {
+                LOGGER.error("Couldn't load chunk {}", pos, e);
+            }
         }
 
         this.method_27054(pos);
@@ -107,26 +110,31 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
     }
 
     @Nullable
-    private Chunk deserializeChunk(ChunkPos pos, CompoundTag tag) {
-        if (!tag.contains("Level", NbtType.COMPOUND) || !tag.getCompound("Level").contains("Status", NbtType.STRING)) {
+    private ChunkData deserializeChunkData(ChunkPos pos, CompoundTag tag) {
+        if (tag == null) {
             return null;
         }
 
-        Chunk chunk = ChunkSerializer.deserialize(this.world, this.structureManager, this.pointOfInterestStorage, pos, tag);
-        chunk.setLastSaveTime(this.world.getTime());
-        this.method_27053(pos, chunk.getStatus().getChunkType());
+        if (!tag.contains("Level", NbtType.COMPOUND) || !tag.getCompound("Level").contains("Status", NbtType.STRING)) {
+            LOGGER.error("Chunk file at {} is missing level data, skipping", pos);
+            return null;
+        }
 
-        return chunk;
+        return ChunkData.deserialize(pos, tag);
     }
 
     private CompletableFuture<CompoundTag> getUpdatedChunkTagAsync(ChunkPos pos) {
-        CompletableFuture<CompoundTag> chunkTag = this.getNbtAsync(pos).thenApplyAsync(tag -> {
-            if (tag == null) {
-                return null;
-            }
+        CompletableFuture<CompoundTag> chunkTag = this.getNbtAsync(pos)
+                .thenCompose(tag -> {
+                    if (tag != null && getDataVersion(tag) < SharedConstants.getGameVersion().getWorldVersion()) {
+                        // TODO: ideally we don't need to datafix chunks on the main thread
+                        return CompletableFuture.supplyAsync(() -> {
+                            return this.updateChunkTag(this.world.getRegistryKey(), this.persistentStateManagerFactory, tag);
+                        }, this.mainThreadExecutor);
+                    }
 
-            return this.updateChunkTag(this.world.getRegistryKey(), this.persistentStateManagerFactory, tag);
-        }, this.mainThreadExecutor);
+                    return CompletableFuture.completedFuture(tag);
+                });
 
         CompletableFuture<Void> loadPoi = ((AsyncRegionStorageIo) this.pointOfInterestStorage).loadDataAtAsync(pos, this.mainThreadExecutor);
 

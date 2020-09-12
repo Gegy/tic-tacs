@@ -45,3 +45,5 @@ accessible field net/minecraft/world/storage/StorageIoWorker$Result nbt Lnet/min
 accessible class net/minecraft/network/ClientConnection$QueuedPacket
 accessible field net/minecraft/network/ClientConnection$QueuedPacket packet Lnet/minecraft/network/Packet;
 accessible field net/minecraft/network/ClientConnection$QueuedPacket callback Lio/netty/util/concurrent/GenericFutureListener;
+
+accessible field net/minecraft/world/poi/PointOfInterestType REGISTERED_STATES Ljava/util/Set;
