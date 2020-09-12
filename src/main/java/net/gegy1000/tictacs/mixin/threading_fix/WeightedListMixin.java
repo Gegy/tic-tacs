@@ -21,8 +21,21 @@ public class WeightedListMixin<U> {
      */
     @Overwrite
     public U pickRandom(Random random) {
-        // TODO: does this break vanilla parity?
-        WeightedList.Entry<U> entry = this.entries.get(random.nextInt(this.entries.size()));
-        return entry.getElement();
+        WeightedList.Entry<U> selectedEntry = null;
+        double selectedValue = 0.0;
+
+        for (WeightedList.Entry<U> entry : this.entries) {
+            double value = Math.pow(random.nextFloat(), 1.0F / entry.weight);
+            if (value > selectedValue) {
+                selectedEntry = entry;
+                selectedValue = value;
+            }
+        }
+
+        if (selectedEntry == null) {
+            throw new IllegalStateException("no entries in WeightedList");
+        }
+
+        return selectedEntry.getElement();
     }
 }

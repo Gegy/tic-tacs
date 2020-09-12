@@ -47,3 +47,5 @@ accessible field net/minecraft/network/ClientConnection$QueuedPacket packet Lnet
 accessible field net/minecraft/network/ClientConnection$QueuedPacket callback Lio/netty/util/concurrent/GenericFutureListener;
 
 accessible field net/minecraft/world/poi/PointOfInterestType REGISTERED_STATES Ljava/util/Set;
+
+accessible field net/minecraft/util/collection/WeightedList$Entry weight I

@@ -51,6 +51,10 @@ public abstract class ClientConnectionMixin implements QueuingConnection {
      */
     @Overwrite
     public void sendQueuedPackets() {
+        if (this.channel == null || !this.channel.isOpen()) {
+            return;
+        }
+
         List<ClientConnection.QueuedPacket> queue = this.drainQueue();
         if (queue.isEmpty()) {
             return;
@@ -98,12 +102,13 @@ public abstract class ClientConnectionMixin implements QueuingConnection {
         }
 
         for (ClientConnection.QueuedPacket packet : queue) {
-            ChannelFuture future = this.channel.writeAndFlush(packet.packet);
+            ChannelFuture future = this.channel.write(packet.packet);
             if (packet.callback != null) {
                 future.addListener(packet.callback);
             }
-
             future.addListener(ChannelFutureListener.FIRE_EXCEPTION_ON_FAILURE);
         }
+
+        this.channel.flush();
     }
 }
