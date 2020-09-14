@@ -346,7 +346,7 @@ public final class ChunkStep {
         return ctx.chunk;
     }
 
-    private static Future<Chunk> lightChunk(ChunkStepContext ctx, boolean excludeBlocks) {
+    private static Future<Chunk> lightChunk(ChunkStepContext ctx, boolean load) {
         ChunkTicketManager ticketManager = ctx.controller.getTicketManager();
 
         FutureHandle<Chunk> handle = new FutureHandle<>();
@@ -355,7 +355,7 @@ public final class ChunkStep {
         ctx.controller.spawnOnMainThread(ctx.entry, () -> {
             ticketManager.addTicketWithLevel(ChunkTicketType.LIGHT, pos, ChunkLevelTracker.LIGHT_TICKET_LEVEL, pos);
 
-            ctx.lighting.light(ctx.chunk, excludeBlocks).thenAccept(handle::complete);
+            ctx.lighting.light(ctx.chunk, load && ctx.chunk.isLightOn()).thenAccept(handle::complete);
         });
 
         return handle;

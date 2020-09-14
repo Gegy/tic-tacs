@@ -35,7 +35,7 @@ public final class LightingExecutor implements Runnable, AutoCloseable {
     }
 
     public void wake() {
-        if (this.parked.compareAndSet(true, false)) {
+        if (this.hasTasks() && this.parked.compareAndSet(true, false)) {
             LockSupport.unpark(this.thread);
         }
     }
@@ -43,13 +43,13 @@ public final class LightingExecutor implements Runnable, AutoCloseable {
     @Override
     public void run() {
         while (!this.closed) {
-            Queues queues = this.queues;
-            this.queues = this.processingQueues;
-            this.processingQueues = queues;
+            if (this.hasTasks()) {
+                Queues queues = this.queues;
+                this.queues = this.processingQueues;
+                this.processingQueues = queues;
 
-            this.runTasks(queues);
-
-            if (!this.hasTasks()) {
+                this.runTasks(queues);
+            } else {
                 this.parked.set(true);
                 LockSupport.park();
             }
