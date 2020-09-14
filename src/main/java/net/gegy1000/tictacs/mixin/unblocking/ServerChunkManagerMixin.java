@@ -7,13 +7,16 @@ import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.LossyChunkCache;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
+import net.minecraft.entity.Entity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
@@ -221,6 +224,40 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
 
     private ChunkEntry getChunkEntry(int x, int z) {
         return (ChunkEntry) this.getChunkHolder(ChunkPos.toLong(x, z));
+    }
+
+    private ChunkEntry getChunkEntry(long pos) {
+        return (ChunkEntry) this.getChunkHolder(pos);
+    }
+
+    /**
+     * @reason direct logic to {@link ChunkEntry} and avoid allocation
+     * @author gegy1000
+     */
+    @Overwrite
+    public boolean shouldTickEntity(Entity entity) {
+        ChunkEntry entry = this.getChunkEntry(MathHelper.floor(entity.getX()) >> 4, MathHelper.floor(entity.getZ()) >> 4);
+        return entry != null && entry.isTickingEntities();
+    }
+
+    /**
+     * @reason direct logic to {@link ChunkEntry} and avoid allocation
+     * @author gegy1000
+     */
+    @Overwrite
+    public boolean shouldTickChunk(ChunkPos pos) {
+        ChunkEntry entry = this.getChunkEntry(pos.toLong());
+        return entry != null && entry.isTickingEntities();
+    }
+
+    /**
+     * @reason direct logic to {@link ChunkEntry} and avoid allocation
+     * @author gegy1000
+     */
+    @Overwrite
+    public boolean shouldTickBlock(BlockPos pos) {
+        ChunkEntry entry = this.getChunkEntry(pos.getX() >> 4, pos.getZ() >> 4);
+        return entry != null && entry.isTicking();
     }
 
     @Shadow
