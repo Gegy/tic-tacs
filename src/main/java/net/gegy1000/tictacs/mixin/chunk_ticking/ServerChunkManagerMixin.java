@@ -37,7 +37,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
-@Mixin(ServerChunkManager.class)
+@Mixin(value = ServerChunkManager.class, priority = 999)
 public abstract class ServerChunkManagerMixin {
     @Shadow
     @Final
@@ -86,7 +86,7 @@ public abstract class ServerChunkManagerMixin {
 
             this.flushChunkUpgrades();
 
-            this.spawnEntry = spawnMobs ? this.setupSpawnInfo() : null;
+            this.spawnEntry = spawnMobs ? this.setupSpawnInfo(this.ticketManager.getSpawningChunkCount()) : null;
             this.tickChunks(timeSinceSpawn, this.spawnEntry);
 
             if (doMobSpawning) {
@@ -148,11 +148,10 @@ public abstract class ServerChunkManagerMixin {
         }
     }
 
-    private SpawnHelper.Info setupSpawnInfo() {
+    private SpawnHelper.Info setupSpawnInfo(int spawnChunkCount) {
         Profiler profiler = this.world.getProfiler();
         profiler.push("naturalSpawnCount");
 
-        int spawnChunkCount = this.ticketManager.getSpawningChunkCount();
         SpawnHelper.Info spawnInfo = SpawnHelper.setupSpawn(spawnChunkCount, this.world.iterateEntities(), this::ifChunkLoaded);
 
         profiler.pop();
