@@ -23,6 +23,7 @@
     "packet_queue.ServerPlayerEntityMixin",
     "packet_queue.ServerPlayNetworkHandlerMixin",
     "threading_fix.ChunkRegionMixin",
+    "threading_fix.StructureManagerMixin",
     "threading_fix.WeightedListMixin",
     "unblocking.EntityMixin",
     "unblocking.LivingEntityMixin",

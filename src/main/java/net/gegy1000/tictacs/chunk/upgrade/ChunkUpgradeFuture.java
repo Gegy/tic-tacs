@@ -3,6 +3,7 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkMap;
@@ -14,6 +15,9 @@ import net.minecraft.world.chunk.Chunk;
 
 import javax.annotation.Nullable;
 
+// TODO: we load the full context even if the target chunk is already generated and just needs to be deserialized.
+//       this doesn't match vanilla behaviour, and causes a lot more chunks to be loaded than are needed!
+//       note that lighting is an exception to this, and it needs its 3x3 context to be loaded
 final class ChunkUpgradeFuture implements Future<Unit> {
     final ChunkController controller;
 
@@ -76,10 +80,7 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
             // if some of the chunk entries have unloaded since we've started, we can't continue
             if (result == AcquireChunks.Result.UNLOADED) {
-                this.notifyUpgradeUnloaded(currentStep);
-                this.releaseStep();
-
-                return Unit.INSTANCE;
+                return this.returnUnloaded(currentStep);
             }
 
             try {
@@ -94,10 +95,10 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
                 this.releaseStep();
             } catch (ChunkNotLoadedException err) {
-                this.notifyUpgradeUnloaded(currentStep);
-                this.releaseStep();
-
-                return Unit.INSTANCE;
+                return this.returnUnloaded(currentStep);
+            } catch (Exception e) {
+                TicTacs.LOGGER.error("Failed to generate chunk at {}", this.pos, e);
+                return this.returnUnloaded(currentStep);
             }
 
             if (currentStep.lessThan(this.targetStep)) {
@@ -131,6 +132,13 @@ final class ChunkUpgradeFuture implements Future<Unit> {
         }
 
         return false;
+    }
+
+    private Unit returnUnloaded(ChunkStep currentStep) {
+        this.notifyUpgradeUnloaded(currentStep);
+        this.releaseStep();
+
+        return Unit.INSTANCE;
     }
 
     private void releaseStep() {
