@@ -97,6 +97,8 @@ public final class ChunkStep {
             })
             .loadAsync(ChunkStep::makeFull);
 
+    public static final ChunkStep MIN_WITH_LOAD_TASK = ChunkStep.LIGHTING;
+
     private static final ChunkStep[] STATUS_TO_STEP;
 
     private static final int[] STEP_TO_RADIUS;
@@ -256,6 +258,15 @@ public final class ChunkStep {
 
     public static ChunkStep byStatus(ChunkStatus status) {
         return STATUS_TO_STEP[status.getIndex()];
+    }
+
+    public static ChunkStep byFullStatus(ChunkStatus status) {
+        ChunkStep step = byStatus(status);
+        if (status == step.getMaximumStatus()) {
+            return step;
+        } else {
+            return step.getPrevious();
+        }
     }
 
     public static int getRequiredRadius(ChunkStep step) {

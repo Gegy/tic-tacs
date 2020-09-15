@@ -7,27 +7,50 @@ import java.util.List;
 import java.util.function.IntFunction;
 
 public final class ChunkUpgradeKernel {
-    private static final ChunkUpgradeKernel[] FOR_STEP = new ChunkUpgradeKernel[ChunkStep.STEPS.size()];
+    private static final List<ChunkStep> STEPS = ChunkStep.STEPS;
+    private static final int STEP_COUNT = STEPS.size();
+
+    private static final ChunkUpgradeKernel[] BETWEEN_STEPS = new ChunkUpgradeKernel[(STEPS.size() + 1) * STEPS.size()];
 
     static {
-        List<ChunkStep> steps = ChunkStep.STEPS;
-        for (int i = 0; i < steps.size(); i++) {
-            FOR_STEP[i] = new ChunkUpgradeKernel(steps.get(i));
+        // TODO: this table can be more compact by not having null entries
+        for (int fromIdx = 0; fromIdx <= STEP_COUNT; fromIdx++) {
+            ChunkStep from = ChunkStep.byIndex(fromIdx - 1);
+            for (int toIdx = fromIdx; toIdx < STEP_COUNT; toIdx++) {
+                ChunkStep to = ChunkStep.byIndex(toIdx);
+                BETWEEN_STEPS[toIdx + fromIdx * STEP_COUNT] = new ChunkUpgradeKernel(from, to);
+            }
         }
     }
 
-    private final ChunkStep focus;
+    private final ChunkStep from;
+    private final ChunkStep to;
     private final int radius;
     private final int size;
 
-    private ChunkUpgradeKernel(ChunkStep focus) {
-        this.focus = focus;
-        this.radius = ChunkStep.getRequiredRadius(focus);
+    private ChunkUpgradeKernel(ChunkStep from, ChunkStep to) {
+        if (to.lessOrEqual(from)) {
+            throw new IllegalArgumentException(from + " >= " + to);
+        }
+
+        this.from = from;
+        this.to = to;
+        this.radius = from != null ? this.getRadiusFor(from) : ChunkStep.getRequiredRadius(to);
         this.size = this.radius * 2 + 1;
     }
 
     public static ChunkUpgradeKernel forStep(ChunkStep step) {
-        return FOR_STEP[step.getIndex()];
+        return BETWEEN_STEPS[step.getIndex()];
+    }
+
+    public static ChunkUpgradeKernel betweenSteps(ChunkStep from, ChunkStep to) {
+        if (to.lessOrEqual(from)) {
+            throw new IllegalArgumentException(from + " >= " + to);
+        }
+
+        int fromIdx = from != null ? from.getIndex() + 1 : 0;
+        int toIdx = to.getIndex();
+        return BETWEEN_STEPS[toIdx + fromIdx * STEP_COUNT];
     }
 
     public int getRadius() {
@@ -35,7 +58,7 @@ public final class ChunkUpgradeKernel {
     }
 
     public int getRadiusFor(ChunkStep step) {
-        return ChunkStep.getDistanceFromFull(step) - ChunkStep.getDistanceFromFull(this.focus);
+        return ChunkStep.getDistanceFromFull(step) - ChunkStep.getDistanceFromFull(this.to);
     }
 
     public int getSize() {

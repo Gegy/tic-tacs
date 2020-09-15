@@ -53,7 +53,7 @@ public final class ChunkUpgrader {
 
     private Future<Unit> upgradeTo(ChunkEntry entry, ChunkStep step) {
         // TODO: pool instances
-        return new ChunkUpgradeFuture(this.controller, entry.getPos(), step);
+        return new ChunkUpgradeFuture(this.controller, entry, step);
     }
 
     Future<Chunk> runStepTask(ChunkEntry entry, ChunkStep step, List<Chunk> chunks) {

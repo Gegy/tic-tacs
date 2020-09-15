@@ -222,20 +222,28 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
-        this.includeStep(step);
+        ChunkStep lastStep = this.includeStep(step);
 
         if (chunk instanceof ProtoChunk) {
             this.chunk = (ProtoChunk) chunk;
         }
 
-        ChunkListener listener = this.listeners.get(step.getIndex());
-        if (listener != null) {
-            listener.completeOk();
+        int startIdx = lastStep != null ? lastStep.getIndex() : 0;
+        int endIdx = step.getIndex();
+
+        for (int idx = startIdx; idx <= endIdx; idx++) {
+            ChunkListener listener = this.listeners.get(idx);
+            if (listener != null) {
+                listener.completeOk();
+            }
         }
     }
 
     public void notifyUpgradeUnloaded(ChunkStep step) {
-        for (int i = step.getIndex(); i < this.listeners.length(); i++) {
+        ChunkStep currentStep = this.currentStep;
+        int currentIdx = currentStep != null ? currentStep.getIndex() : 0;
+
+        for (int i = currentIdx; i < this.listeners.length(); i++) {
             ChunkListener listener = this.listeners.getAndSet(step.getIndex(), null);
             if (listener != null) {
                 listener.completeErr();
@@ -248,10 +256,13 @@ public final class ChunkEntry extends ChunkHolder {
         }
     }
 
-    void includeStep(ChunkStep step) {
-        if (step.greaterOrEqual(this.currentStep)) {
+    @Nullable
+    ChunkStep includeStep(ChunkStep step) {
+        ChunkStep currentStep = this.currentStep;
+        if (step.greaterOrEqual(currentStep)) {
             this.currentStep = step;
         }
+        return currentStep;
     }
 
     void combineSavingFuture(ChunkStep step) {

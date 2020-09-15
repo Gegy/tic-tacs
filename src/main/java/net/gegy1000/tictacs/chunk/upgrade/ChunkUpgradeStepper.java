@@ -45,11 +45,7 @@ final class ChunkUpgradeStepper {
 
         if (!this.pollingTasks) {
             this.pollingTasks = true;
-            if (step == ChunkStep.EMPTY) {
-                this.openLoadTasks(chunks, tasks);
-            } else {
-                this.openUpgradeTasks(entries, chunks, step, tasks);
-            }
+            this.openUpgradeTasks(entries, chunks, step, tasks);
         }
 
         return JoinAllArray.poll(waker, tasks, this.chunks);
@@ -57,10 +53,6 @@ final class ChunkUpgradeStepper {
 
     private void openUpgradeTasks(ChunkUpgradeEntries entries, AcquireChunks chunks, ChunkStep step, Future<Chunk>[] tasks) {
         chunks.openUpgradeTasks(tasks, entry -> this.upgradeChunk(entry, entries, step));
-    }
-
-    private void openLoadTasks(AcquireChunks chunks, Future<Chunk>[] tasks) {
-        chunks.openUpgradeTasks(tasks, this::loadChunk);
     }
 
     private Future<Chunk> upgradeChunk(ChunkEntry entry, ChunkUpgradeEntries entries, ChunkStep step) {
@@ -75,7 +67,7 @@ final class ChunkUpgradeStepper {
         ChunkPos targetPos = entry.getPos();
 
         int targetRadius = step.getRequirements().getRadius();
-        context.open(this.parent.pos, entries, targetPos, targetRadius);
+        context.open(this.parent.entry.pos, entries, targetPos, targetRadius);
 
         return context;
     }
@@ -86,10 +78,6 @@ final class ChunkUpgradeStepper {
         task.context = context;
 
         return task;
-    }
-
-    private Future<Chunk> loadChunk(ChunkEntry entry) {
-        return this.parent.controller.spawnLoadChunk(entry);
     }
 
     static class TaskWithContext implements Future<Chunk> {

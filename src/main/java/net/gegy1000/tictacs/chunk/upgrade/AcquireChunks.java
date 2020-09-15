@@ -3,7 +3,6 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
-import net.gegy1000.tictacs.AtomicPool;
 import net.gegy1000.tictacs.async.lock.JoinLock;
 import net.gegy1000.tictacs.async.lock.Lock;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
@@ -17,23 +16,8 @@ import javax.annotation.Nullable;
 import java.util.Arrays;
 import java.util.function.Function;
 
+// TODO: ideally we can pool these instances
 final class AcquireChunks {
-    private static final AtomicPool<AcquireChunks>[] STEP_TO_POOL = initPools();
-
-    @SuppressWarnings("unchecked")
-    private static AtomicPool<AcquireChunks>[] initPools() {
-        int poolCapacity = 512;
-
-        AtomicPool<AcquireChunks>[] stepToPool = new AtomicPool[ChunkStep.STEPS.size()];
-        for (int i = 0; i < stepToPool.length; i++) {
-            ChunkStep step = ChunkStep.byIndex(i);
-            stepToPool[i] = new AtomicPool<>(poolCapacity, () -> new AcquireChunks(step));
-        }
-
-        return stepToPool;
-    }
-
-    private final ChunkStep targetStep;
     private final ChunkUpgradeKernel kernel;
 
     private final Lock[] upgradeLocks;
@@ -42,13 +26,13 @@ final class AcquireChunks {
     private final Lock joinLock;
     private final Future<Unit> acquireJoinLock;
 
-    volatile ChunkUpgradeEntries entries;
+    final ChunkUpgradeEntries entries;
     volatile Result acquired;
 
-    private AcquireChunks(ChunkStep targetStep) {
-        this.targetStep = targetStep;
+    AcquireChunks(ChunkUpgrade upgrade) {
+        this.kernel = upgrade.getKernel();
+        this.entries = upgrade.entries;
 
-        this.kernel = ChunkUpgradeKernel.forStep(targetStep);
         this.upgradeLocks = this.kernel.create(Lock[]::new);
         this.locks = this.kernel.create(Lock[]::new);
 
@@ -57,16 +41,6 @@ final class AcquireChunks {
                 new JoinLock(this.locks)
         });
         this.acquireJoinLock = new Lock.AcquireFuture(this.joinLock);
-    }
-
-    private static AtomicPool<AcquireChunks> poolFor(ChunkStep step) {
-        return STEP_TO_POOL[step.getIndex()];
-    }
-
-    public static AcquireChunks open(ChunkUpgradeEntries entries, ChunkStep step) {
-        AcquireChunks acquire = poolFor(step).acquire();
-        acquire.entries = entries;
-        return acquire;
     }
 
     private void clearBuffers() {
@@ -183,9 +157,6 @@ final class AcquireChunks {
         this.clearBuffers();
 
         this.acquired = null;
-        this.entries = null;
-
-        poolFor(this.targetStep).release(this);
     }
 
     <T> void openUpgradeTasks(Future<T>[] tasks, Function<ChunkEntry, Future<T>> function) {

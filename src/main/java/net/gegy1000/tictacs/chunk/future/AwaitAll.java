@@ -16,11 +16,11 @@ public final class AwaitAll<T> implements Future<Unit> {
     @Nullable
     @Override
     public Unit poll(Waker waker) {
-        return AwaitAll.poll(waker, this.futures);
+        return AwaitAll.poll(waker, this.futures) ? Unit.INSTANCE : null;
     }
 
-    public static <T> Unit poll(Waker waker, Future<T>[] futures) {
-        boolean pending = false;
+    public static <T> boolean poll(Waker waker, Future<T>[] futures) {
+        boolean ready = true;
 
         for (int i = 0; i < futures.length; i++) {
             Future<T> future = futures[i];
@@ -30,10 +30,10 @@ public final class AwaitAll<T> implements Future<Unit> {
             if (result != null) {
                 futures[i] = null;
             } else {
-                pending = true;
+                ready = false;
             }
         }
 
-        return pending ? null : Unit.INSTANCE;
+        return ready;
     }
 }
