@@ -37,6 +37,10 @@ public class LinkedWaiter {
         return UNSAFE.compareAndSwapObject(this, NEXT_OFFSET, this.closed(), this.open());
     }
 
+    final void setLink(LinkedWaiter next) {
+        this.next = next;
+    }
+
     @Nullable
     final LinkedWaiter unlinkAndClose() {
         return (LinkedWaiter) UNSAFE.getAndSetObject(this, NEXT_OFFSET, this.closed());
@@ -44,17 +48,21 @@ public class LinkedWaiter {
 
     void wake() {
         LinkedWaiter waiter = this;
-
         while (waiter != null) {
-            LinkedWaiter next = waiter.unlinkAndClose();
-            Waker waker = (Waker) UNSAFE.getAndSetObject(waiter, WAKER_OFFSET, null);
-
-            if (waker != null) {
-                waker.wake();
-            }
-
-            waiter = next;
+            waiter = waiter.wakeSelf();
         }
+    }
+
+    @Nullable
+    LinkedWaiter wakeSelf() {
+        LinkedWaiter next = this.unlinkAndClose();
+        Waker waker = (Waker) UNSAFE.getAndSetObject(this, WAKER_OFFSET, null);
+
+        if (waker != null) {
+            waker.wake();
+        }
+
+        return next;
     }
 
     public final void invalidateWaker() {

@@ -48,6 +48,34 @@ public final class WaiterQueue extends LinkedWaiter {
         }
     }
 
+    public void wake(int count) {
+        // unlink the waiter chain from the head
+        LinkedWaiter waiter = this.unlinkAndClose();
+
+        // if the head is closed, we must be in the progress of being woken up. let's not interfere
+        if (this.isClosed(waiter)) {
+            return;
+        }
+
+        if (waiter == null) {
+            this.clearAndOpen();
+            return;
+        }
+
+        for (int i = 0; i < count; i++) {
+            LinkedWaiter nextWaiter = waiter.wakeSelf();
+            if (nextWaiter == null) {
+                // no waiters left: we removed the tail element
+                this.clearAndOpen();
+                return;
+            }
+
+            waiter = nextWaiter;
+        }
+
+        this.setLink(waiter);
+    }
+
     @Override
     public void wake() {
         // unlink the waiter chain from the head
@@ -58,12 +86,16 @@ public final class WaiterQueue extends LinkedWaiter {
             return;
         }
 
-        // update the tail reference before opening the link again
-        this.tail = this;
-        this.tryOpenLink();
+        this.clearAndOpen();
 
         if (waiter != null) {
             waiter.wake();
         }
+    }
+
+    private void clearAndOpen() {
+        // update the tail reference before opening the link again
+        this.tail = this;
+        this.tryOpenLink();
     }
 }

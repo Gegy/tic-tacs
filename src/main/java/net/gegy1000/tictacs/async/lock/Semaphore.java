@@ -69,8 +69,10 @@ public final class Semaphore implements Lock {
         }
 
         int newCount = count - 1;
-        if (this.canAcquire(newCount) && !this.canAcquire(count)) {
-            this.waiters.wake();
+
+        int available = this.maximum - newCount;
+        if (available > 0) {
+            this.waiters.wake(available);
         }
     }
 }
