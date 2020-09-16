@@ -42,7 +42,13 @@ public final class ChunkListener extends SharedListener<Chunk> {
 
     public void completeOk() {
         this.err = false;
-        this.vanilla.complete(Either.left(this.getChunkForStep()));
+
+        Chunk chunk = this.getChunkForStep();
+        if (chunk == null) {
+            throw new IllegalStateException("cannot complete chunk with null chunk");
+        }
+
+        this.vanilla.complete(Either.left(chunk));
 
         this.wake();
     }

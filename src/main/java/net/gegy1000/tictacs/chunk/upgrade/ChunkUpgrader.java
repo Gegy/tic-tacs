@@ -51,6 +51,14 @@ public final class ChunkUpgrader {
         }
     }
 
+    public Future<Chunk> loadChunk(ChunkEntry entry) {
+        if (entry.trySpawnLoad()) {
+            return new ChunkLoadFuture(this.controller, entry);
+        } else {
+            return entry.getListenerFor(ChunkStep.EMPTY);
+        }
+    }
+
     private Future<Unit> upgradeTo(ChunkEntry entry, ChunkStep step) {
         // TODO: pool instances
         return new ChunkUpgradeFuture(this.controller, entry, step);

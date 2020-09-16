@@ -3,6 +3,7 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.AtomicPool;
+import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.chunk.future.JoinAllArray;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
@@ -123,13 +124,19 @@ final class ChunkUpgradeStepper {
             this.targetToSourceOffsetX = (targetOrigin.x - targetRadius) - sourceOrigin.x;
             this.targetToSourceOffsetZ = (targetOrigin.z - targetRadius) - sourceOrigin.z;
 
-            Chunk chunk = this.get(this.size() / 2);
-            if (chunk == null) {
-                throw new IllegalStateException("center chunk is null");
-            }
+            if (TicTacs.DEBUG) {
+                if (targetRadius > source.kernel.getRadius()) {
+                    throw new IllegalStateException("target radius larger than source radius");
+                }
 
-            if (!chunk.getPos().equals(targetOrigin)) {
-                throw new IllegalStateException("center chunk pos does not match target pos");
+                Chunk chunk = this.get(this.size() / 2);
+                if (chunk == null) {
+                    throw new IllegalStateException("center chunk is null");
+                }
+
+                if (!chunk.getPos().equals(targetOrigin)) {
+                    throw new IllegalStateException("center chunk pos does not match target pos");
+                }
             }
         }
 

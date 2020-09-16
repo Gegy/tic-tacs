@@ -26,9 +26,7 @@ public class LinkedWaiter {
     private volatile LinkedWaiter next = this.closed();
 
     final void setWaker(Waker waker) {
-        if (!UNSAFE.compareAndSwapObject(this, WAKER_OFFSET, null, waker)) {
-            throw new IllegalStateException("tried to swap existing waker");
-        }
+        this.waker = waker;
     }
 
     final boolean tryLink(LinkedWaiter next) {

@@ -6,7 +6,7 @@ import net.gegy1000.tictacs.async.LinkedWaiter;
 public final class JoinLock implements Lock {
     private final Lock[] locks;
 
-    public JoinLock(Lock[] locks) {
+    public JoinLock(Lock... locks) {
         this.locks = locks;
     }
 

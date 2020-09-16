@@ -3,8 +3,6 @@ package net.gegy1000.tictacs.chunk.upgrade;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 
 class ChunkUpgrade {
-    static final ChunkUpgrade EMPTY = new ChunkUpgrade(null, null, null);
-
     final ChunkStep fromStep;
     final ChunkStep toStep;
     final ChunkUpgradeEntries entries;
@@ -16,7 +14,7 @@ class ChunkUpgrade {
     }
 
     public boolean isEmpty() {
-        return this.entries == null;
+        return this.toStep.lessOrEqual(this.fromStep);
     }
 
     public ChunkUpgradeKernel getKernel() {

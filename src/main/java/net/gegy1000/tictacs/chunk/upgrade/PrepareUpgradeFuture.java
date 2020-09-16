@@ -11,21 +11,17 @@ import net.gegy1000.tictacs.chunk.future.JoinAllArray;
 import net.gegy1000.tictacs.chunk.future.Result;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
 
 import javax.annotation.Nullable;
 import java.util.Arrays;
 
 class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
-    static final Result<ChunkUpgrade> EMPTY_UPGRADE = Result.ok(ChunkUpgrade.EMPTY);
-
     final ChunkController controller;
 
     final ChunkEntry entry;
     final ChunkStep targetStep;
 
-    private volatile Future<Chunk> loadFuture;
     private volatile ChunkStep fromStep;
 
     private volatile ChunkUpgradeEntries entries;
@@ -40,53 +36,33 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
         this.controller = controller;
         this.entry = entry;
         this.targetStep = targetStep;
+
+        // we don't want to do redundant work for generating neighbors if this chunk is already loaded
+        // the only exception for this is where the chunk step has an on-load task that need to run with context
+        this.fromStep = ChunkStep.min(this.targetStep, ChunkStep.MIN_WITH_LOAD_TASK.getPrevious());
     }
 
     @Nullable
     @Override
     public Result<ChunkUpgrade> poll(Waker waker) {
-        if (this.fromStep == null) {
-            // we need to load the current chunk to find out from what point we should be upgrading from
-            // if the chunk is already generated to a certain point, we have less work to do
-
-            Result<Chunk> result = this.pollLoadChunk(waker);
-            if (result == null) {
-                return null;
-            } else if (result.isError()) {
-                return Result.error();
-            }
-
-            Chunk chunk = result.get();
-            ChunkStatus status = chunk.getStatus();
-            ChunkStep fromStep = ChunkStep.byFullStatus(status);
-
-            // we don't want to do redundant work for generating neighbors if this chunk is already loaded
-            // the only exception for this is where the chunk step has an on-load task that need to run with context
-            fromStep = ChunkStep.min(fromStep, ChunkStep.MIN_WITH_LOAD_TASK.getPrevious());
-
-            this.controller.getUpgrader().notifyUpgradeOk(this.entry, fromStep, chunk);
-
-            // our chunk is ready as our target step, we have no work to do
-            if (this.targetStep.lessOrEqual(fromStep)) {
-                return EMPTY_UPGRADE;
-            }
-
-            this.fromStep = fromStep;
+        // this chunk is no longer valid to be upgraded to our target
+        if (!this.entry.isValidAs(this.targetStep)) {
+            return Result.error();
         }
 
         // we iterate downwards until we find a step that we can safely upgrade from
-        while (this.fromStep != ChunkStep.EMPTY) {
-            if (this.entries == null) {
-                this.entries = new ChunkUpgradeEntries(ChunkUpgradeKernel.betweenSteps(this.fromStep, this.targetStep));
-            }
-
+        while (true) {
             // we first need to collect all the required chunk entries
             if (!this.collectedEntries) {
-                if (this.pollCollectEntries(waker, this.entries)) {
-                    this.collectedEntries = true;
-                } else {
+                if (this.entries == null) {
+                    this.entries = new ChunkUpgradeEntries(ChunkUpgradeKernel.betweenSteps(this.fromStep, this.targetStep));
+                }
+
+                if (!this.pollCollectEntries(waker, this.entries)) {
                     return null;
                 }
+
+                this.collectedEntries = true;
             }
 
             // we then need to load the relevant chunks from disk to test if this upgrade is valid
@@ -95,22 +71,54 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
                 return null;
             }
 
-            ChunkStep minimumStep = this.getMinimumStepFor(chunks);
-
-            // the lowest step in this area is greater than or equal to the step we are trying to upgrade from
-            if (this.fromStep.lessOrEqual(minimumStep)) {
-                break;
+            ChunkStep newStep = this.tryStep(chunks);
+            if (newStep == null) {
+                // we've loaded enough context
+                this.notifyChunkLoads(chunks);
+                return Result.ok(new ChunkUpgrade(this.fromStep, this.targetStep, this.entries));
             }
 
-            this.fromStep = minimumStep;
+            this.fromStep = newStep;
 
             this.entries = null;
             this.loadFutures = null;
             this.loadedChunks = null;
             this.collectedEntries = false;
         }
+    }
 
-        return Result.ok(new ChunkUpgrade(this.fromStep, this.targetStep, this.entries));
+    private void notifyChunkLoads(Chunk[] chunks) {
+        ChunkUpgradeKernel kernel = this.entries.kernel;
+        ChunkUpgrader upgrader = this.controller.getUpgrader();
+
+        int radius = kernel.getRadius();
+        for (int z = -radius; z <= radius; z++) {
+            for (int x = -radius; x <= radius; x++) {
+                ChunkEntry entry = this.entries.getEntry(x, z);
+                if (entry.canUpgradeTo(this.fromStep)) {
+                    Chunk chunk = chunks[kernel.index(x, z)];
+                    upgrader.notifyUpgradeOk(entry, this.fromStep, chunk);
+                }
+            }
+        }
+    }
+
+    @Nullable
+    private ChunkStep tryStep(Chunk[] chunks) {
+        // we have reached the lowest step
+        if (this.fromStep == ChunkStep.EMPTY) {
+            return null;
+        }
+
+        ChunkStep minimumStep = this.getMinimumStepFor(chunks);
+
+        // the lowest step in this area is greater than or equal to the step we are trying to upgrade from
+        if (this.fromStep.lessOrEqual(minimumStep)) {
+            return null;
+        }
+
+        // we try upgrade from the lowest step in the area
+        return minimumStep;
     }
 
     @Nullable
@@ -129,33 +137,6 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
         }
 
         return minimumStep;
-    }
-
-    @Nullable
-    private Result<Chunk> pollLoadChunk(Waker waker) {
-        // this chunk is no longer valid to be upgraded to our target
-        if (!this.entry.isValidAs(this.targetStep)) {
-            return Result.error();
-        }
-
-        Chunk chunk = this.entry.getChunk();
-        if (chunk != null) {
-            // the chunk is already loaded, return it
-            return Result.ok(chunk);
-        }
-
-        // try load the chunk from disk
-        if (this.loadFuture == null) {
-            this.loadFuture = this.controller.spawnLoadChunk(this.entry);
-        }
-
-        Chunk poll = this.loadFuture.poll(waker);
-        if (poll != null) {
-            this.loadFuture = null;
-            return Result.ok(poll);
-        }
-
-        return null;
     }
 
     private boolean pollCollectEntries(Waker waker, ChunkUpgradeEntries entries) {
@@ -218,12 +199,13 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
 
     @Nullable
     private Chunk[] pollLoadChunks(Waker waker, ChunkUpgradeEntries entries) {
+        ChunkUpgradeKernel kernel = entries.kernel;
+        int radius = kernel.getRadius();
+
         if (this.loadFutures == null) {
-            ChunkUpgradeKernel kernel = entries.kernel;
             this.loadFutures = kernel.create(Future[]::new);
             this.loadedChunks = kernel.create(Chunk[]::new);
-
-            int radius = kernel.getRadius();
+            ChunkUpgrader upgrader = this.controller.getUpgrader();
 
             for (int z = -radius; z <= radius; z++) {
                 for (int x = -radius; x <= radius; x++) {
@@ -233,7 +215,7 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
                     if (chunk != null) {
                         this.loadedChunks[kernel.index(x, z)] = chunk;
                     } else {
-                        this.loadFutures[kernel.index(x, z)] = this.controller.spawnLoadChunk(entry);
+                        this.loadFutures[kernel.index(x, z)] = upgrader.loadChunk(entry);
                     }
                 }
             }

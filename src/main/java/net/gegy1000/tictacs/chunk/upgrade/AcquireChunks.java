@@ -36,10 +36,10 @@ final class AcquireChunks {
         this.upgradeLocks = this.kernel.create(Lock[]::new);
         this.locks = this.kernel.create(Lock[]::new);
 
-        this.joinLock = new JoinLock(new Lock[] {
+        this.joinLock = new JoinLock(
                 new JoinLock(this.upgradeLocks),
                 new JoinLock(this.locks)
-        });
+        );
         this.acquireJoinLock = new Lock.AcquireFuture(this.joinLock);
     }
 

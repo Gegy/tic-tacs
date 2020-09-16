@@ -2,14 +2,14 @@ package net.gegy1000.tictacs.chunk.step;
 
 import java.util.List;
 
-final class StepKernelResolver {
+public final class StepKernelResolver {
     private final List<ChunkStep> steps;
 
     StepKernelResolver(List<ChunkStep> steps) {
         this.steps = steps;
     }
 
-    private int effectiveRadiusFor(ChunkStep step) {
+    public static int effectiveRadiusFor(ChunkStep step, ChunkStep minimum) {
         ChunkRequirements requirements = step.getRequirements();
 
         int radius = requirements.getRadius();
@@ -18,8 +18,8 @@ final class StepKernelResolver {
 
         for (int distance = 0; distance <= radius; distance++) {
             ChunkRequirement requirement = requirements.byDistance(distance);
-            if (requirement != null) {
-                int childRadius = this.effectiveRadiusFor(requirement.step);
+            if (requirement != null && (minimum == null || requirement.step.greaterThan(minimum))) {
+                int childRadius = effectiveRadiusFor(requirement.step, minimum);
                 if (childRadius >= 0) {
                     effectiveRadius = Math.max(effectiveRadius, distance + childRadius);
                 }
@@ -33,7 +33,7 @@ final class StepKernelResolver {
         results.stepToRadius = new int[this.steps.size()];
 
         for (ChunkStep step : this.steps) {
-            int radius = this.effectiveRadiusFor(step);
+            int radius = effectiveRadiusFor(step, null);
             results.stepToRadius[step.getIndex()] = radius;
 
             results.maxDistance = Math.max(radius, results.maxDistance);

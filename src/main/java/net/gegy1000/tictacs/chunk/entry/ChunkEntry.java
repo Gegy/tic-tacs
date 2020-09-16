@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.function.LongPredicate;
@@ -40,6 +41,7 @@ public final class ChunkEntry extends ChunkHolder {
 
     private volatile ChunkStep currentStep;
     private final AtomicReference<ChunkStep> spawnedStep = new AtomicReference<>();
+    private final AtomicBoolean loading = new AtomicBoolean();
 
     private final ChunkEntryTrackers trackers = new ChunkEntryTrackers();
     private final ChunkAccessLock lock = new ChunkAccessLock();
@@ -119,6 +121,10 @@ public final class ChunkEntry extends ChunkHolder {
                 return true;
             }
         }
+    }
+
+    public boolean trySpawnLoad() {
+        return this.loading.compareAndSet(false, true);
     }
 
     public boolean isTicking() {
