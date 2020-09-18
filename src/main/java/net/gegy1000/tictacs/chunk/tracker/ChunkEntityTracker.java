@@ -104,6 +104,19 @@ public final class ChunkEntityTracker {
         trackers.addEntity(this);
     }
 
+    public void updateTracker(ServerPlayerEntity player) {
+        boolean isTracked = this.isTrackedBy(player);
+        boolean canTrack = this.canBeTrackedBy(player);
+
+        if (isTracked != canTrack) {
+            if (canTrack) {
+                this.startTracking(player);
+            } else {
+                this.stopTracking(player);
+            }
+        }
+    }
+
     public void updateTrackerWatched(ServerPlayerEntity player) {
         if (!this.isTrackedBy(player) && this.canBeTrackedBy(player)) {
             this.startTracking(player);

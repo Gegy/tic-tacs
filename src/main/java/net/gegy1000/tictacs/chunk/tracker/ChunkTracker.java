@@ -36,6 +36,9 @@ public final class ChunkTracker implements ChunkMapListener {
         this.playerTracker = new ChunkTrackWatcher(3);
         this.playerTracker.setStartTracking(this::startTrackingChunk);
         this.playerTracker.setStopTracking(this::stopTrackingChunk);
+        this.playerTracker.setUpdateTracking((player, pos, entry) -> {
+            entry.getTrackers().updateTrackingPlayer(player);
+        });
 
         ChunkTrackWatcher tickingTracker = new ChunkTrackWatcher(CHUNK_TICKING_DISTANCE);
         tickingTracker.setStartTracking(this::startTrackingChunkTickable);
@@ -143,19 +146,35 @@ public final class ChunkTracker implements ChunkMapListener {
     private void updatePlayerTracker(ServerPlayerEntity player, ChunkTrackWatcher tracker, ChunkTrackView view, ChunkTrackView lastView) {
         ChunkAccess chunks = this.controller.getMap().primary();
 
-        view.forEachDifference(lastView, pos -> {
-            ChunkEntry entry = chunks.getEntry(pos);
-            if (entry != null) {
-                tracker.startTracking(player, pos, entry);
-            }
-        });
+        ChunkTrackWatcher.Function startTracking = tracker.getStartTracking();
+        if (startTracking != null) {
+            view.forEachDifference(lastView, pos -> {
+                ChunkEntry entry = chunks.getEntry(pos);
+                if (entry != null) {
+                    startTracking.accept(player, pos, entry);
+                }
+            });
+        }
 
-        lastView.forEachDifference(view, pos -> {
-            ChunkEntry entry = chunks.getEntry(pos);
-            if (entry != null) {
-                tracker.stopTracking(player, pos, entry);
-            }
-        });
+        ChunkTrackWatcher.Function stopTracking = tracker.getStopTracking();
+        if (stopTracking != null) {
+            lastView.forEachDifference(view, pos -> {
+                ChunkEntry entry = chunks.getEntry(pos);
+                if (entry != null) {
+                    stopTracking.accept(player, pos, entry);
+                }
+            });
+        }
+
+        ChunkTrackWatcher.Function updateTracking = tracker.getUpdateTracking();
+        if (updateTracking != null) {
+            view.forEachIntersection(lastView, pos -> {
+                ChunkEntry entry = chunks.getEntry(pos);
+                if (entry != null) {
+                    updateTracking.accept(player, pos, entry);
+                }
+            });
+        }
     }
 
     private void startTrackingChunk(ServerPlayerEntity player, long pos, ChunkEntry entry) {
@@ -172,8 +191,9 @@ public final class ChunkTracker implements ChunkMapListener {
     }
 
     private void stopTrackingChunk(ServerPlayerEntity player, long pos, ChunkEntry entry) {
-        player.sendUnloadChunkPacket(new ChunkPos(pos));
-        entry.getTrackers().removeTrackingPlayer(player);
+        if (entry.getTrackers().removeTrackingPlayer(player)) {
+            player.sendUnloadChunkPacket(new ChunkPos(pos));
+        }
     }
 
     private void startTrackingChunkTickable(ServerPlayerEntity player, long pos, ChunkEntry entry) {
@@ -212,10 +232,15 @@ public final class ChunkTracker implements ChunkMapListener {
 
         ChunkAccess chunks = this.controller.getMap().primary();
         for (ChunkTrackWatcher tracker : this.trackWatchers) {
+            ChunkTrackWatcher.Function startTracking = tracker.getStartTracking();
+            if (startTracking == null) {
+                continue;
+            }
+
             tracker.viewAt(sectionPos).forEach(pos -> {
                 ChunkEntry entry = chunks.getEntry(pos);
                 if (entry != null) {
-                    tracker.startTracking(player, pos, entry);
+                    startTracking.accept(player, pos, entry);
                 }
             });
         }
@@ -233,44 +258,60 @@ public final class ChunkTracker implements ChunkMapListener {
 
         ChunkAccess chunks = this.controller.getMap().primary();
         for (ChunkTrackWatcher tracker : this.trackWatchers) {
+            ChunkTrackWatcher.Function stopTracking = tracker.getStopTracking();
+            if (stopTracking == null) {
+                continue;
+            }
+
             tracker.viewAt(sectionPos).forEach(pos -> {
                 ChunkEntry entry = chunks.getEntry(pos);
                 if (entry != null) {
-                    tracker.stopTracking(player, pos, entry);
+                    stopTracking.accept(player, pos, entry);
                 }
             });
         }
     }
 
     @Override
-    public void onAddChunk(ChunkEntry entry) {
-        ChunkPos chunkPos = entry.getPos();
-
-        for (ServerPlayerEntity player : this.players) {
-            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
-            for (ChunkTrackWatcher tracker : this.trackWatchers) {
-                if (distance <= tracker.getRadius()) {
-                    tracker.startTracking(player, chunkPos.toLong(), entry);
-                }
-            }
-        }
-    }
-
-    @Override
     public void onRemoveChunk(ChunkEntry entry) {
         ChunkPos chunkPos = entry.getPos();
+        long chunkKey = chunkPos.toLong();
 
         for (ServerPlayerEntity player : this.players) {
             int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
+
             for (ChunkTrackWatcher tracker : this.trackWatchers) {
-                if (distance <= tracker.getRadius()) {
-                    tracker.stopTracking(player, chunkPos.toLong(), entry);
+                if (distance > tracker.getRadius()) {
+                    continue;
+                }
+
+                ChunkTrackWatcher.Function stopTracking = tracker.getStopTracking();
+                if (stopTracking != null) {
+                    stopTracking.accept(player, chunkKey, entry);
                 }
             }
         }
     }
 
     public void onChunkFull(ChunkEntry entry, WorldChunk chunk) {
+        ChunkPos chunkPos = entry.getPos();
+        long chunkKey = chunkPos.toLong();
+
+        for (ServerPlayerEntity player : this.players) {
+            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
+
+            for (ChunkTrackWatcher tracker : this.trackWatchers) {
+                if (distance > tracker.getRadius()) {
+                    continue;
+                }
+
+                ChunkTrackWatcher.Function startTracking = tracker.getStartTracking();
+                if (startTracking != null) {
+                    startTracking.accept(player, chunkKey, entry);
+                }
+            }
+        }
+
         ChunkPackets.Data data = ChunkPackets.dataFor(chunk);
         ChunkPackets.Entities entities = ChunkPackets.entitiesFor(entry);
 

@@ -4,9 +4,12 @@ import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.ChunkSectionPos;
 
+import javax.annotation.Nullable;
+
 public final class ChunkTrackWatcher {
-    private Consumer startTracking = (player, pos, entry) -> {};
-    private Consumer stopTracking = (player, pos, entry) -> {};
+    private Function startTracking;
+    private Function stopTracking;
+    private Function updateTracking;
 
     private int radius;
 
@@ -14,12 +17,16 @@ public final class ChunkTrackWatcher {
         this.radius = radius;
     }
 
-    public void setStartTracking(Consumer startTracking) {
+    public void setStartTracking(Function startTracking) {
         this.startTracking = startTracking;
     }
 
-    public void setStopTracking(Consumer stopTracking) {
+    public void setStopTracking(Function stopTracking) {
         this.stopTracking = stopTracking;
+    }
+
+    public void setUpdateTracking(Function updateTracking) {
+        this.updateTracking = updateTracking;
     }
 
     public void setRadius(int radius) {
@@ -38,15 +45,22 @@ public final class ChunkTrackWatcher {
         return this.viewAt(pos.getX(), pos.getZ());
     }
 
-    void startTracking(ServerPlayerEntity player, long pos, ChunkEntry entry) {
-        this.startTracking.accept(player, pos, entry);
+    @Nullable
+    public Function getStartTracking() {
+        return this.startTracking;
     }
 
-    void stopTracking(ServerPlayerEntity player, long pos, ChunkEntry entry) {
-        this.stopTracking.accept(player, pos, entry);
+    @Nullable
+    public Function getStopTracking() {
+        return this.stopTracking;
     }
 
-    public interface Consumer {
+    @Nullable
+    public Function getUpdateTracking() {
+        return this.updateTracking;
+    }
+
+    public interface Function {
         void accept(ServerPlayerEntity player, long pos, ChunkEntry entry);
     }
 }
