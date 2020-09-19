@@ -180,8 +180,12 @@ final class ChunkUpgradeFuture implements Future<Unit> {
 
     private void notifyUpgradeUnloaded(ChunkStep step) {
         ChunkUpgrader upgrader = this.controller.getUpgrader();
+
+        upgrader.notifyUpgradeUnloaded(this.entry, step);
+
+        // let the chunk entries know that we're not trying to upgrade them anymore
         for (ChunkEntry entry : this.upgrade.entries) {
-            upgrader.notifyUpgradeUnloaded(entry, step);
+            entry.notifyUpgradeCanceled(step);
         }
     }
 

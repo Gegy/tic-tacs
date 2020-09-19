@@ -193,7 +193,7 @@ public final class ChunkEntry extends ChunkHolder {
     private void downgradeSpawnedStep(ChunkStep targetStep) {
         while (true) {
             ChunkStep spawnedStep = this.spawnedStep.get();
-            if (!targetStep.lessThan(spawnedStep)) {
+            if (targetStep != null && !targetStep.lessThan(spawnedStep)) {
                 break;
             }
 
@@ -246,20 +246,18 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public void notifyUpgradeUnloaded(ChunkStep step) {
-        ChunkStep currentStep = this.currentStep;
-        int currentIdx = currentStep != null ? currentStep.getIndex() : 0;
-
-        for (int i = currentIdx; i < this.listeners.length(); i++) {
-            ChunkListener listener = this.listeners.getAndSet(step.getIndex(), null);
+        for (int i = step.getIndex(); i < this.listeners.length(); i++) {
+            ChunkListener listener = this.listeners.getAndSet(i, null);
             if (listener != null) {
                 listener.completeErr();
             }
         }
 
-        ChunkStep lastValidStep = step.getPrevious();
-        if (lastValidStep != null) {
-            this.downgradeSpawnedStep(lastValidStep);
-        }
+        this.notifyUpgradeCanceled(step);
+    }
+
+    public void notifyUpgradeCanceled(ChunkStep step) {
+        this.downgradeSpawnedStep(step.getPrevious());
     }
 
     @Nullable

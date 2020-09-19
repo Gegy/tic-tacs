@@ -2,7 +2,6 @@ package net.gegy1000.tictacs.chunk.entry;
 
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import net.gegy1000.tictacs.TicTacs;
 import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -110,11 +109,11 @@ public final class ChunkEntryTrackers {
     }
 
     public void updateTrackingPlayer(ServerPlayerEntity player) {
-        if (TicTacs.DEBUG && !this.trackingPlayers.contains(player)) {
-            TicTacs.LOGGER.error("Tried to update player that is not tracking this chunk!");
-        }
-
         if (this.entities != null) {
+            if (!this.isTrackedBy(player)) {
+                return;
+            }
+
             for (ChunkEntityTracker entity : this.entities) {
                 entity.updateTracker(player);
             }
