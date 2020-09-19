@@ -21,7 +21,7 @@ public final class ChunkMainThreadExecutor implements TaskSpawner, TaskQueue, Au
 
     @Override
     public <T> void enqueue(ChunkTask<T> task) {
-        this.queue.enqueue(task, task.holder.getLevel());
+        this.queue.enqueue(task, task.getLevel());
         this.tryEnqueue();
     }
 

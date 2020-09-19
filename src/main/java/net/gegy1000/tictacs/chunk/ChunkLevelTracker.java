@@ -24,7 +24,7 @@ public final class ChunkLevelTracker {
     public static final int FULL_LEVEL = TicTacsConfig.get().maxViewDistance + 1;
     public static final int MAX_LEVEL = FULL_LEVEL + ChunkStep.getMaxDistance() + 1;
 
-    public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.LIGHTING.getPrevious());
+    public static final int LIGHT_TICKET_LEVEL = FULL_LEVEL + ChunkStep.getDistanceFromFull(ChunkStep.GENERATION);
 
     private final ServerWorld world;
     private final ChunkController controller;

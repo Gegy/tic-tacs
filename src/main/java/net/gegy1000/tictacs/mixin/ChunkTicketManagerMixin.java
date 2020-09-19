@@ -8,11 +8,6 @@ import org.spongepowered.asm.mixin.injection.ModifyConstant;
 
 @Mixin(ChunkTicketManager.class)
 public class ChunkTicketManagerMixin {
-    @ModifyConstant(method = "<init>", constant = @Constant(intValue = 4))
-    private int getMaxTasks(int maxTasks) {
-        return 128;
-    }
-
     @ModifyConstant(method = "<init>", constant = @Constant(intValue = 33))
     private int getFullLevelForNearbyChunkTicketUpdater(int level) {
         return ChunkLevelTracker.FULL_LEVEL;

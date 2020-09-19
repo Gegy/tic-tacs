@@ -32,7 +32,7 @@ public final class ChunkExecutor implements TaskSpawner, TaskQueue, AutoCloseabl
 
     @Override
     public <T> void enqueue(ChunkTask<T> task) {
-        this.queue.enqueue(task, task.holder.getLevel());
+        this.queue.enqueue(task, task.getLevel());
     }
 
     public void run() {

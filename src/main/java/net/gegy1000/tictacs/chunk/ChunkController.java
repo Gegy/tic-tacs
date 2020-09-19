@@ -36,5 +36,9 @@ public interface ChunkController {
 
     <T> void spawnOnMainThread(ChunkEntry entry, Future<T> future);
 
+    default <T> void spawnOnMainThread(Future<T> future) {
+        this.spawnOnMainThread(null, future);
+    }
+
     void spawnOnMainThread(ChunkEntry entry, Runnable runnable);
 }

@@ -97,6 +97,7 @@ public final class ChunkStep {
             })
             .loadAsync(ChunkStep::makeFull);
 
+    public static final ChunkStep GENERATION = ChunkStep.LIGHTING.getPrevious();
     public static final ChunkStep MIN_WITH_LOAD_TASK = ChunkStep.LIGHTING;
 
     private static final ChunkStep[] STATUS_TO_STEP;

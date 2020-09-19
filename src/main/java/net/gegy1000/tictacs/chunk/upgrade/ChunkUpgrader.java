@@ -28,7 +28,7 @@ public final class ChunkUpgrader {
     private final StructureManager structures;
     private final ServerLightingProvider lighting;
 
-    public final Semaphore lightingThrottler = new Semaphore(16);
+    public final Semaphore lightingThrottler = new Semaphore(24);
 
     public ChunkUpgrader(
             ServerWorld world,

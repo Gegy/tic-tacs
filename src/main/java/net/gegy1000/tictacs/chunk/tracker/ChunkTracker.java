@@ -273,6 +273,27 @@ public final class ChunkTracker implements ChunkMapListener {
     }
 
     @Override
+    public void onAddChunk(ChunkEntry entry) {
+        ChunkPos chunkPos = entry.getPos();
+        long chunkKey = chunkPos.toLong();
+
+        for (ServerPlayerEntity player : this.players) {
+            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
+
+            for (ChunkTrackWatcher tracker : this.trackWatchers) {
+                if (distance > tracker.getRadius()) {
+                    continue;
+                }
+
+                ChunkTrackWatcher.Function startTracking = tracker.getStartTracking();
+                if (startTracking != null) {
+                    startTracking.accept(player, chunkKey, entry);
+                }
+            }
+        }
+    }
+
+    @Override
     public void onRemoveChunk(ChunkEntry entry) {
         ChunkPos chunkPos = entry.getPos();
         long chunkKey = chunkPos.toLong();
@@ -294,24 +315,6 @@ public final class ChunkTracker implements ChunkMapListener {
     }
 
     public void onChunkFull(ChunkEntry entry, WorldChunk chunk) {
-        ChunkPos chunkPos = entry.getPos();
-        long chunkKey = chunkPos.toLong();
-
-        for (ServerPlayerEntity player : this.players) {
-            int distance = getChunkDistance(player, chunkPos.x, chunkPos.z);
-
-            for (ChunkTrackWatcher tracker : this.trackWatchers) {
-                if (distance > tracker.getRadius()) {
-                    continue;
-                }
-
-                ChunkTrackWatcher.Function startTracking = tracker.getStartTracking();
-                if (startTracking != null) {
-                    startTracking.accept(player, chunkKey, entry);
-                }
-            }
-        }
-
         ChunkPackets.Data data = ChunkPackets.dataFor(chunk);
         ChunkPackets.Entities entities = ChunkPackets.entitiesFor(entry);
 

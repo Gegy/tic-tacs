@@ -9,8 +9,12 @@ import javax.annotation.Nullable;
 public final class AwaitAll<T> implements Future<Unit> {
     private final Future<T>[] futures;
 
-    public AwaitAll(Future<T>[] futures) {
+    private AwaitAll(Future<T>[] futures) {
         this.futures = futures;
+    }
+
+    public static <T> AwaitAll<T> of(Future<T>[] futures) {
+        return new AwaitAll<>(futures);
     }
 
     @Nullable

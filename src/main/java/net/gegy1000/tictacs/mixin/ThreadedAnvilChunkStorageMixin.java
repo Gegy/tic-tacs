@@ -200,7 +200,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
 
         flushListener.invalidateWaker();
 
-        return new AwaitAll<>(futures);
+        return AwaitAll.of(futures);
     }
 
     @Override

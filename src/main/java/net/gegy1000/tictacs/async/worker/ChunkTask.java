@@ -4,6 +4,8 @@ import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.TicTacs;
 import net.minecraft.server.world.ChunkHolder;
 
+import javax.annotation.Nullable;
+
 public final class ChunkTask<T> {
     public final ChunkHolder holder;
 
@@ -14,7 +16,7 @@ public final class ChunkTask<T> {
 
     private volatile boolean complete;
 
-    ChunkTask(ChunkHolder holder, Future<T> future, TaskQueue queue) {
+    ChunkTask(@Nullable ChunkHolder holder, Future<T> future, TaskQueue queue) {
         this.holder = holder;
         this.future = future;
         this.queue = queue;
@@ -50,5 +52,9 @@ public final class ChunkTask<T> {
 
     public boolean isComplete() {
         return this.complete;
+    }
+
+    public int getLevel() {
+        return this.holder != null ? this.holder.getLevel() : 0;
     }
 }
