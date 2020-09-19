@@ -6,18 +6,17 @@ import net.gegy1000.justnow.future.Future;
 import javax.annotation.Nullable;
 
 public final class FutureHandle<T> implements Future<T> {
-    private T value;
-
-    private Waker waker;
+    private volatile T value;
+    private volatile Waker waker;
 
     @Nullable
     @Override
-    public synchronized T poll(Waker waker) {
+    public T poll(Waker waker) {
         this.waker = waker;
         return this.value;
     }
 
-    public synchronized void complete(T value) {
+    public void complete(T value) {
         this.value = value;
 
         Waker waker = this.waker;
