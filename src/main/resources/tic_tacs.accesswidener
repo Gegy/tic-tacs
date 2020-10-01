@@ -48,4 +48,6 @@ accessible field net/minecraft/network/ClientConnection$QueuedPacket callback Li
 
 accessible field net/minecraft/world/poi/PointOfInterestType REGISTERED_STATES Ljava/util/Set;
 
+accessible field net/minecraft/world/ChunkRegion chunks Ljava/util/List;
+
 accessible field net/minecraft/util/collection/WeightedList$Entry weight I

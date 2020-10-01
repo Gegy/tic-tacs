@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.chunk.step;
 
+import com.mojang.datafixers.util.Either;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
@@ -9,9 +10,13 @@ import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.FutureHandle;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
+
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
 import net.minecraft.server.world.ChunkTicketType;
+import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.structure.StructureManager;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.ChunkRegion;
@@ -29,6 +34,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 public final class ChunkStep {
     private static final EnumSet<Heightmap.Type> REQUIRED_FEATURE_HEIGHTMAPS = EnumSet.of(
@@ -321,39 +327,43 @@ public final class ChunkStep {
         ChunkGenerator generator = ctx.generator;
         ServerWorld world = ctx.world;
         Chunk chunk = ctx.chunk;
+        ServerLightingProvider lighting = ctx.lighting;
 
         ChunkRegion region = ctx.asRegion();
-        StructureAccessor structureAccessor = ctx.asStructureAccessor();
+        StructureManager manager = world.getStructureManager();
+        List<Chunk> chunks = region.chunks;
 
-        generator.addStructureReferences(region, structureAccessor, chunk);
+        ChunkStatus.STRUCTURE_REFERENCES.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.STRUCTURE_REFERENCES);
 
-        generator.populateBiomes(world.getRegistryManager().get(Registry.BIOME_KEY), chunk);
+        ChunkStatus.BIOMES.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.BIOMES);
 
-        generator.populateNoise(region, structureAccessor, chunk);
+        ChunkStatus.NOISE.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.NOISE);
 
-        generator.buildSurface(region, chunk);
+        ChunkStatus.SURFACE.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.SURFACE);
 
-        generator.carve(world.getSeed(), world.getBiomeAccess(), chunk, GenerationStep.Carver.AIR);
+        ChunkStatus.CARVERS.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.CARVERS);
 
-        generator.carve(world.getSeed(), world.getBiomeAccess(), chunk, GenerationStep.Carver.LIQUID);
+        ChunkStatus.LIQUID_CARVERS.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
         trySetStatus(chunk, ChunkStatus.LIQUID_CARVERS);
 
         return chunk;
     }
 
     private static Chunk addFeatures(ChunkStepContext ctx) {
-        ProtoChunk proto = (ProtoChunk) ctx.chunk;
-        proto.setLightingProvider(ctx.lighting);
-
-        Heightmap.populateHeightmaps(ctx.chunk, REQUIRED_FEATURE_HEIGHTMAPS);
+        ChunkGenerator generator = ctx.generator;
+        ServerWorld world = ctx.world;
+        ServerLightingProvider lighting = ctx.lighting;
 
         ChunkRegion region = ctx.asRegion();
-        ctx.generator.generateFeatures(region, ctx.world.getStructureAccessor().forRegion(region));
+        StructureManager manager = world.getStructureManager();
+        List<Chunk> chunks = region.chunks;
+
+        ChunkStatus.FEATURES.runGenerationTask(world, generator, manager, lighting, ChunkStep::chunkFunction, chunks).join();
 
         return ctx.chunk;
     }
@@ -406,6 +416,11 @@ public final class ChunkStep {
                 protoChunk.setStatus(status);
             }
         }
+    }
+
+    // This isn't used by anything except the last step- so we can return null
+    private static CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> chunkFunction(Chunk chunk) {
+        return null;
     }
 
     public interface AsyncTask {
