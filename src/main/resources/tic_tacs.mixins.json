@@ -25,8 +25,6 @@
     "threading_fix.ChunkRegionMixin",
     "threading_fix.StructureManagerMixin",
     "threading_fix.WeightedListMixin",
-    "ticket.ChunkTicketManagerMixin",
-    "ticket.NearbyChunkTicketUpdaterMixin",
     "unblocking.EntityMixin",
     "unblocking.LivingEntityMixin",
     "unblocking.ServerChunkManagerMixin",
