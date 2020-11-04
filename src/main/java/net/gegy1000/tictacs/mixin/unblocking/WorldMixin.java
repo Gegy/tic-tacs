@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.Shadow;
 @Mixin(World.class)
 public abstract class WorldMixin implements NonBlockingWorldAccess {
     @Shadow
-    public static boolean isHeightInvalid(BlockPos pos) {
+    public static boolean isOutOfBuildLimitVertically(BlockPos pos) {
         throw new UnsupportedOperationException();
     }
 
@@ -32,7 +32,7 @@ public abstract class WorldMixin implements NonBlockingWorldAccess {
      */
     @Overwrite
     public BlockState getBlockState(BlockPos pos) {
-        if (isHeightInvalid(pos)) {
+        if (isOutOfBuildLimitVertically(pos)) {
             return Blocks.VOID_AIR.getDefaultState();
         }
 
@@ -47,7 +47,7 @@ public abstract class WorldMixin implements NonBlockingWorldAccess {
      */
     @Overwrite
     public FluidState getFluidState(BlockPos pos) {
-        if (isHeightInvalid(pos)) {
+        if (isOutOfBuildLimitVertically(pos)) {
             return Fluids.EMPTY.getDefaultState();
         }
 
