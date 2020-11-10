@@ -27,14 +27,14 @@ public final class TicTacsConfig {
     @SerializedName("thread_count")
     public int threadCount = computeDefaultThreadCount();
 
+    @SerializedName("max_view_distance")
+    public int maxViewDistance = 32;
+
     @SerializedName("feature_generation_radius")
     public int featureGenerationRadius = 2;
 
     @SerializedName("debug")
     public Debug debug = new Debug();
-
-    @SerializedName("max_view_distance")
-    public int maxViewDistance = 32;
 
     public static class Debug {
         @SerializedName("chunk_levels")
@@ -45,7 +45,7 @@ public final class TicTacsConfig {
     }
 
     private static int computeDefaultThreadCount() {
-        return MathHelper.clamp(Runtime.getRuntime().availableProcessors() / 2, 2, 6);
+        return MathHelper.clamp(Runtime.getRuntime().availableProcessors() / 2, 1, 2);
     }
 
     public boolean isSingleThreaded() {
