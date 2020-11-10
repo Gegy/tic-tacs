@@ -27,3 +27,8 @@ For most cases, the only useful properties here will be `thread_count` and `max_
 `thread_count` controls the number of threads that will be used for chunk generation. It is important to note that setting this anything beyond 4 is unlikely to make any difference to performance, and setting it too high can be instead detrimental! Chunk generation is still additionally limited by the lighting engine, which Tic-TACS does not multithread.
 
 `max_view_distance` controls the maximum view distance that the game can support. This won't directly change render distance, but will change the maximum value for the vanilla render distance slider. Values beyond 100 may cause issues, but this restriction may be solved in the future.
+
+## downloading
+You can find semi-stable builds of Tic-TACS in the [GitHub releases](https://github.com/Gegy/tic-tacs/releases). 
+
+Alternatively, you can find much less stable builds from most recent commits on [my Jenkins](https://ci.gegy.dev/job/tic-tacs/).
