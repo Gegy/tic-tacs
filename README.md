@@ -17,7 +17,7 @@ The mod is configured through the `config/tictacs.json` file, which should look 
   "feature_generation_radius": 2,
   "debug": {
     "chunk_levels": false,
-    "chunk_map": true
+    "chunk_map": false
   }
 }
 ```
