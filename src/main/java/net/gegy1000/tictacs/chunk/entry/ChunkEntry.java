@@ -15,6 +15,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.collection.TypeFilterableList;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicReferenceArray;
@@ -48,11 +50,12 @@ public final class ChunkEntry extends ChunkHolder {
 
     public ChunkEntry(
             ChunkPos pos, int level,
+            HeightLimitView world,
             LightingProvider lighting,
             LevelUpdateListener levelUpdateListener,
             PlayersWatchingChunkProvider watchers
     ) {
-        super(pos, level, lighting, levelUpdateListener, watchers);
+        super(pos, level, world, lighting, levelUpdateListener, watchers);
     }
 
     public ChunkAccessLock getLock() {
@@ -145,7 +148,7 @@ public final class ChunkEntry extends ChunkHolder {
         return !entityTicking.right().isPresent();
     }
 
-    public void onUpdateLevel(ThreadedAnvilChunkStorage tacs) {
+    public void onUpdateLevel(ThreadedAnvilChunkStorage tacs, Executor executor) {
         if (this.level > this.lastTickLevel) {
             this.reduceLevel(this.lastTickLevel, this.level);
 
@@ -159,7 +162,7 @@ public final class ChunkEntry extends ChunkHolder {
             }
         }
 
-        super.tick(tacs);
+        super.tick(tacs, executor);
     }
 
     private void reduceLevel(int lastLevel, int level) {
@@ -291,10 +294,10 @@ public final class ChunkEntry extends ChunkHolder {
 
         if (loadToWorld.test(this.pos.toLong())) {
             worldChunk.setLoadedToWorld(true);
-            world.addBlockEntities(worldChunk.getBlockEntities().values());
-
-            Collection<Entity> invalidEntities = this.tryAddEntitiesToWorld(world, worldChunk);
-            invalidEntities.forEach(worldChunk::remove);
+//            world.addBlockEntities(worldChunk.getBlockEntities().values());
+//
+//            Collection<Entity> invalidEntities = this.tryAddEntitiesToWorld(world, worldChunk);
+//            invalidEntities.forEach(worldChunk::remove);
         }
 
         worldChunk.disableTickSchedulers();
@@ -303,27 +306,27 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     private WorldChunk upgradeToWorldChunk(ServerWorld world, ProtoChunk protoChunk) {
-        WorldChunk worldChunk = new WorldChunk(world, protoChunk);
+        WorldChunk worldChunk = new WorldChunk(world, protoChunk, null);
         this.chunk = new ReadOnlyChunk(worldChunk);
 
         return worldChunk;
     }
 
-    private Collection<Entity> tryAddEntitiesToWorld(ServerWorld world, WorldChunk chunk) {
-        Collection<Entity> invalidEntities = new ArrayList<>();
-
-        for (TypeFilterableList<Entity> entitySection : chunk.getEntitySectionArray()) {
-            for (Entity entity : entitySection) {
-                if (entity instanceof PlayerEntity) continue;
-
-                if (!world.loadEntity(entity)) {
-                    invalidEntities.add(entity);
-                }
-            }
-        }
-
-        return invalidEntities;
-    }
+//    private Collection<Entity> tryAddEntitiesToWorld(ServerWorld world, WorldChunk chunk) {
+//        Collection<Entity> invalidEntities = new ArrayList<>();
+//
+//        for (TypeFilterableList<Entity> entitySection : chunk.getEntitySectionArray()) {
+//            for (Entity entity : entitySection) {
+//                if (entity instanceof PlayerEntity) continue;
+//
+//                if (!world.loadEntity(entity)) {
+//                    invalidEntities.add(entity);
+//                }
+//            }
+//        }
+//
+//        return invalidEntities;
+//    }
 
     @Nullable
     private static WorldChunk unwrapWorldChunk(Chunk chunk) {
@@ -377,8 +380,8 @@ public final class ChunkEntry extends ChunkHolder {
 
     @Override
     @Deprecated
-    protected void tick(ThreadedAnvilChunkStorage tacs) {
-        this.onUpdateLevel(tacs);
+    protected void tick(ThreadedAnvilChunkStorage tacs, Executor executor) {
+        this.onUpdateLevel(tacs, executor);
     }
 
     @Override

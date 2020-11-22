@@ -5,6 +5,8 @@ import com.mojang.datafixers.util.Either;
 import net.gegy1000.tictacs.chunk.ChunkAccess;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+
+import net.minecraft.class_5567;
 import net.minecraft.server.WorldGenerationProgressListener;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
@@ -62,7 +64,7 @@ public abstract class ServerChunkManagerMixin {
     private final List<ChunkEntry> tickingChunks = new ArrayList<>();
 
     @Inject(method = "<init>", at = @At("RETURN"))
-    private void init(ServerWorld world, LevelStorage.Session session, DataFixer dataFixer, StructureManager structureManager, Executor workerExecutor, ChunkGenerator chunkGenerator, int viewDistance, boolean bl, WorldGenerationProgressListener worldGenerationProgressListener, Supplier<PersistentStateManager> supplier, CallbackInfo ci) {
+    private void init(ServerWorld serverWorld, LevelStorage.Session session, DataFixer dataFixer, StructureManager structureManager, Executor workerExecutor, ChunkGenerator chunkGenerator, int viewDistance, boolean bl, WorldGenerationProgressListener worldGenerationProgressListener, class_5567 arg, Supplier<PersistentStateManager> supplier, CallbackInfo ci) {
         this.primaryChunks = ((ChunkController) this.threadedAnvilChunkStorage).getMap().primary();
     }
 

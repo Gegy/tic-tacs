@@ -8,6 +8,7 @@ import net.minecraft.util.Util;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.ChunkSectionPos;
+import net.minecraft.world.HeightLimitView;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.poi.PointOfInterestSet;
 import net.minecraft.world.poi.PointOfInterestStorage;
@@ -22,8 +23,8 @@ import java.util.function.Function;
 
 @Mixin(PointOfInterestStorage.class)
 public abstract class PointOfInterestStorageMixin extends SerializingRegionBasedStorage<PointOfInterestSet> implements PoiStorageAccess {
-    private PointOfInterestStorageMixin(File directory, Function<Runnable, Codec<PointOfInterestSet>> codecFactory, Function<Runnable, PointOfInterestSet> factory, DataFixer dataFixer, DataFixTypes dataFixTypes, boolean bl) {
-        super(directory, codecFactory, factory, dataFixer, dataFixTypes, bl);
+    public PointOfInterestStorageMixin(File directory, Function<Runnable, Codec<PointOfInterestSet>> codecFactory, Function<Runnable, PointOfInterestSet> factory, DataFixer dataFixer, DataFixTypes dataFixTypes, boolean bl, HeightLimitView heightLimitView) {
+        super(directory, codecFactory, factory, dataFixer, dataFixTypes, bl, heightLimitView);
     }
 
     @Shadow

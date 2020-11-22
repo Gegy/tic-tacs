@@ -37,7 +37,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
 
     @Override
     public BlockState getBlockStateIfLoaded(BlockPos pos) {
-        if (isOutOfBuildLimitVertically(pos)) {
+        if (isOutOfHeightLimit(pos)) {
             return Blocks.VOID_AIR.getDefaultState();
         }
 
@@ -51,7 +51,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
 
     @Override
     public FluidState getFluidStateIfLoaded(BlockPos pos) {
-        if (isOutOfBuildLimitVertically(pos)) {
+        if (isOutOfHeightLimit(pos)) {
             return Fluids.EMPTY.getDefaultState();
         }
 

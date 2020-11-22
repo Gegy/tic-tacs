@@ -219,12 +219,12 @@ public final class ChunkEntityTracker {
     }
 
     private static long chunkForEntity(Entity entity) {
-        if (!entity.updateNeeded) {
-            int x = MathHelper.floor(entity.getX()) >> 4;
-            int z = MathHelper.floor(entity.getZ()) >> 4;
-            return ChunkPos.toLong(x, z);
-        }
-
-        return ChunkPos.toLong(entity.chunkX, entity.chunkZ);
+//        if (!entity.updateNeeded) {
+//            int x = MathHelper.floor(entity.getX()) >> 4;
+//            int z = MathHelper.floor(entity.getZ()) >> 4;
+//            return ChunkPos.toLong(x, z);
+//        }
+//
+        return ChunkPos.toLong(MathHelper.floor(entity.getX()) >> 4, MathHelper.floor(entity.getZ()) >> 4);
     }
 }

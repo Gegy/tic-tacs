@@ -53,7 +53,7 @@ public final class ChunkPackets {
             if (this.dataPacket == null) {
                 LightingProvider lighting = this.chunk.getWorld().getLightingProvider();
 
-                this.dataPacket = new ChunkDataS2CPacket(this.chunk, 0xFFFF);
+                this.dataPacket = new ChunkDataS2CPacket(this.chunk);
                 this.lightPacket = new LightUpdateS2CPacket(chunkPos, lighting, true);
             }
 

@@ -134,7 +134,7 @@ public final class ChunkData {
         this.protoData = protoData;
     }
 
-    public static ChunkData deserialize(ChunkPos chunkPos, CompoundTag tag) {
+    public static ChunkData deserialize(ServerWorld world, ChunkPos chunkPos, CompoundTag tag) {
         CompoundTag levelTag = tag.getCompound("Level");
 
         ChunkStatus status = ChunkStatus.byId(levelTag.getString("Status"));
@@ -145,15 +145,15 @@ public final class ChunkData {
         }
 
         int[] biomeIds = levelTag.contains("Biomes", NbtType.INT_ARRAY) ? levelTag.getIntArray("Biomes") : null;
-        UpgradeData upgradeData = levelTag.contains("UpgradeData", NbtType.COMPOUND) ? new UpgradeData(levelTag.getCompound("UpgradeData")) : UpgradeData.NO_UPGRADE_DATA;
+        UpgradeData upgradeData = levelTag.contains("UpgradeData", NbtType.COMPOUND) ? new UpgradeData(levelTag.getCompound("UpgradeData"), world) : UpgradeData.NO_UPGRADE_DATA;
 
         TickScheduler<Block> blockScheduler = new ChunkTickScheduler<>(block -> {
             return block == null || block.getDefaultState().isAir();
-        }, chunkPos, levelTag.getList("ToBeTicked", NbtType.LIST));
+        }, chunkPos, levelTag.getList("ToBeTicked", NbtType.LIST), world);
 
         TickScheduler<Fluid> fluidScheduler = new ChunkTickScheduler<>(fluid -> {
             return fluid == null || fluid == Fluids.EMPTY;
-        }, chunkPos, levelTag.getList("LiquidsToBeTicked", NbtType.LIST));
+        }, chunkPos, levelTag.getList("LiquidsToBeTicked", NbtType.LIST), world);
 
         ChunkSection[] sections = new ChunkSection[16];
         boolean[] sectionHasPois = new boolean[16];
@@ -372,7 +372,7 @@ public final class ChunkData {
         if (chunkType == ChunkStatus.ChunkType.field_12807) {
             chunk = this.createWorldChunk(world, biomes);
         } else {
-            chunk = this.createProtoChunk(lightingProvider, biomes);
+            chunk = this.createProtoChunk(world, lightingProvider, biomes);
         }
 
         for (int sectionY = 0; sectionY < this.sectionHasPois.length; sectionY++) {
@@ -448,12 +448,13 @@ public final class ChunkData {
         );
     }
 
-    private ProtoChunk createProtoChunk(LightingProvider lightingProvider, BiomeArray biomes) {
+    private ProtoChunk createProtoChunk(ServerWorld world, LightingProvider lightingProvider, BiomeArray biomes) {
         ProtoChunk chunk = new ProtoChunk(
                 this.pos, this.upgradeData,
                 this.sections,
                 (ChunkTickScheduler<Block>) this.blockTickScheduler,
-                (ChunkTickScheduler<Fluid>) this.fluidTickScheduler
+                (ChunkTickScheduler<Fluid>) this.fluidTickScheduler,
+                world
         );
 
         chunk.setBiomes(biomes);
@@ -492,13 +493,13 @@ public final class ChunkData {
                 chunk.addEntity(entity);
                 return entity;
             });
-            chunk.setUnsaved(true);
+//            chunk.setUnsaved(true);
         }
 
         for (CompoundTag tag : blockEntityTags) {
             if (!tag.getBoolean("keepPacked")) {
                 BlockPos pos = new BlockPos(tag.getInt("x"), tag.getInt("y"), tag.getInt("z"));
-                BlockEntity entity = BlockEntity.createFromTag(chunk.getBlockState(pos), tag);
+                BlockEntity entity = BlockEntity.createFromTag(pos, chunk.getBlockState(pos), tag);
                 if (entity != null) {
                     chunk.addBlockEntity(entity);
                 }

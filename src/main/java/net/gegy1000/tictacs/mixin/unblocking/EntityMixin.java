@@ -21,13 +21,13 @@ public abstract class EntityMixin {
     @Shadow
     public World world;
 
-    @Shadow
-    public boolean updateNeeded;
+//    @Shadow
+//    public boolean updateNeeded;
 
     @Shadow
     public abstract BlockPos getBlockPos();
 
-    @Shadow private boolean chunkPosUpdateRequested;
+//    @Shadow private boolean chunkPosUpdateRequested;
 
     @Inject(method = "move", at = @At("HEAD"), cancellable = true)
     private void move(MovementType type, Vec3d movement, CallbackInfo ci) {
@@ -96,11 +96,11 @@ public abstract class EntityMixin {
         return ((NonBlockingWorldAccess) world).getFluidStateIfLoaded(pos);
     }
 
-    @Inject(method = "isChunkPosUpdateRequested", at = @At("HEAD"))
-    private void isChunkPosUpdateRequested(CallbackInfoReturnable<Boolean> ci) {
-        // if we're not added to any chunk, try add us to a chunk
-        if (!this.updateNeeded) {
-            this.chunkPosUpdateRequested = true;
-        }
-    }
+//    @Inject(method = "isChunkPosUpdateRequested", at = @At("HEAD"))
+//    private void isChunkPosUpdateRequested(CallbackInfoReturnable<Boolean> ci) {
+//        // if we're not added to any chunk, try add us to a chunk
+//        if (!this.updateNeeded) {
+//            this.chunkPosUpdateRequested = true;
+//        }
+//    }
 }

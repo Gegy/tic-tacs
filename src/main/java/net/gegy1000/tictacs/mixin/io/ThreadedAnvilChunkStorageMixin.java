@@ -88,7 +88,6 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
 
             try {
                 Chunk chunk = data.createChunk(this.world, this.structureManager, this.pointOfInterestStorage);
-                chunk.setLastSaveTime(this.world.getTime());
 
                 this.method_27053(pos, chunk.getStatus().getChunkType());
                 return Either.left(chunk);
@@ -106,7 +105,7 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
         }
 
         this.method_27054(pos);
-        return Either.left(new ProtoChunk(pos, UpgradeData.NO_UPGRADE_DATA));
+        return Either.left(new ProtoChunk(pos, UpgradeData.NO_UPGRADE_DATA, this.world));
     }
 
     @Nullable
@@ -120,7 +119,7 @@ public abstract class ThreadedAnvilChunkStorageMixin extends VersionedChunkStora
             return null;
         }
 
-        return ChunkData.deserialize(pos, tag);
+        return ChunkData.deserialize(this.world, pos, tag);
     }
 
     private CompletableFuture<CompoundTag> getUpdatedChunkTagAsync(ChunkPos pos) {

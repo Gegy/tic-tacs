@@ -7,6 +7,7 @@ import net.minecraft.fluid.FluidState;
 import net.minecraft.fluid.Fluids;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldAccess;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import org.spongepowered.asm.mixin.Mixin;
@@ -14,12 +15,7 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
 @Mixin(World.class)
-public abstract class WorldMixin implements NonBlockingWorldAccess {
-    @Shadow
-    public static boolean isOutOfBuildLimitVertically(BlockPos pos) {
-        throw new UnsupportedOperationException();
-    }
-
+public abstract class WorldMixin implements WorldAccess, NonBlockingWorldAccess {
     @Shadow
     public abstract Chunk getChunk(int chunkX, int chunkZ, ChunkStatus leastStatus, boolean create);
 
@@ -32,7 +28,7 @@ public abstract class WorldMixin implements NonBlockingWorldAccess {
      */
     @Overwrite
     public BlockState getBlockState(BlockPos pos) {
-        if (isOutOfBuildLimitVertically(pos)) {
+        if (isOutOfHeightLimit(pos)) {
             return Blocks.VOID_AIR.getDefaultState();
         }
 
@@ -47,7 +43,7 @@ public abstract class WorldMixin implements NonBlockingWorldAccess {
      */
     @Overwrite
     public FluidState getFluidState(BlockPos pos) {
-        if (isOutOfBuildLimitVertically(pos)) {
+        if (isOutOfHeightLimit(pos)) {
             return Fluids.EMPTY.getDefaultState();
         }
 

@@ -19,6 +19,7 @@ import org.spongepowered.asm.mixin.Unique;
 
 import java.util.Comparator;
 import java.util.Set;
+import java.util.concurrent.Executor;
 
 @Mixin(ChunkTicketManager.class)
 public abstract class ChunkTicketManagerMixin implements TicketTracker {
@@ -37,6 +38,7 @@ public abstract class ChunkTicketManagerMixin implements TicketTracker {
     @Final
     public Set<ChunkHolder> chunkHolders;
 
+    @Shadow @Final private Executor mainThreadExecutor;
     private PlayerTicketManager fullTickets;
     private PlayerTicketManager generationTickets;
 
@@ -62,7 +64,7 @@ public abstract class ChunkTicketManagerMixin implements TicketTracker {
         if (!this.chunkHolders.isEmpty()) {
             for (ChunkHolder holder : this.chunkHolders) {
                 ChunkEntry entry = (ChunkEntry) holder;
-                entry.onUpdateLevel(tacs);
+                entry.onUpdateLevel(tacs, this.mainThreadExecutor);
             }
             this.chunkHolders.clear();
             return true;

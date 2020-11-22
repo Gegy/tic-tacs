@@ -78,7 +78,7 @@ public final class ChunkMap {
             return unloadingEntry;
         }
 
-        return new ChunkEntry(new ChunkPos(pos), level, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
+        return new ChunkEntry(new ChunkPos(pos), level, this.world, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
     }
 
     public FlushListener awaitFlush() {

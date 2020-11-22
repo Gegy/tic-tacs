@@ -234,11 +234,11 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
      * @reason direct logic to {@link ChunkEntry} and avoid allocation
      * @author gegy1000
      */
-    @Overwrite
-    public boolean shouldTickEntity(Entity entity) {
-        ChunkEntry entry = this.getChunkEntry(MathHelper.floor(entity.getX()) >> 4, MathHelper.floor(entity.getZ()) >> 4);
-        return entry != null && entry.isTickingEntities();
-    }
+//    @Overwrite
+//    public boolean shouldTickEntity(Entity entity) {
+//        ChunkEntry entry = this.getChunkEntry(MathHelper.floor(entity.getX()) >> 4, MathHelper.floor(entity.getZ()) >> 4);
+//        return entry != null && entry.isTickingEntities();
+//    }
 
     /**
      * @reason direct logic to {@link ChunkEntry} and avoid allocation

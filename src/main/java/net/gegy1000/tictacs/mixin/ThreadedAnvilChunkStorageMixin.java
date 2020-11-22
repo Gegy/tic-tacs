@@ -23,6 +23,8 @@ import net.gegy1000.tictacs.chunk.future.VanillaChunkFuture;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.gegy1000.tictacs.chunk.tracker.ChunkTracker;
 import net.gegy1000.tictacs.chunk.upgrade.ChunkUpgrader;
+
+import net.minecraft.class_5567;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.boss.dragon.EnderDragonPart;
 import net.minecraft.network.Packet;
@@ -110,6 +112,7 @@ public abstract class ThreadedAnvilChunkStorageMixin implements ChunkController 
             ChunkProvider chunkProvider,
             ChunkGenerator chunkGenerator,
             WorldGenerationProgressListener progressListener,
+            class_5567 arg,
             Supplier<PersistentStateManager> persistentStateSupplier,
             int watchDistance,
             boolean syncWrite,
