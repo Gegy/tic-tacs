@@ -26,6 +26,10 @@ public final class ChunkRequirements {
         return this.add(ChunkRequirement.write(step), radius);
     }
 
+    public ChunkRequirements require(ChunkStep step, int radius) {
+        return this.add(ChunkRequirement.require(step), radius);
+    }
+
     public ChunkRequirements add(ChunkRequirement requirement, int radius) {
         this.ensureRadius(radius);
 

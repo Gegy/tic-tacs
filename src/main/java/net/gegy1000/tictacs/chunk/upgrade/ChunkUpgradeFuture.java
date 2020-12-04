@@ -13,7 +13,7 @@ import net.minecraft.world.chunk.Chunk;
 
 import javax.annotation.Nullable;
 
-final class ChunkUpgradeFuture implements Future<Unit> {
+public final class ChunkUpgradeFuture implements Future<Unit> {
     final ChunkController controller;
 
     final ChunkEntry entry;

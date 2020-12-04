@@ -39,7 +39,7 @@ public final class LevelMapRenderer {
     private static final RenderType TYPE = RenderType.STEP;
 
     public static NativeImage render(Vec3d camera, ChunkController controller) {
-        ChunkAccess map = controller.getMap().primary();
+        ChunkAccess map = controller.getMap().visible();
         Collection<ChunkEntry> entries = map.getEntries();
 
         Rect2i bounds = computeBounds(entries);

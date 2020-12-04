@@ -1,7 +1,7 @@
 package net.gegy1000.tictacs.chunk.entry;
 
 import it.unimi.dsi.fastutil.Hash;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import net.gegy1000.tictacs.chunk.tracker.ChunkEntityTracker;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -14,15 +14,17 @@ public final class ChunkEntryTrackers {
     private Set<ChunkEntityTracker> entities;
 
     public void addEntity(ChunkEntityTracker tracker) {
-        if (this.entities == null) {
-            this.entities = new ObjectOpenHashSet<>();
+        Set<ChunkEntityTracker> entities = this.entities;
+        if (entities == null) {
+            this.entities = entities = new ReferenceOpenHashSet<>();
         }
-        this.entities.add(tracker);
+        entities.add(tracker);
     }
 
     public boolean removeEntity(ChunkEntityTracker tracker) {
-        if (this.entities != null && this.entities.remove(tracker)) {
-            if (this.entities.isEmpty()) {
+        Set<ChunkEntityTracker> entities = this.entities;
+        if (entities != null && entities.remove(tracker)) {
+            if (entities.isEmpty()) {
                 this.entities = null;
             }
             return true;
@@ -31,11 +33,12 @@ public final class ChunkEntryTrackers {
     }
 
     public boolean addTrackingPlayer(ServerPlayerEntity player) {
-        if (this.trackingPlayers == null) {
-            this.trackingPlayers = new ObjectOpenHashSet<>(2, Hash.DEFAULT_LOAD_FACTOR);
+        Set<ServerPlayerEntity> trackingPlayers = this.trackingPlayers;
+        if (trackingPlayers == null) {
+            this.trackingPlayers = trackingPlayers = new ReferenceOpenHashSet<>(2, Hash.DEFAULT_LOAD_FACTOR);
         }
 
-        if (this.trackingPlayers.add(player)) {
+        if (trackingPlayers.add(player)) {
             this.startTrackingEntities(player);
             return true;
         }
@@ -44,8 +47,13 @@ public final class ChunkEntryTrackers {
     }
 
     public boolean removeTrackingPlayer(ServerPlayerEntity player) {
-        if (this.trackingPlayers != null && this.trackingPlayers.remove(player)) {
-            if (this.trackingPlayers.isEmpty()) {
+        Set<ServerPlayerEntity> trackingPlayers = this.trackingPlayers;
+        if (trackingPlayers == null) {
+            return false;
+        }
+
+        if (trackingPlayers.remove(player)) {
+            if (trackingPlayers.isEmpty()) {
                 this.trackingPlayers = null;
             }
 
@@ -56,36 +64,53 @@ public final class ChunkEntryTrackers {
         return false;
     }
 
+    public void updateTrackingPlayer(ServerPlayerEntity player) {
+        Set<ChunkEntityTracker> entities = this.entities;
+        if (entities != null) {
+            Set<ServerPlayerEntity> trackingPlayers = this.trackingPlayers;
+            if (trackingPlayers == null || !trackingPlayers.contains(player)) {
+                return;
+            }
+
+            for (ChunkEntityTracker entity : entities) {
+                entity.updateTracker(player);
+            }
+        }
+    }
+
     private void startTrackingEntities(ServerPlayerEntity player) {
-        if (this.entities != null) {
-            for (ChunkEntityTracker tracker : this.entities) {
+        Set<ChunkEntityTracker> entities = this.entities;
+        if (entities != null) {
+            for (ChunkEntityTracker tracker : entities) {
                 tracker.updateTrackerWatched(player);
             }
         }
     }
 
     private void stopTrackingEntities(ServerPlayerEntity player) {
-        if (this.entities != null) {
-            for (ChunkEntityTracker tracker : this.entities) {
+        Set<ChunkEntityTracker> entities = this.entities;
+        if (entities != null) {
+            for (ChunkEntityTracker tracker : entities) {
                 tracker.updateTrackerUnwatched(player);
             }
         }
     }
 
     public boolean addTickableTrackingPlayer(ServerPlayerEntity player) {
-        if (this.tickableTrackingPlayers == null) {
-            this.tickableTrackingPlayers = new ObjectOpenHashSet<>(2, Hash.DEFAULT_LOAD_FACTOR);
+        Set<ServerPlayerEntity> tickableTrackingPlayers = this.tickableTrackingPlayers;
+        if (tickableTrackingPlayers == null) {
+            this.tickableTrackingPlayers = tickableTrackingPlayers = new ReferenceOpenHashSet<>(2, Hash.DEFAULT_LOAD_FACTOR);
         }
 
-        return this.tickableTrackingPlayers.add(player);
+        return tickableTrackingPlayers.add(player);
     }
 
     public boolean removeTickableTrackingPlayer(ServerPlayerEntity player) {
-        if (this.tickableTrackingPlayers != null && this.tickableTrackingPlayers.remove(player)) {
-            if (this.tickableTrackingPlayers.isEmpty()) {
+        Set<ServerPlayerEntity> tickableTrackingPlayers = this.tickableTrackingPlayers;
+        if (tickableTrackingPlayers != null && tickableTrackingPlayers.remove(player)) {
+            if (tickableTrackingPlayers.isEmpty()) {
                 this.tickableTrackingPlayers = null;
             }
-
             return true;
         }
 
@@ -93,30 +118,22 @@ public final class ChunkEntryTrackers {
     }
 
     public Set<ServerPlayerEntity> getTrackingPlayers() {
-        return this.trackingPlayers != null ? this.trackingPlayers : Collections.emptySet();
+        Set<ServerPlayerEntity> trackingPlayers = this.trackingPlayers;
+        return trackingPlayers != null ? trackingPlayers : Collections.emptySet();
     }
 
     public Set<ServerPlayerEntity> getTickableTrackingPlayers() {
-        return this.tickableTrackingPlayers != null ? this.tickableTrackingPlayers : Collections.emptySet();
+        Set<ServerPlayerEntity> tickableTrackingPlayers = this.tickableTrackingPlayers;
+        return tickableTrackingPlayers != null ? tickableTrackingPlayers : Collections.emptySet();
     }
 
     public boolean isTrackedBy(ServerPlayerEntity player) {
-        return this.trackingPlayers != null && this.trackingPlayers.contains(player);
+        Set<ServerPlayerEntity> trackingPlayers = this.trackingPlayers;
+        return trackingPlayers != null && trackingPlayers.contains(player);
     }
 
     public Set<ChunkEntityTracker> getEntities() {
-        return this.entities != null ? this.entities : Collections.emptySet();
-    }
-
-    public void updateTrackingPlayer(ServerPlayerEntity player) {
-        if (this.entities != null) {
-            if (!this.isTrackedBy(player)) {
-                return;
-            }
-
-            for (ChunkEntityTracker entity : this.entities) {
-                entity.updateTracker(player);
-            }
-        }
+        Set<ChunkEntityTracker> entities = this.entities;
+        return entities != null ? entities : Collections.emptySet();
     }
 }

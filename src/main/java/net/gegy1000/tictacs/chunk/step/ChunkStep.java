@@ -80,8 +80,9 @@ public final class ChunkStep {
             .requires(
                     ChunkRequirements.from(ChunkStep.FEATURES)
                             .read(ChunkStep.FEATURES, 1)
+                            .require(ChunkStep.FEATURES, 1 + TicTacsConfig.get().featureGenerationRadius)
             )
-            .locks(ChunkLockType.LATE_GENERATION)
+            .locks(ChunkLockType.FINALIZATION)
             .acquire(ChunkStep::acquireLight)
             .release(ChunkStep::releaseLight)
             .upgradeAsync(ctx -> ChunkStep.lightChunk(ctx, false))
@@ -90,7 +91,7 @@ public final class ChunkStep {
     public static final ChunkStep FULL = new ChunkStep("full")
             .includes(ChunkStatus.SPAWN, ChunkStatus.HEIGHTMAPS, ChunkStatus.FULL)
             .requires(ChunkRequirements.from(ChunkStep.LIGHTING))
-            .locks(ChunkLockType.LATE_GENERATION)
+            .locks(ChunkLockType.FINALIZATION)
             .upgradeAsync(ctx -> {
                 ChunkStep.addEntities(ctx);
                 return ChunkStep.makeFull(ctx);
