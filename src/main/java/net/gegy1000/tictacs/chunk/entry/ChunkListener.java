@@ -2,7 +2,7 @@ package net.gegy1000.tictacs.chunk.entry;
 
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
-import net.gegy1000.tictacs.chunk.SharedListener;
+import net.gegy1000.tictacs.chunk.future.SharedListener;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.world.chunk.Chunk;

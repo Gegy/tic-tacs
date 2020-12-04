@@ -1,6 +1,7 @@
 package net.gegy1000.tictacs.mixin.lighting;
 
-import net.gegy1000.tictacs.async.worker.LightingExecutor;
+import net.gegy1000.tictacs.lighting.LightingExecutor;
+import net.gegy1000.tictacs.lighting.LightingExecutorHolder;
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.world.chunk.ChunkProvider;
 import net.minecraft.world.chunk.light.LightingProvider;
@@ -14,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import java.util.function.IntSupplier;
 
 @Mixin(ServerLightingProvider.class)
-public abstract class ServerLightingProviderMixin extends LightingProvider {
+public abstract class ServerLightingProviderMixin extends LightingProvider implements LightingExecutorHolder {
     @Unique
     private final LightingExecutor lightingExecutor = new LightingExecutor(this);
 
@@ -53,5 +54,10 @@ public abstract class ServerLightingProviderMixin extends LightingProvider {
     @Inject(method = "close", at = @At("HEAD"))
     public void close(CallbackInfo ci) {
         this.lightingExecutor.close();
+    }
+
+    @Override
+    public LightingExecutor getLightingExecutor() {
+        return this.lightingExecutor;
     }
 }

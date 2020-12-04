@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.async.worker;
+package net.gegy1000.tictacs.lighting;
 
 import net.minecraft.server.world.ServerLightingProvider;
 import net.minecraft.world.chunk.light.LightingProvider;

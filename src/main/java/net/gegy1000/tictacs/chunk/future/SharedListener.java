@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.chunk;
+package net.gegy1000.tictacs.chunk.future;
 
 import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;

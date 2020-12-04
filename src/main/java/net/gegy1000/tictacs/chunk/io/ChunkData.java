@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.util.NbtType;
+import net.fabricmc.loader.api.FabricLoader;
 import net.gegy1000.tictacs.PoiStorageAccess;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
@@ -21,20 +22,17 @@ import net.minecraft.structure.StructureManager;
 import net.minecraft.structure.StructureStart;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.ChunkSectionPos;
 import net.minecraft.util.registry.DynamicRegistryManager;
 import net.minecraft.util.registry.MutableRegistry;
 import net.minecraft.util.registry.Registry;
 import net.minecraft.world.ChunkTickScheduler;
 import net.minecraft.world.Heightmap;
-import net.minecraft.world.LightType;
 import net.minecraft.world.TickScheduler;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.source.BiomeArray;
 import net.minecraft.world.biome.source.BiomeSource;
 import net.minecraft.world.chunk.Chunk;
-import net.minecraft.world.chunk.ChunkNibbleArray;
 import net.minecraft.world.chunk.ChunkSection;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.ProtoChunk;
@@ -65,6 +63,8 @@ import java.util.stream.LongStream;
 public final class ChunkData {
     private static final Logger LOGGER = LogManager.getLogger(ChunkData.class);
 
+    private static final boolean STARLIGHT_LOADED = FabricLoader.getInstance().isModLoaded("starlight");
+
     private final ChunkPos pos;
     private final ChunkStatus status;
     private final long inhabitedTime;
@@ -77,9 +77,7 @@ public final class ChunkData {
     private final boolean[] sectionHasPois;
 
     @Nullable
-    private final ChunkNibbleArray[] blockLightSections;
-    @Nullable
-    private final ChunkNibbleArray[] skyLightSections;
+    private final ChunkLightData lightData;
 
     private final Map<Heightmap.Type, long[]> heightmaps;
 
@@ -103,7 +101,7 @@ public final class ChunkData {
             long inhabitedTime, UpgradeData upgradeData,
             @Nullable int[] biomeIds, ChunkSection[] sections,
             boolean[] sectionHasPois,
-            @Nullable ChunkNibbleArray[] blockLightSections, @Nullable ChunkNibbleArray[] skyLightSections,
+            @Nullable ChunkLightData lightData,
             Map<Heightmap.Type, long[]> heightmaps,
             TickScheduler<Block> blockTickScheduler, TickScheduler<Fluid> fluidTickScheduler,
             List<BlockPos> blocksForPostProcessing,
@@ -120,8 +118,7 @@ public final class ChunkData {
         this.biomeIds = biomeIds;
         this.sections = sections;
         this.sectionHasPois = sectionHasPois;
-        this.blockLightSections = blockLightSections;
-        this.skyLightSections = skyLightSections;
+        this.lightData = lightData;
         this.heightmaps = heightmaps;
         this.blockTickScheduler = blockTickScheduler;
         this.fluidTickScheduler = fluidTickScheduler;
@@ -159,8 +156,12 @@ public final class ChunkData {
         boolean[] sectionHasPois = new boolean[16];
 
         boolean lightOn = levelTag.getBoolean("isLightOn");
-        ChunkNibbleArray[] blockLightSections = lightOn ? new ChunkNibbleArray[18] : null;
-        ChunkNibbleArray[] skyLightSections = lightOn ? new ChunkNibbleArray[18] : null;
+
+        ChunkLightData lightData = null;
+        if (lightOn) {
+            boolean starlightOn = STARLIGHT_LOADED && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
+            lightData = starlightOn ? new StarlightChunkLightData() : new VanillaChunkLightData();
+        }
 
         ListTag sectionsList = levelTag.getList("Sections", NbtType.COMPOUND);
 
@@ -183,15 +184,13 @@ public final class ChunkData {
                 }
             }
 
-            if (lightOn) {
+            if (lightData != null) {
                 if (sectionTag.contains("BlockLight", NbtType.BYTE_ARRAY)) {
-                    ChunkNibbleArray blockLight = new ChunkNibbleArray(sectionTag.getByteArray("BlockLight"));
-                    blockLightSections[sectionY + 1] = blockLight;
+                    lightData.putBlockSection(sectionY, sectionTag.getByteArray("BlockLight"));
                 }
 
                 if (sectionTag.contains("SkyLight", NbtType.BYTE_ARRAY)) {
-                    ChunkNibbleArray skyLight = new ChunkNibbleArray(sectionTag.getByteArray("SkyLight"));
-                    skyLightSections[sectionY + 1] = skyLight;
+                    lightData.putSkySection(sectionY, sectionTag.getByteArray("SkyLight"));
                 }
             }
         }
@@ -258,7 +257,7 @@ public final class ChunkData {
                 chunkPos, status,
                 inhabitedTime, upgradeData,
                 biomeIds, sections, sectionHasPois,
-                blockLightSections, skyLightSections,
+                lightData,
                 heightmaps, blockScheduler, fluidScheduler,
                 blocksForPostProcessing, entityTags, blockEntityTags,
                 structureStarts, structureReferences,
@@ -360,19 +359,22 @@ public final class ChunkData {
             biomes = new BiomeArray(biomeRegistry, this.pos, biomeSource, this.biomeIds);
         }
 
-        boolean lightOn = this.blockLightSections != null || this.skyLightSections != null;
-        if (lightOn) {
-            lightingProvider.setRetainData(this.pos, true);
-            this.enqueueLight(world);
+        if (this.lightData != null) {
+            this.lightData.applyToWorld(this.pos, world);
         }
 
         ChunkStatus.ChunkType chunkType = this.status.getChunkType();
 
         Chunk chunk;
+        ProtoChunk protoChunk;
+
         if (chunkType == ChunkStatus.ChunkType.field_12807) {
-            chunk = this.createWorldChunk(world, biomes);
+            WorldChunk worldChunk = this.createWorldChunk(world, biomes);
+            chunk = worldChunk;
+            protoChunk = new ReadOnlyChunk(worldChunk);
         } else {
-            chunk = this.createProtoChunk(lightingProvider, biomes);
+            protoChunk = this.createProtoChunk(lightingProvider, biomes);
+            chunk = protoChunk;
         }
 
         for (int sectionY = 0; sectionY < this.sectionHasPois.length; sectionY++) {
@@ -392,13 +394,11 @@ public final class ChunkData {
             chunk.markBlockForPostProcessing(ProtoChunk.getPackedSectionRelative(pos), pos.getY() >> 4);
         }
 
-        chunk.setLightOn(lightOn);
-
-        if (chunkType == ChunkStatus.ChunkType.field_12807) {
-            return new ReadOnlyChunk((WorldChunk) chunk);
-        } else {
-            return chunk;
+        if (this.lightData != null) {
+            this.lightData.applyToChunk(protoChunk);
         }
+
+        return protoChunk;
     }
 
     private void populateHeightmaps(Chunk chunk) {
@@ -504,26 +504,6 @@ public final class ChunkData {
                 }
             } else {
                 chunk.addPendingBlockEntityTag(tag);
-            }
-        }
-    }
-
-    private void enqueueLight(ServerWorld world) {
-        LightingProvider lightingProvider = world.getChunkManager().getLightingProvider();
-
-        boolean hasSkylight = world.getDimension().hasSkyLight();
-        for (int sectionY = -1; sectionY < 17; sectionY++) {
-            ChunkSectionPos sectionPos = ChunkSectionPos.from(this.pos, sectionY);
-
-            ChunkNibbleArray blockLight = this.blockLightSections != null ? this.blockLightSections[sectionY + 1] : null;
-            ChunkNibbleArray skyLight = this.skyLightSections != null ? this.skyLightSections[sectionY + 1] : null;
-
-            if (blockLight != null) {
-                lightingProvider.enqueueSectionData(LightType.BLOCK, sectionPos, blockLight, true);
-            }
-
-            if (hasSkylight && skyLight != null) {
-                lightingProvider.enqueueSectionData(LightType.SKY, sectionPos, skyLight, true);
             }
         }
     }

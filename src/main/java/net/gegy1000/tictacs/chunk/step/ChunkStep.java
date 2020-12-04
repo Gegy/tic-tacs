@@ -6,7 +6,7 @@ import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
-import net.gegy1000.tictacs.chunk.FutureHandle;
+import net.gegy1000.tictacs.chunk.future.FutureHandle;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ChunkTicketManager;
