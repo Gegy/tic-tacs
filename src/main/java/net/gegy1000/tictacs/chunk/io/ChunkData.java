@@ -77,6 +77,7 @@ public final class ChunkData {
     private final boolean[] sectionHasPois;
 
     private final ChunkLightData lightData;
+    private final boolean lightOn;
 
     private final Map<Heightmap.Type, long[]> heightmaps;
 
@@ -100,7 +101,7 @@ public final class ChunkData {
             long inhabitedTime, UpgradeData upgradeData,
             @Nullable int[] biomeIds, ChunkSection[] sections,
             boolean[] sectionHasPois,
-            ChunkLightData lightData,
+            ChunkLightData lightData, boolean lightOn,
             Map<Heightmap.Type, long[]> heightmaps,
             TickScheduler<Block> blockTickScheduler, TickScheduler<Fluid> fluidTickScheduler,
             List<BlockPos> blocksForPostProcessing,
@@ -118,6 +119,7 @@ public final class ChunkData {
         this.sections = sections;
         this.sectionHasPois = sectionHasPois;
         this.lightData = lightData;
+        this.lightOn = lightOn;
         this.heightmaps = heightmaps;
         this.blockTickScheduler = blockTickScheduler;
         this.fluidTickScheduler = fluidTickScheduler;
@@ -259,7 +261,7 @@ public final class ChunkData {
                 chunkPos, status,
                 inhabitedTime, upgradeData,
                 biomeIds, sections, sectionHasPois,
-                lightData,
+                lightData, lightOn,
                 heightmaps, blockScheduler, fluidScheduler,
                 blocksForPostProcessing, entityTags, blockEntityTags,
                 structureStarts, structureReferences,
@@ -393,6 +395,8 @@ public final class ChunkData {
         for (BlockPos pos : this.blocksForPostProcessing) {
             chunk.markBlockForPostProcessing(ProtoChunk.getPackedSectionRelative(pos), pos.getY() >> 4);
         }
+
+        protoChunk.setLightOn(this.lightOn);
 
         this.lightData.applyToChunk(protoChunk);
 

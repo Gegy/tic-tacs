@@ -61,8 +61,5 @@ public final class VanillaChunkLightData implements ChunkLightData {
 
     @Override
     public void applyToChunk(ProtoChunk chunk) {
-        if (this.blockLightSections != null || this.skyLightSections != null) {
-            chunk.setLightOn(true);
-        }
     }
 }
