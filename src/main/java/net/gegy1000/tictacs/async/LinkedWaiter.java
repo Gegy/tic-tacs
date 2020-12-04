@@ -4,7 +4,7 @@ import net.gegy1000.justnow.Waker;
 import net.gegy1000.tictacs.util.UnsafeAccess;
 import sun.misc.Unsafe;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public class LinkedWaiter {
     // use unsafe for atomic operations without allocating an AtomicReference

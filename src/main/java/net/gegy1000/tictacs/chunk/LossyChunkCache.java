@@ -5,7 +5,7 @@ import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.chunk.Chunk;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
 
 public final class LossyChunkCache {

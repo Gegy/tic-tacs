@@ -12,7 +12,7 @@ import net.gegy1000.tictacs.chunk.step.ChunkRequirement;
 import net.gegy1000.tictacs.chunk.step.ChunkRequirements;
 import net.gegy1000.tictacs.chunk.step.ChunkStep;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
 import java.util.function.Function;
 

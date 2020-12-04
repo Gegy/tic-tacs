@@ -26,8 +26,6 @@ dependencies {
 
   modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-  implementation 'com.google.code.findbugs:jsr305:3.0.1'
-
   implementation 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
   include 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
 

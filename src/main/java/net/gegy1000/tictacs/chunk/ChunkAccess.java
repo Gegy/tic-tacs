@@ -3,9 +3,8 @@ package net.gegy1000.tictacs.chunk;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.util.math.ChunkPos;
-
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 public interface ChunkAccess {
     void putEntry(ChunkEntry entry);
@@ -25,7 +24,7 @@ public interface ChunkAccess {
         return this.getEntry(pos.toLong());
     }
 
-    @Nonnull
+    @NotNull
     default ChunkEntry expectEntry(int chunkX, int chunkZ) {
         ChunkEntry entry = this.getEntry(chunkX, chunkZ);
         if (entry == null) {

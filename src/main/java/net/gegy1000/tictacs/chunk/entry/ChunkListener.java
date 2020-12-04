@@ -7,7 +7,7 @@ import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.world.chunk.Chunk;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 
 public final class ChunkListener extends SharedListener<Chunk> {

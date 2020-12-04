@@ -2,8 +2,8 @@ package net.gegy1000.tictacs.chunk.upgrade;
 
 import com.google.common.collect.Iterators;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nonnull;
 import java.util.Iterator;
 
 final class ChunkUpgradeEntries implements Iterable<ChunkEntry> {
@@ -15,7 +15,7 @@ final class ChunkUpgradeEntries implements Iterable<ChunkEntry> {
         this.entries = kernel.create(ChunkEntry[]::new);
     }
 
-    @Nonnull
+    @NotNull
     ChunkEntry getEntry(int x, int z) {
         return this.entries[this.kernel.index(x, z)];
     }

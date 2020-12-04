@@ -5,7 +5,7 @@ import io.netty.util.concurrent.GenericFutureListener;
 import net.minecraft.network.Packet;
 import net.minecraft.server.network.ServerPlayNetworkHandler;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface QueuingConnection {
     static void enqueueSend(ServerPlayNetworkHandler network, Packet<?> packet) {

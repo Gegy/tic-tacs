@@ -8,7 +8,7 @@ import net.gegy1000.justnow.future.Future;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.world.chunk.Chunk;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 

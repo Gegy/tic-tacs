@@ -3,7 +3,7 @@ package net.gegy1000.tictacs;
 import net.minecraft.util.thread.TaskExecutor;
 import net.minecraft.util.thread.TaskQueue;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class VoidActor extends TaskExecutor<Runnable> {
     public VoidActor(String name) {

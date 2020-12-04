@@ -4,7 +4,7 @@ import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.util.math.ChunkSectionPos;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class ChunkTrackWatcher {
     private Function startTracking;

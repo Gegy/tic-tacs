@@ -13,7 +13,7 @@ import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ProtoChunk;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.Arrays;
 
 class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {

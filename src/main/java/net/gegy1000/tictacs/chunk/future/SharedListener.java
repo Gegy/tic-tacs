@@ -5,7 +5,7 @@ import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.async.LinkedWaiter;
 import net.gegy1000.tictacs.async.WaiterQueue;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public abstract class SharedListener<T> implements Future<T> {
     private final WaiterQueue waiters = new WaiterQueue();

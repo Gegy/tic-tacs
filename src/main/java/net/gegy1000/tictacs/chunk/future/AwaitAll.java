@@ -4,7 +4,7 @@ import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class AwaitAll<T> implements Future<Unit> {
     private final Future<T>[] futures;

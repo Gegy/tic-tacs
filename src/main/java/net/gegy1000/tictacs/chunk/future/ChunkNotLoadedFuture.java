@@ -4,7 +4,7 @@ import net.gegy1000.justnow.Waker;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.chunk.ChunkNotLoadedException;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class ChunkNotLoadedFuture<T> implements Future<T> {
     private static final ChunkNotLoadedFuture<?> INSTANCE = new ChunkNotLoadedFuture<>();

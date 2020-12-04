@@ -5,7 +5,7 @@ import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
 import net.gegy1000.tictacs.async.LinkedWaiter;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public interface Lock {
     Future<Unit> READY_FUTURE = Future.ready(Unit.INSTANCE);

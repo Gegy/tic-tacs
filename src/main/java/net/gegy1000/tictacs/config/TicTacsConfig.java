@@ -5,8 +5,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.annotations.SerializedName;
 import net.gegy1000.tictacs.TicTacs;
 import net.minecraft.util.math.MathHelper;
+import org.jetbrains.annotations.NotNull;
 
-import javax.annotation.Nonnull;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -52,7 +52,7 @@ public final class TicTacsConfig {
         return this.threadCount == 1;
     }
 
-    @Nonnull
+    @NotNull
     public static TicTacsConfig get() {
         if (config == null) {
             try {

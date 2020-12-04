@@ -1,6 +1,6 @@
 package net.gegy1000.tictacs.async.worker;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 import java.util.LinkedList;
 
 public final class LevelPrioritisedQueue<T> implements AutoCloseable {

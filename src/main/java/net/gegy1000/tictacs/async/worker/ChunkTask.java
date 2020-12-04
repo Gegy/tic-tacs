@@ -4,7 +4,7 @@ import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.TicTacs;
 import net.minecraft.server.world.ChunkHolder;
 
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 public final class ChunkTask<T> {
     public final ChunkHolder holder;
