@@ -47,8 +47,8 @@ import net.minecraft.world.poi.PointOfInterestStorage;
 import net.minecraft.world.poi.PointOfInterestType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-
 import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -76,7 +76,6 @@ public final class ChunkData {
     private final ChunkSection[] sections;
     private final boolean[] sectionHasPois;
 
-    @Nullable
     private final ChunkLightData lightData;
 
     private final Map<Heightmap.Type, long[]> heightmaps;
@@ -101,7 +100,7 @@ public final class ChunkData {
             long inhabitedTime, UpgradeData upgradeData,
             @Nullable int[] biomeIds, ChunkSection[] sections,
             boolean[] sectionHasPois,
-            @Nullable ChunkLightData lightData,
+            ChunkLightData lightData,
             Map<Heightmap.Type, long[]> heightmaps,
             TickScheduler<Block> blockTickScheduler, TickScheduler<Fluid> fluidTickScheduler,
             List<BlockPos> blocksForPostProcessing,
@@ -157,10 +156,13 @@ public final class ChunkData {
 
         boolean lightOn = levelTag.getBoolean("isLightOn");
 
-        ChunkLightData lightData = null;
-        if (lightOn) {
-            boolean starlightOn = STARLIGHT_LOADED && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
-            lightData = starlightOn ? new StarlightChunkLightData() : new VanillaChunkLightData();
+        ChunkLightData lightData;
+
+        if (STARLIGHT_LOADED) {
+            lightData = new StarlightChunkLightData();
+            lightOn = lightOn && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
+        } else {
+            lightData = new VanillaChunkLightData();
         }
 
         ListTag sectionsList = levelTag.getList("Sections", NbtType.COMPOUND);
@@ -184,7 +186,7 @@ public final class ChunkData {
                 }
             }
 
-            if (lightData != null) {
+            if (lightOn) {
                 if (sectionTag.contains("BlockLight", NbtType.BYTE_ARRAY)) {
                     lightData.putBlockSection(sectionY, sectionTag.getByteArray("BlockLight"));
                 }
@@ -359,9 +361,7 @@ public final class ChunkData {
             biomes = new BiomeArray(biomeRegistry, this.pos, biomeSource, this.biomeIds);
         }
 
-        if (this.lightData != null) {
-            this.lightData.applyToWorld(this.pos, world);
-        }
+        this.lightData.applyToWorld(this.pos, world);
 
         ChunkStatus.ChunkType chunkType = this.status.getChunkType();
 
@@ -394,9 +394,7 @@ public final class ChunkData {
             chunk.markBlockForPostProcessing(ProtoChunk.getPackedSectionRelative(pos), pos.getY() >> 4);
         }
 
-        if (this.lightData != null) {
-            this.lightData.applyToChunk(protoChunk);
-        }
+        this.lightData.applyToChunk(protoChunk);
 
         return protoChunk;
     }
