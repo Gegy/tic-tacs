@@ -16,6 +16,8 @@ import org.spongepowered.asm.mixin.Overwrite;
 import org.spongepowered.asm.mixin.Shadow;
 
 import org.jetbrains.annotations.Nullable;
+import org.spongepowered.asm.mixin.Unique;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -81,6 +83,7 @@ public abstract class ClientConnectionMixin implements QueuingConnection {
         }
     }
 
+    @Unique
     private List<ClientConnection.QueuedPacket> drainQueue() {
         if (this.packetQueue.isEmpty()) {
             return Collections.emptyList();
@@ -96,6 +99,7 @@ public abstract class ClientConnectionMixin implements QueuingConnection {
         return buffer;
     }
 
+    @Unique
     private void sendQueue(List<ClientConnection.QueuedPacket> queue, NetworkState currentState, NetworkState lastState) {
         if (lastState != currentState) {
             this.setState(lastState);

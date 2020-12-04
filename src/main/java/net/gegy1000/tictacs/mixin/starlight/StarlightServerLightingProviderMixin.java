@@ -13,7 +13,7 @@ public abstract class StarlightServerLightingProviderMixin implements LightingEx
      * @author gegy1000
      * @reason redirect starlight's enqueue function to tic-tacs' lighting executor
      */
-    @Overwrite
+    @Overwrite(remap = false)
     private void enqueue(int x, int z, Runnable task) {
         this.getLightingExecutor().enqueue(task, ServerLightingProvider.Stage.PRE_UPDATE);
     }
@@ -22,7 +22,7 @@ public abstract class StarlightServerLightingProviderMixin implements LightingEx
      * @author gegy1000
      * @reason redirect starlight's enqueue function to tic-tacs' lighting executor
      */
-    @Overwrite
+    @Overwrite(remap = false)
     private void enqueue(int x, int z, IntSupplier completedLevelSupplier, boolean postTask, Runnable task) {
         this.enqueue(x, z, task, postTask);
     }
@@ -31,7 +31,7 @@ public abstract class StarlightServerLightingProviderMixin implements LightingEx
      * @author gegy1000
      * @reason redirect starlight's enqueue function to tic-tacs' lighting executor
      */
-    @Overwrite
+    @Overwrite(remap = false)
     private void enqueue(int x, int z, Runnable task, boolean postTask) {
         this.getLightingExecutor().enqueue(task, postTask ? ServerLightingProvider.Stage.POST_UPDATE : ServerLightingProvider.Stage.PRE_UPDATE);
     }
