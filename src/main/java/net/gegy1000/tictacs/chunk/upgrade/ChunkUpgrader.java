@@ -2,6 +2,9 @@ package net.gegy1000.tictacs.chunk.upgrade;
 
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.justnow.tuple.Unit;
+import net.gegy1000.tictacs.TicTacs;
+import net.gegy1000.tictacs.async.lock.Lock;
+import net.gegy1000.tictacs.async.lock.NullLock;
 import net.gegy1000.tictacs.async.lock.Semaphore;
 import net.gegy1000.tictacs.async.worker.ChunkExecutor;
 import net.gegy1000.tictacs.chunk.ChunkController;
@@ -28,7 +31,7 @@ public final class ChunkUpgrader {
     private final StructureManager structures;
     private final ServerLightingProvider lighting;
 
-    public final Semaphore lightingThrottler = new Semaphore(32);
+    public final Lock lightingThrottler = TicTacs.STARLIGHT_LOADED ? NullLock.INSTANCE : new Semaphore(32);
 
     public ChunkUpgrader(
             ServerWorld world,

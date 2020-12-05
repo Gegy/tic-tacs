@@ -15,6 +15,8 @@ public final class TicTacs implements ModInitializer {
 
     public static final Identifier DEBUG_CHUNK_TICKETS = new Identifier(ID, "debug_chunk_tickets");
 
+    public static final boolean STARLIGHT_LOADED = FabricLoader.getInstance().isModLoaded("starlight");
+
     public static final boolean DEBUG = FabricLoader.getInstance().isDevelopmentEnvironment();
 
     @Override

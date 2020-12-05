@@ -5,8 +5,8 @@ import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.util.NbtType;
-import net.fabricmc.loader.api.FabricLoader;
 import net.gegy1000.tictacs.PoiStorageAccess;
+import net.gegy1000.tictacs.TicTacs;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -62,8 +62,6 @@ import java.util.stream.LongStream;
 
 public final class ChunkData {
     private static final Logger LOGGER = LogManager.getLogger(ChunkData.class);
-
-    private static final boolean STARLIGHT_LOADED = FabricLoader.getInstance().isModLoaded("starlight");
 
     private final ChunkPos pos;
     private final ChunkStatus status;
@@ -160,7 +158,7 @@ public final class ChunkData {
 
         ChunkLightData lightData;
 
-        if (STARLIGHT_LOADED) {
+        if (TicTacs.STARLIGHT_LOADED) {
             lightData = new StarlightChunkLightData();
             lightOn = lightOn && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
         } else {

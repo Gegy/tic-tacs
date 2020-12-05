@@ -278,6 +278,10 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public WorldChunk finalizeChunk(ServerWorld world, LongPredicate loadToWorld) {
+        if (this.worldChunk != null) {
+            throw new IllegalStateException("chunk already finalized!");
+        }
+
         WorldChunk worldChunk = unwrapWorldChunk(this.chunk);
         if (worldChunk == null) {
             worldChunk = this.upgradeToWorldChunk(world, this.chunk);
