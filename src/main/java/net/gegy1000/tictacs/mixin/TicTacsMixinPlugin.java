@@ -1,6 +1,6 @@
 package net.gegy1000.tictacs.mixin;
 
-import net.gegy1000.tictacs.TicTacs;
+import net.fabricmc.loader.api.FabricLoader;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -11,6 +11,8 @@ import java.util.Set;
 public final class TicTacsMixinPlugin implements IMixinConfigPlugin {
     private static final String MIXIN_ROOT = "net.gegy1000.tictacs.mixin";
     private static final String STARLIGHT_MIXIN_ROOT = MIXIN_ROOT + ".starlight";
+
+    private static final boolean STARLIGHT_LOADED = FabricLoader.getInstance().isModLoaded("starlight");
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -24,7 +26,7 @@ public final class TicTacsMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.startsWith(MIXIN_ROOT)) {
-            return TicTacs.STARLIGHT_LOADED || !mixinClassName.startsWith(STARLIGHT_MIXIN_ROOT);
+            return STARLIGHT_LOADED || !mixinClassName.startsWith(STARLIGHT_MIXIN_ROOT);
         } else {
             return false;
         }
