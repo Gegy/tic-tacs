@@ -6,7 +6,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.fabricmc.fabric.api.util.NbtType;
 import net.gegy1000.tictacs.PoiStorageAccess;
-import net.gegy1000.tictacs.TicTacs;
+import net.gegy1000.tictacs.compatibility.TicTacsCompatibility;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntity;
@@ -158,7 +158,7 @@ public final class ChunkData {
 
         ChunkLightData lightData;
 
-        if (TicTacs.STARLIGHT_LOADED) {
+        if (TicTacsCompatibility.STARLIGHT_LOADED) {
             lightData = new StarlightChunkLightData();
             lightOn = lightOn && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
         } else {

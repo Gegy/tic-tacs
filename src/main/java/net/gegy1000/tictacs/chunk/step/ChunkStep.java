@@ -7,6 +7,7 @@ import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.ChunkLockType;
 import net.gegy1000.tictacs.chunk.future.FutureHandle;
+import net.gegy1000.tictacs.compatibility.TicTacsCompatibility;
 import net.gegy1000.tictacs.config.TicTacsConfig;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ChunkTicketManager;
@@ -24,8 +25,8 @@ import net.minecraft.world.gen.GenerationStep;
 import net.minecraft.world.gen.GeneratorOptions;
 import net.minecraft.world.gen.StructureAccessor;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
-
 import org.jetbrains.annotations.Nullable;
+
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -73,7 +74,8 @@ public final class ChunkStep {
                             .read(ChunkStep.STRUCTURE_STARTS, 8)
             )
             .locks(ChunkLockType.LATE_GENERATION)
-            .upgradeSync(ChunkStep::addFeatures);
+            .upgradeAsync(ChunkStep::addFeatures)
+            .loadAsync(ChunkStep::loadFeatures);
 
     public static final ChunkStep LIGHTING = new ChunkStep("lighting")
             .includes(ChunkStatus.LIGHT)
@@ -99,7 +101,7 @@ public final class ChunkStep {
             .loadAsync(ChunkStep::makeFull);
 
     public static final ChunkStep GENERATION = ChunkStep.LIGHTING.getPrevious();
-    public static final ChunkStep MIN_WITH_LOAD_TASK = ChunkStep.LIGHTING;
+    public static final ChunkStep MIN_WITH_LOAD_TASK = TicTacsCompatibility.PHOSPHOR_LOADED ? ChunkStep.FEATURES : ChunkStep.LIGHTING;
 
     private static final ChunkStep[] STATUS_TO_STEP;
 
@@ -347,7 +349,7 @@ public final class ChunkStep {
         return chunk;
     }
 
-    private static Chunk addFeatures(ChunkStepContext ctx) {
+    private static Future<Chunk> addFeatures(ChunkStepContext ctx) {
         ProtoChunk proto = (ProtoChunk) ctx.chunk;
         proto.setLightingProvider(ctx.lighting);
 
@@ -356,7 +358,11 @@ public final class ChunkStep {
         ChunkRegion region = ctx.asRegion();
         ctx.generator.generateFeatures(region, ctx.world.getStructureAccessor().forRegion(region));
 
-        return ctx.chunk;
+        return TicTacsCompatibility.afterFeaturesStep(ctx);
+    }
+
+    private static Future<Chunk> loadFeatures(ChunkStepContext ctx) {
+        return TicTacsCompatibility.afterFeaturesStep(ctx);
     }
 
     private static Future<Chunk> lightChunk(ChunkStepContext ctx, boolean load) {
