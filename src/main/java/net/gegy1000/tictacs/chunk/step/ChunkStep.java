@@ -366,6 +366,8 @@ public final class ChunkStep {
     }
 
     private static Future<Chunk> lightChunk(ChunkStepContext ctx, boolean load) {
+        trySetStatus(ctx.chunk, ChunkStatus.LIGHT);
+
         ChunkTicketManager ticketManager = ctx.controller.getTicketManager();
 
         FutureHandle<Chunk> handle = new FutureHandle<>();
