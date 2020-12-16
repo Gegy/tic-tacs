@@ -11,8 +11,10 @@ import java.util.Set;
 public final class TicTacsMixinPlugin implements IMixinConfigPlugin {
     private static final String MIXIN_ROOT = "net.gegy1000.tictacs.mixin";
     private static final String STARLIGHT_MIXIN_ROOT = MIXIN_ROOT + ".starlight";
+    private static final String PHOSPHOR_MIXIN_ROOT = MIXIN_ROOT + ".phosphor";
 
     private static final boolean STARLIGHT_LOADED = FabricLoader.getInstance().isModLoaded("starlight");
+    private static final boolean PHOSPHOR_LOADED = FabricLoader.getInstance().isModLoaded("phosphor");
 
     @Override
     public void onLoad(String mixinPackage) {
@@ -26,7 +28,8 @@ public final class TicTacsMixinPlugin implements IMixinConfigPlugin {
     @Override
     public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
         if (mixinClassName.startsWith(MIXIN_ROOT)) {
-            return STARLIGHT_LOADED || !mixinClassName.startsWith(STARLIGHT_MIXIN_ROOT);
+            return (STARLIGHT_LOADED || !mixinClassName.startsWith(STARLIGHT_MIXIN_ROOT))
+                    && (PHOSPHOR_LOADED || !mixinClassName.startsWith(PHOSPHOR_MIXIN_ROOT));
         } else {
             return false;
         }

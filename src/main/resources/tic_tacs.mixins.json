@@ -23,6 +23,7 @@
     "packet_queue.ClientConnectionMixin",
     "packet_queue.ServerPlayerEntityMixin",
     "packet_queue.ServerPlayNetworkHandlerMixin",
+    "phosphor.PhosphorServerLightingProviderMixin",
     "starlight.StarlightServerLightingProviderMixin",
     "threading_fix.ChunkRegionMixin",
     "threading_fix.StructureManagerMixin",

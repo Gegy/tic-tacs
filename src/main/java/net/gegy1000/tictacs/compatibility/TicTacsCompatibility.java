@@ -1,6 +1,5 @@
 package net.gegy1000.tictacs.compatibility;
 
-import me.jellysquid.mods.phosphor.common.chunk.light.ServerLightingProviderAccess;
 import net.fabricmc.loader.api.FabricLoader;
 import net.gegy1000.justnow.future.Future;
 import net.gegy1000.tictacs.chunk.future.FutureHandle;
@@ -24,7 +23,7 @@ public final class TicTacsCompatibility {
     private static Future<Chunk> afterFeaturesStepPhosphor(ChunkStepContext ctx) {
         FutureHandle<Chunk> handle = new FutureHandle<>();
 
-        CompletableFuture<Chunk> future = ((ServerLightingProviderAccess) ctx.lighting).setupLightmaps(ctx.chunk);
+        CompletableFuture<Chunk> future = ((PhosphorServerLightingProviderAccess) ctx.lighting).setupLightmaps(ctx.chunk);
         future.thenAccept(handle::complete);
 
         return handle;
