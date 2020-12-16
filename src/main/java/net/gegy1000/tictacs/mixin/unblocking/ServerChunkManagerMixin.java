@@ -136,8 +136,8 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     @Nullable
     public BlockView getChunk(int x, int z) {
         ChunkEntry entry = this.getChunkEntry(x, z);
-        if (entry != null && entry.isValidAs(ChunkStep.LIGHTING)) {
-            return entry.getChunk();
+        if (entry != null) {
+            return entry.getChunkAtLeast(ChunkStep.FEATURES);
         }
         return null;
     }

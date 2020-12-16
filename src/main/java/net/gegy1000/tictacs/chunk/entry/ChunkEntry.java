@@ -88,7 +88,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     public boolean canUpgradeTo(ChunkStep toStep) {
-        return this.isValidAs(toStep) && toStep.greaterThan(this.currentStep);
+        return this.isValidAs(toStep) && !this.isAt(toStep);
     }
 
     public boolean isValidAs(ChunkStep toStep) {
@@ -224,8 +224,17 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     @Nullable
+    public Chunk getChunkAtLeast(ChunkStep step) {
+        if (this.isAt(step)) {
+            return this.getChunk();
+        } else {
+            return null;
+        }
+    }
+
+    @Nullable
     public Chunk getChunkForStep(ChunkStep step) {
-        if (step.greaterThan(this.currentStep)) {
+        if (!this.isAt(step)) {
             return null;
         }
 
@@ -234,6 +243,10 @@ public final class ChunkEntry extends ChunkHolder {
         } else {
             return this.chunk;
         }
+    }
+
+    public boolean isAt(ChunkStep step) {
+        return step.lessOrEqual(this.currentStep);
     }
 
     public void completeUpgradeOk(ChunkStep step, Chunk chunk) {
