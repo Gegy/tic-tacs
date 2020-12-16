@@ -204,7 +204,7 @@ public final class ChunkEntry extends ChunkHolder {
     }
 
     @Nullable
-    public ProtoChunk getChunk() {
+    public ProtoChunk getProtoChunk() {
         return this.chunk;
     }
 
@@ -212,6 +212,15 @@ public final class ChunkEntry extends ChunkHolder {
     @Override
     public WorldChunk getWorldChunk() {
         return this.worldChunk;
+    }
+
+    @Nullable
+    public Chunk getChunk() {
+        WorldChunk worldChunk = this.worldChunk;
+        if (worldChunk != null) {
+            return worldChunk;
+        }
+        return this.chunk;
     }
 
     @Nullable
@@ -389,7 +398,7 @@ public final class ChunkEntry extends ChunkHolder {
     @Nullable
     @Deprecated
     public Chunk getCurrentChunk() {
-        return this.getChunk();
+        return this.getProtoChunk();
     }
 
     @Override

@@ -148,9 +148,7 @@ final class ChunkUpgradeStepper {
             int sourceZ = targetZ + this.targetToSourceOffsetZ;
 
             ChunkEntry entry = this.source.getEntry(sourceX, sourceZ);
-
-            // TODO: could this be given a ReadOnlyChunk, causing feature generation to not work properly?
-            return entry.getChunk();
+            return entry.getProtoChunk();
         }
 
         @Override

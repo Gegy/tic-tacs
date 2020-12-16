@@ -18,9 +18,11 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.profiler.Profiler;
+import net.minecraft.world.BlockView;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.chunk.WorldChunk;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Overwrite;
@@ -30,7 +32,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import org.jetbrains.annotations.Nullable;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
@@ -125,6 +126,20 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     @Nullable
     public WorldChunk getWorldChunk(int x, int z) {
         return (WorldChunk) this.getExistingChunk(x, z, ChunkStep.FULL);
+    }
+
+    /**
+     * @reason optimize chunk query
+     * @author gegy1000
+     */
+    @Overwrite
+    @Nullable
+    public BlockView getChunk(int x, int z) {
+        ChunkEntry entry = this.getChunkEntry(x, z);
+        if (entry != null && entry.isValidAs(ChunkStep.LIGHTING)) {
+            return entry.getChunk();
+        }
+        return null;
     }
 
     @Override
@@ -222,10 +237,12 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         return ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
     }
 
+    @Nullable
     private ChunkEntry getChunkEntry(int x, int z) {
         return (ChunkEntry) this.getChunkHolder(ChunkPos.toLong(x, z));
     }
 
+    @Nullable
     private ChunkEntry getChunkEntry(long pos) {
         return (ChunkEntry) this.getChunkHolder(pos);
     }

@@ -211,7 +211,7 @@ class PrepareUpgradeFuture implements Future<Result<ChunkUpgrade>> {
                 for (int x = -radius; x <= radius; x++) {
                     ChunkEntry entry = entries.getEntry(x, z);
 
-                    ProtoChunk chunk = entry.getChunk();
+                    ProtoChunk chunk = entry.getProtoChunk();
                     if (chunk != null) {
                         this.loadedChunks[kernel.index(x, z)] = chunk;
                     } else {
