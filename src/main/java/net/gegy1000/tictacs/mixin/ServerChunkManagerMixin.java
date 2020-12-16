@@ -1,4 +1,4 @@
-package net.gegy1000.tictacs.mixin.unblocking;
+package net.gegy1000.tictacs.mixin;
 
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.tictacs.AsyncChunkAccess;
@@ -115,7 +115,17 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     }
 
     private Chunk getOrCreateChunkOffThread(int x, int z, ChunkStep step) {
-        return this.getOrCreateChunkAsync(x, z, step).join();
+        Either<Chunk, ChunkHolder.Unloaded> result = CompletableFuture.supplyAsync(
+                () -> this.createChunk(x, z, step),
+                this.mainThreadExecutor
+        ).join().join();
+
+        return result.map(
+                chunk -> chunk,
+                unloaded -> {
+                    throw new IllegalStateException("Chunk not there when requested: " + unloaded);
+                }
+        );
     }
 
     /**

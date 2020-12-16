@@ -8,6 +8,7 @@
     "ChunkHolderMixin",
     "ChunkStatusMixin",
     "ChunkTicketManagerMixin",
+    "ServerChunkManagerMixin",
     "TacsAccessor",
     "ThreadedAnvilChunkStorageMixin",
     "actor.TaskExecutorMixin",
@@ -30,7 +31,6 @@
     "threading_fix.WeightedListMixin",
     "unblocking.EntityMixin",
     "unblocking.LivingEntityMixin",
-    "unblocking.ServerChunkManagerMixin",
     "unblocking.ServerWorldMixin",
     "unblocking.VoxelShapesMixin",
     "unblocking.WorldMixin"
