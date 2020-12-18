@@ -7,6 +7,7 @@ import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.fluid.FluidState;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +19,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public abstract class LivingEntityMixin extends Entity {
     private LivingEntityMixin(EntityType<?> type, World world) {
         super(type, world);
+    }
+
+    @Inject(method = "travel", at = @At("HEAD"), cancellable = true)
+    private void travel(Vec3d movement, CallbackInfo ci) {
+        // skip entity travel logic if the current chunk is not loaded
+        if (!this.world.isChunkLoaded(this.getBlockPos())) {
+            ci.cancel();
+        }
     }
 
     @Redirect(

@@ -33,7 +33,7 @@ dependencies {
     transitive = false
   }
 
-  modCompileOnly('com.github.jellysquid3:phosphor-fabric:11dfd71') {
+  modImplementation('com.github.jellysquid3:phosphor-fabric:11dfd71') {
     transitive = false
   }
 

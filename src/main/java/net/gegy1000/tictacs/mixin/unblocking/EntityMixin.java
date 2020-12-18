@@ -25,9 +25,10 @@ public abstract class EntityMixin {
     public boolean updateNeeded;
 
     @Shadow
-    public abstract BlockPos getBlockPos();
+    private boolean chunkPosUpdateRequested;
 
-    @Shadow private boolean chunkPosUpdateRequested;
+    @Shadow
+    public abstract BlockPos getBlockPos();
 
     @Inject(method = "move", at = @At("HEAD"), cancellable = true)
     private void move(MovementType type, Vec3d movement, CallbackInfo ci) {

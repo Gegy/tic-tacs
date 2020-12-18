@@ -31,6 +31,8 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
+// TODO: separate loading chunk steps and generation chunk steps
+//       allow arbitrary tasks to be attached to steps
 public final class ChunkStep {
     private static final EnumSet<Heightmap.Type> REQUIRED_FEATURE_HEIGHTMAPS = EnumSet.of(
             Heightmap.Type.MOTION_BLOCKING,
