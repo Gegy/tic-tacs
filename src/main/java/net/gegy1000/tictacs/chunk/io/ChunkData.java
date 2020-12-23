@@ -63,6 +63,8 @@ import java.util.stream.LongStream;
 public final class ChunkData {
     private static final Logger LOGGER = LogManager.getLogger(ChunkData.class);
 
+    private static final int STARLIGHT_LIGHT_VERSION = 1;
+
     private final ChunkPos pos;
     private final ChunkStatus status;
     private final long inhabitedTime;
@@ -160,7 +162,7 @@ public final class ChunkData {
 
         if (TicTacsCompatibility.STARLIGHT_LOADED) {
             lightData = new StarlightChunkLightData();
-            lightOn = lightOn && levelTag.getBoolean("starlight.lit") && status.isAtLeast(ChunkStatus.LIGHT);
+            lightOn = levelTag.getInt("starlight.light_versiom") == STARLIGHT_LIGHT_VERSION;
         } else {
             lightData = new VanillaChunkLightData();
         }
@@ -187,13 +189,7 @@ public final class ChunkData {
             }
 
             if (lightOn) {
-                if (sectionTag.contains("BlockLight", NbtType.BYTE_ARRAY)) {
-                    lightData.putBlockSection(sectionY, sectionTag.getByteArray("BlockLight"));
-                }
-
-                if (sectionTag.contains("SkyLight", NbtType.BYTE_ARRAY)) {
-                    lightData.putSkySection(sectionY, sectionTag.getByteArray("SkyLight"));
-                }
+                lightData.acceptSection(sectionY, sectionTag, status);
             }
         }
 

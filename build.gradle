@@ -29,11 +29,11 @@ dependencies {
   implementation 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
   include 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
 
-  modCompileOnly('com.github.Spottedleaf:Starlight:0.0.1') {
+  modCompileOnly('com.github.Spottedleaf:Starlight:7815e2d') {
     transitive = false
   }
 
-  modImplementation('com.github.jellysquid3:phosphor-fabric:11dfd71') {
+  modCompileOnly('com.github.jellysquid3:phosphor-fabric:11dfd71') {
     transitive = false
   }
 

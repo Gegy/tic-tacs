@@ -169,6 +169,15 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         return chunk;
     }
 
+    @Override
+    public Chunk getAnyExistingChunk(int x, int z) {
+        ChunkEntry entry = this.getChunkEntry(x, z);
+        if (entry != null) {
+            return entry.getChunk();
+        }
+        return null;
+    }
+
     @Nullable
     private Chunk loadExistingChunk(int x, int z, ChunkStep step) {
         ChunkEntry entry = this.getChunkEntry(x, z);

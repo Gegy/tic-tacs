@@ -18,6 +18,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 import net.minecraft.world.dimension.DimensionType;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -87,6 +88,12 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     @Override
     public Chunk getExistingChunk(int x, int z, ChunkStep step) {
         return ((AsyncChunkAccess) this.serverChunkManager).getExistingChunk(x, z, step);
+    }
+
+    @Nullable
+    @Override
+    public Chunk getAnyExistingChunk(int chunkX, int chunkZ) {
+        return ((AsyncChunkAccess) this.serverChunkManager).getAnyExistingChunk(chunkX, chunkZ);
     }
 
     @Override

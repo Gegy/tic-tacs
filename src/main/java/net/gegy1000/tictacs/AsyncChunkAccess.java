@@ -8,6 +8,8 @@ import java.util.concurrent.CompletableFuture;
 public interface AsyncChunkAccess {
     Chunk getExistingChunk(int x, int z, ChunkStep step);
 
+    Chunk getAnyExistingChunk(int x, int z);
+
     CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step);
 
     boolean shouldChunkExist(int x, int z, ChunkStep step);
