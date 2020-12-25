@@ -5,20 +5,14 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectCollection;
-import net.gegy1000.justnow.Waker;
-import net.gegy1000.justnow.future.Future;
-import net.gegy1000.justnow.tuple.Unit;
-import net.gegy1000.tictacs.async.LinkedWaiter;
-import net.gegy1000.tictacs.async.WaiterQueue;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
 import net.gegy1000.tictacs.mixin.TacsAccessor;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.server.world.ThreadedAnvilChunkStorage;
 import net.minecraft.util.math.ChunkPos;
-
 import org.jetbrains.annotations.Nullable;
+
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public final class ChunkMap {
     private final ServerWorld world;
@@ -30,14 +24,10 @@ public final class ChunkMap {
 
     private Long2ObjectMap<ChunkEntry> pendingUpdates = new Long2ObjectOpenHashMap<>();
 
-    private final AtomicInteger flushCount = new AtomicInteger();
-
     private final ChunkAccess primary = new Primary();
     private final ChunkAccess visible = new Visible();
 
     private final ChunkTickingMaps tickingMaps = new ChunkTickingMaps();
-
-    private final WaiterQueue flushWaiters = new WaiterQueue();
 
     private ChunkMapListener[] listeners = new ChunkMapListener[0];
 
@@ -51,15 +41,6 @@ public final class ChunkMap {
     public void addListener(ChunkMapListener listener) {
         this.listeners = Arrays.copyOf(this.listeners, this.listeners.length + 1);
         this.listeners[this.listeners.length - 1]  = listener;
-    }
-
-    public ChunkEntry getOrCreateEntry(long pos, int level) {
-        ChunkEntry entry = this.primary.getEntry(pos);
-        if (entry != null) {
-            return entry;
-        } else {
-            return this.loadEntry(pos, level);
-        }
     }
 
     public ChunkEntry loadEntry(long pos, int level) {
@@ -79,10 +60,6 @@ public final class ChunkMap {
         }
 
         return new ChunkEntry(new ChunkPos(pos), level, this.world.getLightingProvider(), accessor.getChunkTaskPrioritySystem(), tacs);
-    }
-
-    public FlushListener awaitFlush() {
-        return new FlushListener(this.flushCount.get());
     }
 
     public ChunkAccess primary() {
@@ -108,8 +85,6 @@ public final class ChunkMap {
             // now we can safely apply the pending updates to the swap map
             this.applyPendingUpdatesTo(pendingUpdates, this.swapEntries);
 
-            this.notifyFlush();
-
             return true;
         }
 
@@ -133,11 +108,6 @@ public final class ChunkMap {
         Long2ObjectMap<ChunkEntry> pendingUpdates = this.pendingUpdates;
         this.pendingUpdates = new Long2ObjectOpenHashMap<>();
         return pendingUpdates;
-    }
-
-    private void notifyFlush() {
-        this.flushCount.getAndIncrement();
-        this.flushWaiters.wake();
     }
 
     public int getEntryCount() {
@@ -211,35 +181,6 @@ public final class ChunkMap {
         @Override
         public ObjectCollection<ChunkEntry> getEntries() {
             return new ObjectArrayList<>(ChunkMap.this.visibleEntries.values());
-        }
-    }
-
-    public class FlushListener extends LinkedWaiter implements Future<Unit> {
-        private final int flushCount;
-
-        FlushListener(int flushCount) {
-            this.flushCount = flushCount;
-        }
-
-        @Nullable
-        @Override
-        public Unit poll(Waker waker) {
-            if (this.isReady()) {
-                return Unit.INSTANCE;
-            }
-
-            ChunkMap.this.flushWaiters.registerWaiter(this, waker);
-
-            if (this.isReady()) {
-                this.invalidateWaker();
-                return Unit.INSTANCE;
-            }
-
-            return null;
-        }
-
-        private boolean isReady() {
-            return ChunkMap.this.flushCount.get() > this.flushCount;
         }
     }
 }

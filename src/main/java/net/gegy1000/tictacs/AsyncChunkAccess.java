@@ -1,20 +1,10 @@
 package net.gegy1000.tictacs;
 
-import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.world.chunk.Chunk;
-
-import java.util.concurrent.CompletableFuture;
+import net.minecraft.world.chunk.ChunkStatus;
 
 public interface AsyncChunkAccess {
-    Chunk getExistingChunk(int x, int z, ChunkStep step);
+    Chunk getExistingChunk(int x, int z, ChunkStatus status);
 
-    Chunk getAnyExistingChunk(int x, int z);
-
-    CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step);
-
-    boolean shouldChunkExist(int x, int z, ChunkStep step);
-
-    default boolean shouldChunkExist(int x, int z) {
-        return this.shouldChunkExist(x, z, ChunkStep.FULL);
-    }
+    boolean shouldChunkExist(int x, int z, ChunkStatus status);
 }

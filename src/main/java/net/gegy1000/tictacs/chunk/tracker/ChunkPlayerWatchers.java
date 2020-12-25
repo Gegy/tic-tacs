@@ -6,7 +6,6 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.GameRules;
 
-import java.util.Collection;
 import java.util.Iterator;
 
 public final class ChunkPlayerWatchers implements Iterable<ServerPlayerEntity> {
@@ -44,28 +43,12 @@ public final class ChunkPlayerWatchers implements Iterable<ServerPlayerEntity> {
         }
     }
 
-    public boolean containsPlayer(ServerPlayerEntity player) {
-        return this.players.contains(player);
-    }
-
     public boolean isLoadingEnabled(ServerPlayerEntity player) {
         return this.loadingPlayers.contains(player);
     }
 
     public boolean shouldLoadChunks(ServerPlayerEntity player) {
         return !player.isSpectator() || this.world.getGameRules().getBoolean(GameRules.SPECTATORS_GENERATE_CHUNKS);
-    }
-
-    public boolean isEmpty() {
-        return this.players.isEmpty();
-    }
-
-    public Collection<ServerPlayerEntity> getPlayers() {
-        return this.players;
-    }
-
-    public Collection<ServerPlayerEntity> getLoadingPlayers() {
-        return this.loadingPlayers;
     }
 
     @Override

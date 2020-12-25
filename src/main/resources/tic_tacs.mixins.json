@@ -1,34 +1,17 @@
 {
   "required": true,
-  "plugin": "net.gegy1000.tictacs.mixin.TicTacsMixinPlugin",
   "minVersion": "0.8",
   "package": "net.gegy1000.tictacs.mixin",
   "compatibilityLevel": "JAVA_8",
   "mixins": [
-    "ChunkHolderMixin",
-    "ChunkStatusMixin",
-    "ChunkTicketManagerMixin",
     "ServerChunkManagerMixin",
     "TacsAccessor",
     "ThreadedAnvilChunkStorageMixin",
     "actor.TaskExecutorMixin",
     "chunk_ticking.ServerChunkManagerMixin",
-    "io.PalettedContainerMixin",
-    "io.PointOfInterestStorageMixin",
-    "io.SerializingRegionBasedStorageMixin",
-    "io.StorageIoWorkerMixin",
-    "io.ThreadedAnvilChunkStorageMixin",
-    "io.VersionedChunkStorageMixin",
-    "lighting.ServerLightingProviderMixin",
-    "lighting.ThreadedAnvilChunkStorageMixin",
     "packet_queue.ClientConnectionMixin",
     "packet_queue.ServerPlayerEntityMixin",
     "packet_queue.ServerPlayNetworkHandlerMixin",
-    "phosphor.PhosphorServerLightingProviderMixin",
-    "starlight.StarlightServerWorldMixin",
-    "threading_fix.ChunkRegionMixin",
-    "threading_fix.StructureManagerMixin",
-    "threading_fix.WeightedListMixin",
     "unblocking.EntityMixin",
     "unblocking.LivingEntityMixin",
     "unblocking.ServerPlayerEntityMixin",
@@ -36,13 +19,7 @@
     "unblocking.VoxelShapesMixin",
     "unblocking.WorldMixin"
   ],
-  "client": [
-    "client.GameOptionsMixin",
-    "client.MinecraftClientMixin",
-    "client.WorldGenerationProgressTrackerMixin",
-    "client.debug.DebugRendererMixin",
-    "client.debug.InGameHudMixin"
-  ],
+  "client": [],
   "injectors": {
     "defaultRequire": 1
   }

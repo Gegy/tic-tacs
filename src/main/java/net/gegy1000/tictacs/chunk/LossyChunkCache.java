@@ -1,11 +1,11 @@
 package net.gegy1000.tictacs.chunk;
 
 import it.unimi.dsi.fastutil.HashCommon;
-import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.world.chunk.Chunk;
-
+import net.minecraft.world.chunk.ChunkStatus;
 import org.jetbrains.annotations.Nullable;
+
 import java.util.Arrays;
 
 public final class LossyChunkCache {
@@ -32,12 +32,12 @@ public final class LossyChunkCache {
         Arrays.fill(this.values, null);
     }
 
-    public void put(int x, int z, ChunkStep step, Chunk chunk) {
+    public void put(int x, int z, ChunkStatus status, Chunk chunk) {
         if (chunk == null) {
             return;
         }
 
-        long key = key(x, z, step);
+        long key = key(x, z, status);
         int index = this.index(key);
 
         this.keys[index] = key;
@@ -45,8 +45,8 @@ public final class LossyChunkCache {
     }
 
     @Nullable
-    public Chunk get(int x, int z, ChunkStep step) {
-        long key = key(x, z, step);
+    public Chunk get(int x, int z, ChunkStatus status) {
+        long key = key(x, z, status);
         int index = this.index(key);
 
         if (this.keys[index] == key) {
@@ -56,10 +56,10 @@ public final class LossyChunkCache {
         return null;
     }
 
-    private static long key(int x, int z, ChunkStep step) {
+    private static long key(int x, int z, ChunkStatus status) {
         return (long) (x & COORD_MASK) << 34
                 | (long) (z & COORD_MASK) << 4
-                | (step.getIndex() & STEP_MASK);
+                | (status.getIndex() & STEP_MASK);
     }
 
     private int index(long key) {

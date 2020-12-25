@@ -10,9 +10,6 @@ import org.spongepowered.asm.mixin.gen.Accessor;
 
 @Mixin(ThreadedAnvilChunkStorage.class)
 public interface TacsAccessor {
-    @Accessor
-    LongSet getLoadedChunks();
-
     @Accessor("unloadedChunks")
     LongSet getQueuedUnloads();
 

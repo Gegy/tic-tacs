@@ -106,13 +106,6 @@ final class ChunkTrackView {
         forEach(minX, minZ, maxX, maxZ, consumer);
     }
 
-    public void forEachUnion(ChunkTrackView other, LongConsumer consumer) {
-        this.forEachDifference(other, consumer);
-        other.forEachDifference(this, consumer);
-
-        this.forEachIntersection(other, consumer);
-    }
-
     public boolean contains(int x, int z) {
         return x >= this.minX && z >= this.minZ && x <= this.maxX && z <= this.maxZ;
     }

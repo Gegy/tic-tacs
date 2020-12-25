@@ -1,15 +1,14 @@
 {
   "schemaVersion": 1,
-  "id": "tic_tacs",
+  "id": "tick_tacs",
   "version": "${version}",
-  "name": "Tic-TACS",
-  "description": "Rewrite of Minecraft's asynchronous chunk generation to improve performance and allow multithreading",
-  "authors": ["gegy1000"],
+  "name": "Tick-TACS",
+  "description": "Optimizing Minecraft's chunk generation code to reduce impact on server tick rate",
+  "authors": ["Gegy"],
   "license": "LGPLv3",
   "environment": "*",
   "entrypoints": {
-    "main": ["net.gegy1000.tictacs.TicTacs"],
-    "client": ["net.gegy1000.tictacs.TicTacsClient"]
+    "main": []
   },
   "mixins": ["tic_tacs.mixins.json"],
   "accessWidener": "tic_tacs.accesswidener",

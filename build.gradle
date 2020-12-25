@@ -26,9 +26,6 @@ dependencies {
 
   modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-  implementation 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
-  include 'net.gegy1000:just-now:0.1.0-SNAPSHOT'
-
   modCompileOnly('com.github.Spottedleaf:Starlight:0.0.2-rc2') {
     transitive = false
   }

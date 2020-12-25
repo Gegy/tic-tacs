@@ -2,11 +2,9 @@ package net.gegy1000.tictacs.mixin;
 
 import com.mojang.datafixers.util.Either;
 import net.gegy1000.tictacs.AsyncChunkAccess;
-import net.gegy1000.tictacs.chunk.ChunkController;
 import net.gegy1000.tictacs.chunk.ChunkLevelTracker;
 import net.gegy1000.tictacs.chunk.LossyChunkCache;
 import net.gegy1000.tictacs.chunk.entry.ChunkEntry;
-import net.gegy1000.tictacs.chunk.step.ChunkStep;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketManager;
@@ -69,32 +67,31 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     @Overwrite
     @Nullable
     public Chunk getChunk(int x, int z, ChunkStatus status, boolean create) {
-        ChunkStep step = ChunkStep.byStatus(status);
         if (create) {
             if (Thread.currentThread() != this.serverThread) {
-                return this.getOrCreateChunkOffThread(x, z, step);
+                return this.getOrCreateChunkOffThread(x, z, status);
             } else {
-                return this.getOrCreateChunkOnThread(x, z, step);
+                return this.getOrCreateChunkOnThread(x, z, status);
             }
         } else {
-            return this.getExistingChunk(x, z, step);
+            return this.getExistingChunk(x, z, status);
         }
     }
 
-    private Chunk getOrCreateChunkOnThread(int x, int z, ChunkStep step) {
+    private Chunk getOrCreateChunkOnThread(int x, int z, ChunkStatus status) {
         // first we test if the chunk already exists in our small cache
-        Chunk cached = this.fastCache.get(x, z, step);
+        Chunk cached = this.fastCache.get(x, z, status);
         if (cached != null) {
             return cached;
         }
 
         // if it does not exist, try load it from the chunk entry
         ChunkEntry entry = this.getChunkEntry(x, z);
-        Chunk chunk = this.getExistingChunkFor(entry, step);
+        Chunk chunk = this.getExistingChunkFor(entry, status);
 
         // the chunk is not ready, we must interface and join the chunk future
         if (chunk == null) {
-            Either<Chunk, ChunkHolder.Unloaded> result = this.joinFuture(this.createChunk(x, z, step));
+            Either<Chunk, ChunkHolder.Unloaded> result = this.joinFuture(this.createChunk(x, z, status));
 
             chunk = result.map(
                     Function.identity(),
@@ -102,7 +99,7 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
             );
         }
 
-        this.fastCache.put(x, z, step, chunk);
+        this.fastCache.put(x, z, status, chunk);
 
         return chunk;
     }
@@ -114,9 +111,9 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
         return future.join();
     }
 
-    private Chunk getOrCreateChunkOffThread(int x, int z, ChunkStep step) {
+    private Chunk getOrCreateChunkOffThread(int x, int z, ChunkStatus status) {
         Either<Chunk, ChunkHolder.Unloaded> result = CompletableFuture.supplyAsync(
-                () -> this.createChunk(x, z, step),
+                () -> this.createChunk(x, z, status),
                 this.mainThreadExecutor
         ).join().join();
 
@@ -135,7 +132,7 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     @Overwrite
     @Nullable
     public WorldChunk getWorldChunk(int x, int z) {
-        return (WorldChunk) this.getExistingChunk(x, z, ChunkStep.FULL);
+        return (WorldChunk) this.getExistingChunk(x, z, ChunkStatus.FULL);
     }
 
     /**
@@ -147,47 +144,38 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
     public BlockView getChunk(int x, int z) {
         ChunkEntry entry = this.getChunkEntry(x, z);
         if (entry != null) {
-            return entry.getChunkAtLeast(ChunkStep.FEATURES);
+            return entry.getChunkAtLeast(ChunkStatus.FEATURES);
         }
         return null;
     }
 
     @Override
-    public Chunk getExistingChunk(int x, int z, ChunkStep step) {
+    public Chunk getExistingChunk(int x, int z, ChunkStatus status) {
         if (Thread.currentThread() != this.serverThread) {
-            return this.loadExistingChunk(x, z, step);
+            return this.loadExistingChunk(x, z, status);
         }
 
-        Chunk cached = this.fastCache.get(x, z, step);
+        Chunk cached = this.fastCache.get(x, z, status);
         if (cached != null) {
             return cached;
         }
 
-        Chunk chunk = this.loadExistingChunk(x, z, step);
-        this.fastCache.put(x, z, step, chunk);
+        Chunk chunk = this.loadExistingChunk(x, z, status);
+        this.fastCache.put(x, z, status, chunk);
 
         return chunk;
     }
 
-    @Override
-    public Chunk getAnyExistingChunk(int x, int z) {
+    @Nullable
+    private Chunk loadExistingChunk(int x, int z, ChunkStatus status) {
         ChunkEntry entry = this.getChunkEntry(x, z);
-        if (entry != null) {
-            return entry.getChunk();
-        }
-        return null;
+        return this.getExistingChunkFor(entry, status);
     }
 
     @Nullable
-    private Chunk loadExistingChunk(int x, int z, ChunkStep step) {
-        ChunkEntry entry = this.getChunkEntry(x, z);
-        return this.getExistingChunkFor(entry, step);
-    }
-
-    @Nullable
-    private Chunk getExistingChunkFor(@Nullable ChunkEntry entry, ChunkStep step) {
-        if (entry != null && entry.isValidAs(step)) {
-            return entry.getChunkForStep(step);
+    private Chunk getExistingChunkFor(@Nullable ChunkEntry entry, ChunkStatus status) {
+        if (entry != null && entry.isValidAs(status)) {
+            return entry.getChunkForStep(status);
         }
         return null;
     }
@@ -198,36 +186,17 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
      */
     @Overwrite
     public boolean isChunkLoaded(int x, int z) {
-        return this.getExistingChunk(x, z, ChunkStep.FULL) != null;
+        return this.getExistingChunk(x, z, ChunkStatus.FULL) != null;
     }
 
-    @Override
-    public CompletableFuture<Chunk> getOrCreateChunkAsync(int x, int z, ChunkStep step) {
-        CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> future;
-
-        if (Thread.currentThread() != this.serverThread) {
-            future = CompletableFuture.supplyAsync(() -> this.createChunk(x, z, step), this.mainThreadExecutor)
-                    .thenCompose(Function.identity());
-        } else {
-            future = this.createChunk(x, z, step);
-        }
-
-        return future.thenApply(result -> result.map(
-                chunk -> chunk,
-                unloaded -> {
-                    throw new IllegalStateException("Chunk not there when requested: " + unloaded);
-                })
-        );
-    }
-
-    private CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunk(int x, int z, ChunkStep step) {
+    private CompletableFuture<Either<Chunk, ChunkHolder.Unloaded>> createChunk(int x, int z, ChunkStatus status) {
         ChunkEntry entry = this.getChunkEntry(x, z);
 
         ChunkPos pos = new ChunkPos(x, z);
-        int level = getLevelForStep(step);
+        int level = getLevelForStep(status);
         this.ticketManager.addTicketWithLevel(ChunkTicketType.UNKNOWN, pos, level, pos);
 
-        while (entry == null || !entry.isValidAs(step)) {
+        while (entry == null || !entry.isValidAs(status)) {
             Profiler profiler = this.world.getProfiler();
             profiler.push("chunkLoad");
 
@@ -237,23 +206,22 @@ public abstract class ServerChunkManagerMixin implements AsyncChunkAccess {
 
             profiler.pop();
 
-            if (entry == null || !entry.isValidAs(step)) {
+            if (entry == null || !entry.isValidAs(status)) {
                 throw new IllegalStateException("No chunk entry after ticket has been added");
             }
         }
 
-        ChunkController controller = (ChunkController) this.threadedAnvilChunkStorage;
-        return controller.getChunkAs(entry, step).asVanilla();
+        return this.threadedAnvilChunkStorage.getChunk(entry, status);
     }
 
     @Override
-    public boolean shouldChunkExist(int x, int z, ChunkStep step) {
+    public boolean shouldChunkExist(int x, int z, ChunkStatus status) {
         ChunkEntry entry = this.getChunkEntry(x, z);
-        return entry != null && entry.getLevel() <= getLevelForStep(step);
+        return entry != null && entry.getLevel() <= getLevelForStep(status);
     }
 
-    private static int getLevelForStep(ChunkStep step) {
-        return ChunkLevelTracker.FULL_LEVEL + ChunkStep.getDistanceFromFull(step);
+    private static int getLevelForStep(ChunkStatus status) {
+        return ChunkLevelTracker.FULL_LEVEL + ChunkStatus.getDistanceFromFull(status);
     }
 
     @Nullable
