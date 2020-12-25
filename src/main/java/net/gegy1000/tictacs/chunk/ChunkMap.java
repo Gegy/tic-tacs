@@ -25,7 +25,7 @@ public final class ChunkMap {
     private final ChunkController controller;
 
     private final Long2ObjectMap<ChunkEntry> primaryEntries = new Long2ObjectOpenHashMap<>();
-    private Long2ObjectMap<ChunkEntry> visibleEntries = new Long2ObjectOpenHashMap<>();
+    private volatile Long2ObjectMap<ChunkEntry> visibleEntries = new Long2ObjectOpenHashMap<>();
     private Long2ObjectMap<ChunkEntry> swapEntries = new Long2ObjectOpenHashMap<>();
 
     private Long2ObjectMap<ChunkEntry> pendingUpdates = new Long2ObjectOpenHashMap<>();

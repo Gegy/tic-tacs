@@ -330,7 +330,7 @@ public final class ChunkData {
                     continue;
                 }
 
-                BlockState state = section.getBlockState(pos.getX(), pos.getY(), pos.getZ());
+                BlockState state = section.getBlockState(pos.getX(), pos.getY() & 15, pos.getZ());
                 if (state.getLuminance() != 0) {
                     lightSources.add(new BlockPos(
                             chunkPos.getStartX() + pos.getX(),
