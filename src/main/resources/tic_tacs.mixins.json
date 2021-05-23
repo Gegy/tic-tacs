@@ -16,8 +16,7 @@
     "unblocking.LivingEntityMixin",
     "unblocking.ServerPlayerEntityMixin",
     "unblocking.ServerWorldMixin",
-    "unblocking.VoxelShapesMixin",
-    "unblocking.WorldMixin"
+    "unblocking.VoxelShapesMixin"
   ],
   "client": [],
   "injectors": {

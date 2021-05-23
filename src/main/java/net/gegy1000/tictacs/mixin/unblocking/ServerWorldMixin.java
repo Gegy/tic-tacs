@@ -1,6 +1,6 @@
 package net.gegy1000.tictacs.mixin.unblocking;
 
-import net.gegy1000.tictacs.AsyncChunkAccess;
+import net.gegy1000.tictacs.NonBlockingChunkAccess;
 import net.gegy1000.tictacs.NonBlockingWorldAccess;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -11,7 +11,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.profiler.Profiler;
 import net.minecraft.util.registry.RegistryKey;
-import net.minecraft.world.Heightmap;
 import net.minecraft.world.MutableWorldProperties;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
@@ -24,7 +23,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import java.util.function.Supplier;
 
 @Mixin(ServerWorld.class)
-public abstract class ServerWorldMixin extends World implements NonBlockingWorldAccess, AsyncChunkAccess {
+public abstract class ServerWorldMixin extends World implements NonBlockingWorldAccess, NonBlockingChunkAccess {
     @Shadow
     @Final
     private ServerChunkManager serverChunkManager;
@@ -39,7 +38,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
             return Blocks.VOID_AIR.getDefaultState();
         }
 
-        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES);
+        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL);
         if (chunk != null) {
             return chunk.getBlockState(pos);
         } else {
@@ -53,7 +52,7 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
             return Fluids.EMPTY.getDefaultState();
         }
 
-        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FEATURES);
+        Chunk chunk = this.getExistingChunk(pos.getX() >> 4, pos.getZ() >> 4, ChunkStatus.FULL);
         if (chunk != null) {
             return chunk.getFluidState(pos);
         } else {
@@ -62,33 +61,12 @@ public abstract class ServerWorldMixin extends World implements NonBlockingWorld
     }
 
     @Override
-    public int getTopY(Heightmap.Type heightmap, int x, int z) {
-        if (x < -30000000 || z < -30000000 || x >= 30000000 || z >= 30000000) {
-            return this.getSeaLevel() + 1;
-        }
-
-        int chunkX = x >> 4;
-        int chunkZ = z >> 4;
-        if (this.shouldChunkExist(chunkX, chunkZ, ChunkStatus.FEATURES)) {
-            Chunk chunk = this.getChunk(chunkX, chunkZ, ChunkStatus.FEATURES);
-            return chunk.sampleHeightmap(heightmap, x & 15, z & 15) + 1;
-        } else {
-            return 0;
-        }
-    }
-
-    @Override
-    public boolean isChunkLoaded(int x, int z) {
-        return this.getExistingChunk(x, z, ChunkStatus.FULL) != null;
-    }
-
-    @Override
     public Chunk getExistingChunk(int x, int z, ChunkStatus status) {
-        return ((AsyncChunkAccess) this.serverChunkManager).getExistingChunk(x, z, status);
+        return ((NonBlockingChunkAccess) this.serverChunkManager).getExistingChunk(x, z, status);
     }
 
     @Override
-    public boolean shouldChunkExist(int x, int z, ChunkStatus status) {
-        return ((AsyncChunkAccess) this.serverChunkManager).shouldChunkExist(x, z, status);
+    public boolean doesChunkExist(int x, int z, ChunkStatus status) {
+        return ((NonBlockingChunkAccess) this.serverChunkManager).doesChunkExist(x, z, status);
     }
 }

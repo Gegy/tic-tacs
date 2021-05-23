@@ -1,5 +1,6 @@
 package net.gegy1000.tictacs.mixin.unblocking;
 
+import net.gegy1000.tictacs.NonBlockingChunkAccess;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -18,7 +19,7 @@ public abstract class ServerPlayerEntityMixin extends Entity {
     @Inject(method = "playerTick", at = @At("HEAD"), cancellable = true)
     private void playerTick(CallbackInfo ci) {
         // skip player ticking if chunk is not loaded to replicate thread-blocking behavior in vanilla
-        if (!this.world.isChunkLoaded(this.getBlockPos())) {
+        if (!((NonBlockingChunkAccess) this.world).doesChunkExist(this.getBlockPos())) {
             ci.cancel();
         }
     }

@@ -20,10 +20,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EntityMixin {
     @Shadow
     public World world;
-
     @Shadow
     public boolean updateNeeded;
-
     @Shadow
     private boolean chunkPosUpdateRequested;
 
@@ -37,7 +35,9 @@ public abstract class EntityMixin {
         // it is not important for this check to be correct, only that it eliminates most normal cases of blocking
 
         BlockPos pos = this.getBlockPos();
-        if (!this.world.isChunkLoaded(pos) || !this.world.isChunkLoaded(pos.add(movement.x, movement.y, movement.z))) {
+        NonBlockingWorldAccess world = (NonBlockingWorldAccess) this.world;
+
+        if (!world.doesChunkExist(pos) || !world.doesChunkExist(pos.add(movement.x, movement.y, movement.z))) {
             ci.cancel();
         }
     }

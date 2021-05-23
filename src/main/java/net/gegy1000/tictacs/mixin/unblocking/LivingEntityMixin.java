@@ -24,7 +24,8 @@ public abstract class LivingEntityMixin extends Entity {
     @Inject(method = "travel", at = @At("HEAD"), cancellable = true)
     private void travel(Vec3d movement, CallbackInfo ci) {
         // skip entity travel logic if the current chunk is not loaded
-        if (!this.world.isChunkLoaded(this.getBlockPos())) {
+        NonBlockingWorldAccess world = (NonBlockingWorldAccess) this.world;
+        if (!world.doesChunkExist(this.getBlockPos())) {
             ci.cancel();
         }
     }
@@ -64,7 +65,8 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Inject(method = "applyMovementEffects", at = @At("HEAD"), cancellable = true)
     private void applyMovementEffects(BlockPos pos, CallbackInfo ci) {
-        if (!this.world.isChunkLoaded(pos)) {
+        NonBlockingWorldAccess world = (NonBlockingWorldAccess) this.world;
+        if (!world.doesChunkExist(pos)) {
             ci.cancel();
         }
     }

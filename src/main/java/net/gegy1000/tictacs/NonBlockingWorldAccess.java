@@ -7,16 +7,16 @@ import net.minecraft.fluid.Fluids;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.WorldView;
 
-public interface NonBlockingWorldAccess extends WorldView {
+public interface NonBlockingWorldAccess extends WorldView, NonBlockingChunkAccess {
     default BlockState getBlockStateIfLoaded(BlockPos pos) {
-        if (this.isChunkLoaded(pos)) {
+        if (this.doesChunkExist(pos)) {
             return this.getBlockState(pos);
         }
         return Blocks.AIR.getDefaultState();
     }
 
     default FluidState getFluidStateIfLoaded(BlockPos pos) {
-        if (this.isChunkLoaded(pos)) {
+        if (this.doesChunkExist(pos)) {
             return this.getFluidState(pos);
         }
         return Fluids.EMPTY.getDefaultState();
